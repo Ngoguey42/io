@@ -1,0 +1,3 @@
+(library
+ (name homepage)
+ (libraries lwt tyxml owl-base irmin digestif.ocaml))

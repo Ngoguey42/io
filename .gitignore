@@ -1,0 +1,42 @@
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+
+# ocamlbuild targets
+*.byte
+*.native
+
+# oasis generated files
+setup.data
+setup.log
+
+# Merlin configuring file for Vim and Emacs
+.merlin
+
+# Dune generated files
+*.install
+
+# Local OPAM switch
+_opam/
+
+# Emacs stuff
+*~
+\#*\#
+.\#*
+
+# ocamlbuild working directory
+_build
+
+# My specific `build/*/bin/*.bc.js` scheme
+build/*
+!build/default
+build/default/*
+!build/default/bin
+build/default/bin/*
+!build/default/bin/*.bc.js

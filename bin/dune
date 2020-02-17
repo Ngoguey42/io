@@ -3,6 +3,9 @@
  (name index)
  (modes js)
  ; (js_of_ocaml (flags --opt=3 --no-sourcemap --pretty --no-inline --debug-info))
- ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically picked and makes js crash
- (libraries homepage lwt tyxml owl-base irmin digestif.ocaml)
+
+ ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
+ ; picked otherwise and makes js crash.
+ (libraries js_of_ocaml js_of_ocaml-tyxml lwt tyxml owl-base irmin digestif.ocaml)
+ (preprocess (pps js_of_ocaml-ppx tyxml-ppx))
  )

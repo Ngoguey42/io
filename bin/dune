@@ -1,6 +1,6 @@
 (executable
  ; (public_name homepage)
- (name index)
+ (name page_builder)
  (modes js)
  ; (js_of_ocaml (flags --opt=3 --no-sourcemap --pretty --no-inline --debug-info))
 

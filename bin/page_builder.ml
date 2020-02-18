@@ -54,21 +54,21 @@ module M1 = struct
 
   let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x)
 
-  let _ =
-    (* There is no `Html.pp_elt` available here, let's use console.log *)
-    Printf.printf "a0\n%!";
-    Firebug.console##log a0_js_a;
-    Firebug.console##log a0_js_elt;
+  (* let _ = *)
+  (*   (\* There is no `Html.pp_elt` available here, let's use console.log *\) *)
+  (*   Printf.printf "a0\n%!"; *)
+  (*   Firebug.console##log a0_js_a; *)
+  (*   Firebug.console##log a0_js_elt; *)
 
-    Printf.printf "a1\n%!";
-    Firebug.console##log a1_js_a;
-    Firebug.console##log a1_js_elt;
+  (*   Printf.printf "a1\n%!"; *)
+  (*   Firebug.console##log a1_js_a; *)
+  (*   Firebug.console##log a1_js_elt; *)
 
-    Printf.printf "a2\n%!";
-    Firebug.console##log a2
+  (*   Printf.printf "a2\n%!"; *)
+  (*   Firebug.console##log a2 *)
 
   let onload _ =
-    let header = [%html "<div style='text-align:center;'>"
+    let header = [%html "<div style='text-align:center;margin-bottom: 25px;'>"
                         "<a href='/index.html'>&#127968; Homepage</a> | "
                         "<a href='/lrcraft-game.html'>&#x1f3ae; Learning Rate Craft</a> | "
                         "<a href='/about.html'>&#128196; Making of</a>"
@@ -79,7 +79,8 @@ module M1 = struct
     begin match pagename with
     | "index.html" -> display [%html "welcome to my index"]
     | "lrcraft-game.html" -> display [%html "let's have some fun"]
-    | "about.html" -> display [%html "welcome to the makingof this website"]
+    | "about.html" -> display @@ About.create_content ()
+       (* display [%html "welcome to the makingof this website"] *)
     | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display
     end;
     Js_of_ocaml.Js._false

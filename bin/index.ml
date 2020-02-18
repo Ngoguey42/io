@@ -68,16 +68,25 @@ module M1 = struct
     Firebug.console##log a2
 
   let onload _ =
-    Printf.eprintf "onload\n%!";
-    display a0;
-    display [%html "<br/>"];
-    display a1;
-    display [%html "<br/>"];
-    Dom.appendChild body a2;
+    let header = [%html "<div style='text-align:center;'>"
+                        "<a href='/index.html'>&#127968; Homepage</a> | "
+                        "<a href='/lrcraft-game.html'>&#x1f3ae; Learning Rate Craft</a> | "
+                        "<a href='/about.html'>&#128196; Making of</a>"
+                        "</div>"] in
+    display header;
+
+    let pagename = Dom_html.window##.location##.pathname |> Js.to_string |> Filename.basename in
+    begin match pagename with
+    | "index.html" -> display [%html "welcome to my index"]
+    | "lrcraft-game.html" -> display [%html "let's have some fun"]
+    | "about.html" -> display [%html "welcome to the makingof this website"]
+    | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display
+    end;
     Js_of_ocaml.Js._false
 
+
   let _ =
-    Printf.eprintf "placing onload hook\n%!";
     Dom_html.window##.onload := Dom_html.handler onload
+
 
 end

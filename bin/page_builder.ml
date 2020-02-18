@@ -1,6 +1,5 @@
 module Dom_html = Js_of_ocaml.Dom_html
 module Dom = Js_of_ocaml.Dom
-
 module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
 module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
@@ -25,7 +24,7 @@ let onload _ =
   in
   begin match pagename with
   | "index" | "/" -> display @@ Index.create_content ()
-  | "lrcraft-game" -> display [%html "let's have some fun"]
+  | "lrcraft-game" -> display @@ Lrcraft.create_content ()
   | "about" -> display @@ About.create_content ()
   | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display
   end;

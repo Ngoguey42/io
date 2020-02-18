@@ -71,16 +71,15 @@ module M1 = struct
     let header = [%html "<div style='text-align:center;margin-bottom: 25px;'>"
                         "<a href='/index.html'>&#127968; Homepage</a> | "
                         "<a href='/lrcraft-game.html'>&#x1f3ae; Learning Rate Craft</a> | "
-                        "<a href='/about.html'>&#128196; Making of</a>"
+                        "<a href='/about.html'>&#128196; Making-of</a>"
                         "</div>"] in
     display header;
 
     let pagename = Dom_html.window##.location##.pathname |> Js.to_string |> Filename.basename in
     begin match pagename with
-    | "index.html" -> display [%html "welcome to my index"]
+    | "index.html" | "/" -> display [%html "welcome to my index"]
     | "lrcraft-game.html" -> display [%html "let's have some fun"]
     | "about.html" -> display @@ About.create_content ()
-       (* display [%html "welcome to the makingof this website"] *)
     | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display
     end;
     Js_of_ocaml.Js._false

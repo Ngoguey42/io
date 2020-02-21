@@ -5,7 +5,7 @@
 (* end *)
 
 
-module S = Irmin_maime.KV(Irmin.Contents.String)
+module S = Ft.Irmin_mem.KV(Irmin.Contents.String)
 (* module Truc: Irmin.S = Irmin_maime.KV(Irmin.Contents.String) *)
 (* module Store = Irmin_maime.Make () *)
 
@@ -23,7 +23,7 @@ let a =
   Js_of_ocaml_lwt.Lwt_js_events.onload () >>= fun _ ->
 
   Printf.printf "Get repo and branch\n";
-  S.Repo.v (Irmin_maime.config ()) >>= S.master >>= fun t ->
+  S.Repo.v (Ft.Irmin_mem.config ()) >>= S.master >>= fun t ->
 
   Printf.printf "Set commit\n";
   S.set_exn t ["a"] "Coucou" ~info:(info "salut") >>= fun () ->
@@ -32,7 +32,7 @@ let a =
   S.get t ["a"] >|= Printf.printf "%s\n" >>= fun () ->
 
   Printf.printf "Get repo and branch\n";
-  S.Repo.v (Irmin_maime.config ()) >>= S.master >>= fun t ->
+  S.Repo.v (Ft.Irmin_mem.config ()) >>= S.master >>= fun t ->
 
   (* Printf.printf "Set commit\n"; *)
   (* S.set_exn t ["a"] "Coucou" ~info:(info "salut") >>= fun () -> *)

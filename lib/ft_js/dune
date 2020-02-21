@@ -1,0 +1,4 @@
+(library
+ (public_name ft_js)
+ (name ft_js)
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base ft))

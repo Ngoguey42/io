@@ -14,6 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+(*
+  Fork of the regular Irmin_mem but with `let v` creating a new store on each
+  call.
+ *)
+
 open Lwt.Infix
 
 let src = Logs.Src.create "irmin.mem" ~doc:"Irmin in-memory store"

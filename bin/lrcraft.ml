@@ -30,7 +30,7 @@ let print_arr_ad x = print_arr @@ Graph.Neuron.Optimise.Algodiff.unpack_arr x
 let x =
   (* let open Graph.Neuron.Optimise.Algodiff.Maths in *)
   (* Graph.Neuron.Optimise.Algodiff.Arr.zeros [|1;7;7;1|] + (F 1.) *)
-  Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [|2;7;7;1|]
+  Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [|1;7;7;1|]
 
 let shp = Graph.Neuron.Optimise.Algodiff.Arr.shape x
 let y, y1 = Graph.forward network x
@@ -59,11 +59,13 @@ let _ =
 
 let create_content () =
   let l = [
-      Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt;
+      Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt;
       [%html "<br/>"];
       Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt;
       [%html "<br/>"];
       Printf.sprintf "y" |> Html.txt;
       Ft_neural.Str.array y |> Html.txt;
+      y |> Ft_neural.to_flat_list
+      |> Ft_js.create_softmax_div;
     ] in
   Html.div l

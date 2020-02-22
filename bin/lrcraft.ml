@@ -12,15 +12,25 @@ module Ft_neural = Ft_js.Make_neural(Graph)
 (* let body = Dom_html.window##.document##.body *)
 
 (* let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x) *)
+let w = 28
 
 let network =
+  Printf.eprintf "Create nw\n%!";
   let n =
-    Graph.input [|7;7;1|]
-    |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:Graph.Neuron.Activation.Relu [|4;4;1;60|] [|2;2|]
-    |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:Graph.Neuron.Activation.Relu [|4;4;60;10|] [|2;2|]
-    |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:(Graph.Neuron.Activation.Softmax 3) [|4;4;10;10|] [|2;2|]
+    Graph.input [|w;w;1|]
+    |> Graph.conv2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [|4;4;1;20|] [|2;2|]
+    |> Graph.activation Graph.Neuron.Activation.Relu
+    |> Graph.conv2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [|3;3;20;20|] [|2;2|]
+    |> Graph.activation Graph.Neuron.Activation.Relu
+    |> Graph.conv2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [|4;4;20;10|] [|2;2|]
+    |> Graph.max_pool2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [|2;2|] [|2;2|]
+    |> Graph.activation (Graph.Neuron.Activation.Softmax 3)
+    (* |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:Graph.Neuron.Activation.Relu [|4;4;1;60|] [|2;2|] *)
+    (* |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:Graph.Neuron.Activation.Relu [|4;4;60;10|] [|2;2|] *)
+    (* |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:(Graph.Neuron.Activation.Softmax 3) [|4;4;10;10|] [|2;2|] *)
     |> Graph.get_network
   in
+  Printf.eprintf "Created nw\n%!";
   Graph.init n;
   n
 
@@ -30,7 +40,7 @@ let print_arr_ad x = print_arr @@ Graph.Neuron.Optimise.Algodiff.unpack_arr x
 let x =
   (* let open Graph.Neuron.Optimise.Algodiff.Maths in *)
   (* Graph.Neuron.Optimise.Algodiff.Arr.zeros [|1;7;7;1|] + (F 1.) *)
-  Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [|1;7;7;1|]
+  Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [|1;w;w;1|]
 
 let shp = Graph.Neuron.Optimise.Algodiff.Arr.shape x
 let y, y1 = Graph.forward network x
@@ -41,7 +51,7 @@ let _ =
 
   Firebug.console##log "y";
   Firebug.console##log (Js.array @@ Graph.Neuron.Optimise.Algodiff.Arr.shape y);
-  print_arr_ad y;
+  (* print_arr_ad y; *)
 
   (* Firebug.console##log "y1"; *)
   (* Firebug.console##log (Array.length y1); *)
@@ -64,8 +74,7 @@ let create_content () =
       Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt;
       [%html "<br/>"];
       Printf.sprintf "y" |> Html.txt;
-      Ft_neural.Str.array y |> Html.txt;
-      y |> Ft_neural.to_flat_list
-      |> Ft_js.create_softmax_div;
+      (* Ft_neural.Str.array y |> Html.txt; *)
+      y |> Ft_neural.to_flat_list |> Ft_js.create_softmax_div;
     ] in
   Html.div l

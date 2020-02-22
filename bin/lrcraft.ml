@@ -4,9 +4,8 @@ module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
 module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
-
-module Graph = Owl_neural_generic.Make_Embedded(Owl_base_dense_ndarray.D)
-module Ft_neural = Ft_owlbase.Make_neural(Graph)
+module Graph = Owl_neural_generic.Make_Embedded (Owl_base_dense_ndarray.D)
+module Ft_neural = Ft_owlbase.Make_neural (Graph)
 
 (* let document = Dom_html.window##.document *)
 (* let body = Dom_html.window##.document##.body *)
@@ -24,21 +23,22 @@ let network =
     |> relu
     |> conv2d (`One 4) false (`One 2) 10
     |> max_pool2d (`One 2) (`One 2)
-    |> softmax2d
-    |> get_network
+    |> softmax2d |> get_network
   in
   Graph.init n;
   n
 
 let print_arr = Graph.Neuron.Optimise.Algodiff.A.print ~max_row:1000 ~max_col:1000
+
 let print_arr_ad x = print_arr @@ Graph.Neuron.Optimise.Algodiff.unpack_arr x
 
 let x =
   (* let open Graph.Neuron.Optimise.Algodiff.Maths in *)
   (* Graph.Neuron.Optimise.Algodiff.Arr.zeros [|1;7;7;1|] + (F 1.) *)
-  Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [|1;w;w;1|]
+  Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [| 1; w; w; 1 |]
 
 let shp = Graph.Neuron.Optimise.Algodiff.Arr.shape x
+
 let y, y1 = Graph.forward network x
 
 let _ =
@@ -47,6 +47,7 @@ let _ =
 
   Firebug.console##log "y";
   Firebug.console##log (Js.array @@ Graph.Neuron.Optimise.Algodiff.Arr.shape y);
+
   (* print_arr_ad y; *)
 
   (* Firebug.console##log "y1"; *)
@@ -64,7 +65,8 @@ let _ =
   ()
 
 let create_content () =
-  let l = [
+  let l =
+    [
       Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt;
       [%html "<br/>"];
       Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt;
@@ -72,5 +74,6 @@ let create_content () =
       Printf.sprintf "y" |> Html.txt;
       (* Ft_neural.Str.array y |> Html.txt; *)
       y |> Ft_neural.to_flat_list |> Ft_js.create_softmax_div;
-    ] in
+    ]
+  in
   Html.div l

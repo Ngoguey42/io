@@ -1,7 +1,8 @@
 module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 
 let create_content () =
-  [%html{|
+  [%html
+    {|
     <div style="
        width: 800px;
        margin: 0 auto;

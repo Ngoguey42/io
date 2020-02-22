@@ -133,14 +133,11 @@ module Atomic_write (K : Irmin.Type.S) (V : Irmin.Type.S) = struct
           Lwt.return_true
         else Lwt.return_false)
     >>= fun updated ->
-    (if updated then W.notify t.w key set else Lwt.return_unit) >>= fun () ->
-    Lwt.return updated
+    (if updated then W.notify t.w key set else Lwt.return_unit) >>= fun () -> Lwt.return updated
 end
 
 let config () = Irmin.Private.Conf.empty
 
-module Make =
-  Irmin.Make (Irmin.Content_addressable (Append_only)) (Atomic_write)
+module Make = Irmin.Make (Irmin.Content_addressable (Append_only)) (Atomic_write)
 module KV (C : Irmin.Contents.S) =
-  Make (Irmin.Metadata.None) (C) (Irmin.Path.String_list) (Irmin.Branch.String)
-    (Irmin.Hash.BLAKE2B)
+  Make (Irmin.Metadata.None) (C) (Irmin.Path.String_list) (Irmin.Branch.String) (Irmin.Hash.BLAKE2B)

@@ -5,6 +5,6 @@
 
  ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
  ; picked otherwise and makes js crash.
- (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base digestif.ocaml ft ft_js ft_owlbase)
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base digestif.ocaml ft ft_js ft_owlbase ft_owljs)
  (preprocess (pps js_of_ocaml-ppx tyxml-ppx))
  )

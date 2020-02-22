@@ -1,11 +1,10 @@
 (executable
- ; (public_name homepage)
  (name page_builder)
  (modes js)
  ; (js_of_ocaml (flags --opt=3 --no-sourcemap --pretty --no-inline --debug-info))
 
  ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
  ; picked otherwise and makes js crash.
- (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base digestif.ocaml ft ft_js)
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base digestif.ocaml ft ft_js ft_owlbase)
  (preprocess (pps js_of_ocaml-ppx tyxml-ppx))
  )

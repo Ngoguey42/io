@@ -45,7 +45,6 @@ let create_content () =
       <br/>
       <a href="https://github.com/ngoguey42">www.github.com/ngoguey42</a>,
       <br/>
-      e-mail:
       <cite style="
          border-radius: 5px;
          background: #CBCBCB;

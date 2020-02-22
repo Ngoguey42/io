@@ -1,0 +1,5 @@
+(library
+ (public_name ft_owlbase)
+ (name ft_owlbase)
+ (libraries owl-base ft)
+ )

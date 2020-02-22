@@ -6,7 +6,7 @@ module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
 
 module Graph = Owl_neural_generic.Make_Embedded(Owl_base_dense_ndarray.D)
-module Ft_neural = Ft_js.Make_neural(Graph)
+module Ft_neural = Ft_owlbase.Make_neural(Graph)
 
 (* let document = Dom_html.window##.document *)
 (* let body = Dom_html.window##.document##.body *)
@@ -15,22 +15,18 @@ module Ft_neural = Ft_js.Make_neural(Graph)
 let w = 28
 
 let network =
-  Printf.eprintf "Create nw\n%!";
+  let open Ft_neural.Network_builder in
   let n =
-    Graph.input [|w;w;1|]
-    |> Graph.conv2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [|4;4;1;20|] [|2;2|]
-    |> Graph.activation Graph.Neuron.Activation.Relu
-    |> Graph.conv2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [|3;3;20;20|] [|2;2|]
-    |> Graph.activation Graph.Neuron.Activation.Relu
-    |> Graph.conv2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [|4;4;20;10|] [|2;2|]
-    |> Graph.max_pool2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [|2;2|] [|2;2|]
-    |> Graph.activation (Graph.Neuron.Activation.Softmax 3)
-    (* |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:Graph.Neuron.Activation.Relu [|4;4;1;60|] [|2;2|] *)
-    (* |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:Graph.Neuron.Activation.Relu [|4;4;60;10|] [|2;2|] *)
-    (* |> Graph.conv2d ~padding:Owl_types.SAME ~act_typ:(Graph.Neuron.Activation.Softmax 3) [|4;4;10;10|] [|2;2|] *)
-    |> Graph.get_network
+    input2d 28 28 1
+    |> conv2d (`One 4) false (`One 2) 20
+    |> relu
+    |> conv2d (`One 3) false (`One 2) 20
+    |> relu
+    |> conv2d (`One 4) false (`One 2) 10
+    |> max_pool2d (`One 2) (`One 2)
+    |> softmax2d
+    |> get_network
   in
-  Printf.eprintf "Created nw\n%!";
   Graph.init n;
   n
 

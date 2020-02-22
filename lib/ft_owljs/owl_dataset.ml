@@ -1,0 +1,20 @@
+
+(* let remote_data_path () = "https://github.com/ryanrhymes/owl_dataset/raw/master/" *)
+
+(* let download_data fname = *)
+(*   let fn0 = remote_data_path () ^ fname in *)
+(*   let fn1 = local_data_path () ^ fname in *)
+(*   let cmd0 = "wget " ^ fn0 ^ " -O " ^ fn1 in *)
+(*   let cmd1 = "gunzip " ^ fn1 in *)
+(*   ignore (Sys.command cmd0); *)
+(*   ignore (Sys.command cmd1) *)
+
+(* let load_mnist_train_data_arr () = *)
+(*   let x, label, y = *)
+(*     Owl_dense_matrix.S.load (p ^ "mnist-train-images"), *)
+(*     Owl_dense_matrix.S.load (p ^ "mnist-train-labels"), *)
+(*     Owl_dense_matrix.S.load (p ^ "mnist-train-lblvec"), *)
+(*   in *)
+(*   let m = Owl_dense_matrix.S.row_num x in *)
+(*   let x = Owl_dense_ndarray.S.reshape x [| m; 28; 28; 1 |] in *)
+(*   x, label, y"https://github.com/ryanrhymes/owl_dataset/raw/master/" *)

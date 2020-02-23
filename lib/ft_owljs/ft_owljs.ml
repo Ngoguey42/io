@@ -95,9 +95,9 @@ module Mnist = struct
     I.Repo.v config >>= fun repo ->
 
     let promises = [
-        _entry_data_of_repo `Test_labs repo;
-        (* _entry_data_of_repo `Test_imgs repo; *)
-        _entry_data_of_repo `Train_labs repo;
+        (* _entry_data_of_repo `Test_labs repo; *)
+        _entry_data_of_repo `Test_imgs repo;
+        (* _entry_data_of_repo `Train_labs repo; *)
         (* _entry_data_of_repo `Train_imgs repo; *)
       ] in
     Lwt.all promises >|= function

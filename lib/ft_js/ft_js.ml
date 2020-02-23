@@ -58,8 +58,15 @@ let array_of_url: ?progress:(int -> int -> unit) -> string -> 'a = fun ?progress
    | None -> blob_of_url url
    | Some progress -> blob_of_url ~progress url) >>= fun blob ->
   (* : 'a Js.js_array Js.t Lwt.t *)
-  let array_promise = Js.Unsafe.meth_call blob "arrayBuffer" [| |]
+
+  let resp = Js.Unsafe.new_obj Js.Unsafe.global##.Response [| blob |> Js.Unsafe.inject |] in
+
+  let array_promise = Js.Unsafe.meth_call resp "arrayBuffer" [| |]
                                                  |> wrap_promise in
+
+
+  (* let array_promise = Js.Unsafe.meth_call blob "arrayBuffer" [| |] *)
+  (*                                                |> wrap_promise in *)
   array_promise
 
 let binary_string_of_blob b =

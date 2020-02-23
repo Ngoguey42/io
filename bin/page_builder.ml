@@ -27,8 +27,8 @@ let _ =
     Dom_html.window##.location##.pathname
     |> Js.to_string |> Filename.basename |> Filename.remove_extension
   in
-  ( match pagename with
+  match pagename with
   | "index" | "/" -> display @@ Index.create_content (); Lwt.return ()
   | "lrcraft-game" -> Lrcraft.main ()
   | "about" -> display @@ About.create_content (); Lwt.return ()
-  | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display; Lwt.return ())
+  | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display; Lwt.return ()

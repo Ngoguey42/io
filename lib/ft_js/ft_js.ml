@@ -8,14 +8,14 @@ module Firebug = Js_of_ocaml.Firebug
 let _outline = "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;"
 
 let wrap_promise p =
-  let res, w = Lwt.wait () in
+  let lwt, lwt' = Lwt.wait () in
   let callback res =
-    Lwt.wakeup w res;
+    Lwt.wakeup lwt' res;
     Js._true
   in
-  let callback = Dom.handler callback in
-  ignore @@ Js.Unsafe.meth_call p "then" [| Js.Unsafe.inject callback |];
-  res
+  Js.Unsafe.meth_call p "then" [| callback |> Dom.handler |> Js.Unsafe.inject  |]
+  |> ignore;
+  lwt
 
 let decompress_blob (way: string) b =
   let ds = Js.Unsafe.global##.DecompressionStream in

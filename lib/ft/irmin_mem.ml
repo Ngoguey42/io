@@ -15,8 +15,8 @@
  *)
 
 (*
-  Fork of the regular Irmin_mem but with `let v` creating a new store on each
-  call.
+  Fork of the regular Irmin_mem but with `Read_only.v` creating a new store on each call instead of
+  a global state.
  *)
 
 open Lwt.Infix

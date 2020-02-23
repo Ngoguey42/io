@@ -8,9 +8,9 @@ module Graph = Owl_neural_generic.Make_Embedded (Owl_base_dense_ndarray.D)
 module Ft_neural = Ft_owlbase.Make_neural (Graph)
 
 (* let document = Dom_html.window##.document *)
-(* let body = Dom_html.window##.document##.body *)
+let body = Dom_html.window##.document##.body
 
-(* let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x) *)
+let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x)
 let w = 28
 
 let network =
@@ -64,7 +64,10 @@ let _ =
   (* done; *)
   ()
 
-let create_content () =
+
+(* let document = Dom_html.window##.fetch *)
+
+let main () =
   let l =
     [
       Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt;
@@ -76,4 +79,17 @@ let create_content () =
       y |> Ft_neural.to_flat_list |> Ft_js.create_softmax_div;
     ]
   in
-  Html.div l
+  display @@ Html.div l;
+
+  let open Lwt.Infix in
+  let url = "https://cors-anywhere.herokuapp.com/http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz" in
+  (* let v = Js.Unsafe.global##.fetch @@ Js.string "https://cors-anywhere.herokuapp.com/http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.g" in *)
+
+  let progress i j =
+    Printf.eprintf "On progress: %d/%d\n%!" i j
+  in
+
+  Ft_js.blob_of_url ~progress url >>= fun blob ->
+  Ft_js.decompress_blob "gzip" blob >>= fun blob ->
+  Ft_js.binary_string_of_blob blob >|= fun s ->
+  Printf.eprintf "%d\n%!" @@ String.length s

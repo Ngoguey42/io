@@ -19,40 +19,42 @@ let create_content () =
 
       <h2>This website</h2>
       This website is hosted by <cite>github</cite> as a
-      <a href="https://pages.github.com/">GitHub Pages</a>,
+      <a href="https://pages.github.com/"><cite>GitHub Pages</cite></a>,
       the source code is publicly available on
-      <a href="https://github.com/ngoguey42/ngoguey42.github.io">github</a>.
+      <a href="https://github.com/ngoguey42/ngoguey42.github.io"><cite>github</cite></a>.
 
       Everything here is static and written in
-      <a href="https://ocaml.org/">OCaml</a>,
+      <a href="https://ocaml.org/"><cite>OCaml</cite></a>,
       built using
-      <a href="https://github.com/ocaml/dune">dune</a>
-      and tranpsiled from <cite>OCaml</cite> to <cite>JavaScript</cite> using
-      <a href="https://ocsigen.org/js_of_ocaml">Js_of_ocaml</a>.
+      <a href="https://github.com/ocaml/dune"><cite>dune</cite></a>
+      and transpiled from <cite>OCaml</cite> to <cite>JavaScript</cite> using
+      <a href="https://ocsigen.org/js_of_ocaml"><cite>Js_of_ocaml</cite></a>.
 
       The asynchronous <cite>JavaScript</cite> events are handled using the
-      <a href="https://ocsigen.org/lwt">Lwt</a>
+      <a href="https://ocsigen.org/lwt"><cite>Lwt</cite></a>
       <cite>OCaml</cite> library.
 
       The <cite>html</cite> is typed according to the <cite>W3C</cite> recommendations using the
-      <a href="https://ocsigen.org/tyxml">TyXML</a>
+      <a href="https://ocsigen.org/tyxml"><cite>TyXML</cite></a>
       <cite>OCaml</cite> library before being generated.
 
       The
-      <a href="https://ocsigen.org/tyxml/4.3.0/manual/ppx">TyXML-ppx</a>
+      <a href="https://ocsigen.org/tyxml/4.3.0/manual/ppx"><cite>TyXML-ppx</cite></a>
       and
-      <a href="https://ocsigen.org/js_of_ocaml/3.1.0/manual/ppx">Js_of_ocaml-ppx</a>
+      <a href="https://ocsigen.org/js_of_ocaml/3.1.0/manual/ppx"><cite>Js_of_ocaml-ppx</cite></a>
       <cite>OCaml</cite> syntax extensions are used throughout the project.
 
 
       <h3>Code organization</h3>
-      All the pages share a single entry point located in the
+      All the pages share a single entry point:
+      <a href="https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/bin/page_builder.ml">bin/page_builder.ml</a>,
+      the rest of the code is scattered between the
       <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/bin">bin</a>
-      directory, the rest of the code is scattered in a collection of libraries living in the
+      directory and a collection of libraries living in the
       <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib">lib</a>
       directory. The entry point and all its <cite>OCaml</cite> dependencies are transpiled to
       a single <cite>.js</cite> file living in the
-      <cite>build</cite> directory (<cite>_build</cite> could not be used as a directory name
+      <cite>build</cite> directory (the usual <cite>_build</cite> directory name could not be used
       because <cite>Github Pages</cite> seem to ignore directories starting with an <cite>_</cite>).
       The generated <cite>.js</cite> file is then commited to the repository and
       each page of the website owns a small <cite>html</cite> file that loads the generated
@@ -61,8 +63,8 @@ let create_content () =
 
       <h3>The <cite>Learning Rate Craft</cite> game</h3>
       The
-      <a href="https://ocaml.xyz/">Owl</a>
-      scientific computations library is used for all the <cite>numpy-like</cite> and
+      <a href="https://ocaml.xyz/"><cite>Owl</cite></a>
+      scientific computating library is used for all the <cite>numpy-like</cite> and
       <cite>pytorch-like</cite> jobs. Only <cite>owl-base</cite>, a subset of <cite>owl</cite>,
       can be compiled to <cite>JavaScript</cite>.
 

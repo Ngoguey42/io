@@ -19,16 +19,26 @@ let header =
 
 let _ =
   let open Lwt.Infix in
-  Js_of_ocaml_lwt.Lwt_js_events.onload () >>= fun _ ->
-
-  display header;
-
-  let pagename =
-    Dom_html.window##.location##.pathname
-    |> Js.to_string |> Filename.basename |> Filename.remove_extension
+  let error exn =
+    Printf.eprintf "Error!!!\n%!";
+    let msg = Printexc.to_string exn
+    and stack = Printexc.get_backtrace () in
+    Printf.eprintf "there was an error: %s%s\n" msg stack;
+    ignore exn;
+    Lwt.return ()
   in
-  match pagename with
-  | "index" | "/" -> display @@ Index.create_content (); Lwt.return ()
-  | "lrcraft-game" -> Lrcraft.main ()
-  | "about" -> display @@ About.create_content (); Lwt.return ()
-  | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display; Lwt.return ()
+  let main () =
+    Js_of_ocaml_lwt.Lwt_js_events.onload () >>= fun _ ->
+    display header;
+
+    let pagename =
+      Dom_html.window##.location##.pathname
+      |> Js.to_string |> Filename.basename |> Filename.remove_extension
+    in
+    match pagename with
+    | "index" | "/" -> display @@ Index.create_content (); Lwt.return ()
+    | "lrcraft-game" -> Lrcraft.main ()
+    | "about" -> display @@ About.create_content (); Lwt.return ()
+    | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display; Lwt.return ()
+  in
+  Lwt.catch main error

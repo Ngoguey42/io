@@ -1,1 +1,2 @@
 *.bc.js linguist-generated=true
+vendored/* linguist-vendored=true

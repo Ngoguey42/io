@@ -74,6 +74,9 @@ let create_content () =
 
       ONNX? owl-symbolic? webgl? a js deeplearning lib? totally drop owl to use a js lib ?
 
+      <br/>
+      MNIST downloaded from / cached to IndexedDb using
+
 
       <h2>Author</h2>
       Made by ngoguey,

@@ -46,7 +46,9 @@ let test_owl () =
 (* done; *)
 
 let main () =
+  let open Lwt.Infix in
   let x, y = test_owl () in
+  Dom.appendChild body @@ Ft_owljs.Mnist.status_div ();
   let l =
     [
       Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt;
@@ -59,13 +61,7 @@ let main () =
   in
   display @@ Html.div l;
 
-  let open Lwt.Infix in
-  let url = "https://cors-anywhere.herokuapp.com/http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz" in
-  let progress i j =
-    Printf.eprintf "On progress: %d/%d\n%!" i j
-  in
+  Ft_owljs.Mnist.get () >>= fun data ->
+  ignore data;
 
-  Ft_js.blob_of_url ~progress url >>= fun blob ->
-  Ft_js.decompress_blob "gzip" blob >>= fun blob ->
-  Ft_js.binary_string_of_blob blob >|= fun s ->
-  Printf.eprintf "%d\n%!" @@ String.length s
+  Lwt.return ()

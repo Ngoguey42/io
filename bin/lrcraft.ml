@@ -11,7 +11,9 @@ module Ft_neural = Ft_owlbase.Make_neural (Graph)
 let body = Dom_html.window##.document##.body
 
 let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x)
+
 let print_arr = Graph.Neuron.Optimise.Algodiff.A.print ~max_row:1000 ~max_col:1000
+
 let print_arr_ad x = print_arr @@ Graph.Neuron.Optimise.Algodiff.unpack_arr x
 
 let test_owl () =
@@ -30,7 +32,7 @@ let test_owl () =
   Graph.init n;
   let x = Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [| 1; w; w; 1 |] in
   let y, _ = Graph.forward n x in
-  x, y
+  (x, y)
 
 (* Firebug.console##log "y1"; *)
 (* Firebug.console##log (Array.length y1); *)

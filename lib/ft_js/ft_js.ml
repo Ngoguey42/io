@@ -13,66 +13,50 @@ let wrap_promise p =
     Lwt.wakeup lwt' res;
     Js._true
   in
-  Js.Unsafe.meth_call p "then" [| callback |> Dom.handler |> Js.Unsafe.inject  |]
-  |> ignore;
+  Js.Unsafe.meth_call p "then" [| callback |> Dom.handler |> Js.Unsafe.inject |] |> ignore;
   lwt
-
 
 let decompress_array arr =
   (* Has a JavaScript dependency *)
   (* let open Lwt.Infix in *)
-  let arr: 'a Js.js_array Js.t = Js.Unsafe.fun_call Js.Unsafe.global##.pako##.ungzip [| arr |> Js.Unsafe.inject |] in
+  let arr : 'a Js.js_array Js.t =
+    Js.Unsafe.fun_call Js.Unsafe.global##.pako##.ungzip [| arr |> Js.Unsafe.inject |]
+  in
   arr
 
-let decompress_blob (way: string) b =
+let decompress_blob (way : string) b =
   (* Only implemented on chrome as of feb2020 *)
-  let ds = Js.Unsafe.global##.DecompressionStream in
+  let ds = Js.Unsafe.global ##. DecompressionStream in
   let ds = Js.Unsafe.new_obj ds [| Js.string way |> Js.Unsafe.inject |] in
 
-  let rs = Js.Unsafe.meth_call b "stream" [| |] in
+  let rs = Js.Unsafe.meth_call b "stream" [||] in
   let rs = Js.Unsafe.meth_call rs "pipeThrough" [| ds |] in
 
-  let resp = Js.Unsafe.new_obj Js.Unsafe.global##.Response [| rs |] in
-  let resp = Js.Unsafe.meth_call resp "blob" [| |] in
+  let resp = Js.Unsafe.new_obj Js.Unsafe.global ##. Response [| rs |] in
+  let resp = Js.Unsafe.meth_call resp "blob" [||] in
 
   wrap_promise resp
 
-let blob_of_url: ?progress:(int -> int -> unit) -> string -> 'a = fun ?progress url ->
+let blob_of_url ?progress url =
   let open Lwt.Infix in
-  let f = Js_of_ocaml_lwt.XmlHttpRequest.perform_raw ~response_type:Js_of_ocaml.XmlHttpRequest.Blob in
-  let future = match progress with
-    | Some progress -> f ~progress url
-    | None -> f url
+  let f =
+    Js_of_ocaml_lwt.XmlHttpRequest.perform_raw ~response_type:Js_of_ocaml.XmlHttpRequest.Blob
   in
+  let future = match progress with Some progress -> f ~progress url | None -> f url in
   future >|= fun resp ->
+  if resp.code <> 200 then failwith @@ Printf.sprintf "Download failed with code %d" resp.code;
+  match Js.Opt.to_option resp.content with None -> failwith "What?" | Some blob -> blob
 
-  if resp.code <> 200 then
-    failwith @@ Printf.sprintf "Download failed with code %d" resp.code;
-  match Js.Opt.to_option resp.content with
-  | None -> failwith "What?"
-  | Some blob -> blob
-
-let array_of_url: ?progress:(int -> int -> unit) -> string -> 'a = fun ?progress url ->
+let array_of_url ?progress url =
   let open Lwt.Infix in
-  (match progress with
-   | None -> blob_of_url url
-   | Some progress -> blob_of_url ~progress url) >>= fun blob ->
-  (* : 'a Js.js_array Js.t Lwt.t *)
-
-  let resp = Js.Unsafe.new_obj Js.Unsafe.global##.Response [| blob |> Js.Unsafe.inject |] in
-
-  let array_promise = Js.Unsafe.meth_call resp "arrayBuffer" [| |]
-                                                 |> wrap_promise in
-
-
-  (* let array_promise = Js.Unsafe.meth_call blob "arrayBuffer" [| |] *)
-  (*                                                |> wrap_promise in *)
-  array_promise
+  (match progress with None -> blob_of_url url | Some progress -> blob_of_url ~progress url)
+  >>= fun blob ->
+  let resp = Js.Unsafe.new_obj Js.Unsafe.global ##. Response [| blob |> Js.Unsafe.inject |] in
+  Js.Unsafe.meth_call resp "arrayBuffer" [||] |> wrap_promise
 
 let binary_string_of_blob b =
   let open Lwt.Infix in
-  Js_of_ocaml_lwt.File.readAsBinaryString b >|= fun s ->
-  Js.to_bytestring s
+  Js_of_ocaml_lwt.File.readAsBinaryString b >|= fun s -> Js.to_bytestring s
 
 let create_softmax_div probas =
   let open Html in

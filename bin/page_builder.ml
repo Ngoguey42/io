@@ -10,9 +10,10 @@ let document = Dom_html.window##.document
 let body = Dom_html.window##.document##.body
 
 let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x)
+
 let header =
   [%html
-      "<div style='text-align:center;margin-bottom: 25px;'>"
+    "<div style='text-align:center;margin-bottom: 25px;'>"
       "<a href='index.html'>&#127968; Homepage</a> | "
       "<a href='lrcraft-game.html'>&#x1f3ae; Learning Rate Craft</a> | "
       "<a href='about.html'>&#128196; Making-of</a>" "</div>"]
@@ -36,9 +37,15 @@ let _ =
       |> Js.to_string |> Filename.basename |> Filename.remove_extension
     in
     match pagename with
-    | "index" | "/" -> display @@ Index.create_content (); Lwt.return ()
+    | "index" | "/" ->
+        display @@ Index.create_content ();
+        Lwt.return ()
     | "lrcraft-game" -> Lrcraft.main ()
-    | "about" -> display @@ About.create_content (); Lwt.return ()
-    | _ -> Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display; Lwt.return ()
+    | "about" ->
+        display @@ About.create_content ();
+        Lwt.return ()
+    | _ ->
+        Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display;
+        Lwt.return ()
   in
   Lwt.catch main error

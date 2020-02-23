@@ -17,7 +17,15 @@ let wrap_promise p =
   |> ignore;
   lwt
 
+
+let decompress_array arr =
+  (* Has a JavaScript dependency *)
+  (* let open Lwt.Infix in *)
+  let arr: 'a Js.js_array Js.t = Js.Unsafe.fun_call Js.Unsafe.global##.pako##.ungzip [| arr |> Js.Unsafe.inject |] in
+  arr
+
 let decompress_blob (way: string) b =
+  (* Only implemented on chrome as of feb2020 *)
   let ds = Js.Unsafe.global##.DecompressionStream in
   let ds = Js.Unsafe.new_obj ds [| Js.string way |> Js.Unsafe.inject |] in
 
@@ -43,6 +51,16 @@ let blob_of_url: ?progress:(int -> int -> unit) -> string -> 'a = fun ?progress 
   match Js.Opt.to_option resp.content with
   | None -> failwith "What?"
   | Some blob -> blob
+
+let array_of_url: ?progress:(int -> int -> unit) -> string -> 'a = fun ?progress url ->
+  let open Lwt.Infix in
+  (match progress with
+   | None -> blob_of_url url
+   | Some progress -> blob_of_url ~progress url) >>= fun blob ->
+  (* : 'a Js.js_array Js.t Lwt.t *)
+  let array_promise = Js.Unsafe.meth_call blob "arrayBuffer" [| |]
+                                                 |> wrap_promise in
+  array_promise
 
 let binary_string_of_blob b =
   let open Lwt.Infix in

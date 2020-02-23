@@ -79,12 +79,17 @@ module Mnist = struct
            let f = (float_of_int i) /. (float_of_int j) *. 100. in
            Printf.sprintf "Downloading... (%.0f%%)" f |> _update_entry_status entry
          in
+
          _update_entry_status entry "Downloading... (0%)";
-         Ft_js.blob_of_url ~progress (url_of_entry entry) >>= fun blob ->
+         Ft_js.array_of_url ~progress (url_of_entry entry) >>= fun arr ->
 
          _update_entry_status entry "Unzipping...";
-         Ft_js.decompress_blob "gzip" blob >>= fun blob ->
-         Ft_js.binary_string_of_blob blob >>= fun s ->
+         let arr = Ft_js.decompress_array arr in
+         let s = Js.to_string arr##toString in
+
+         (* Ft_js.binary_string_of_blob blob >>= fun s -> *)
+         (* Ft_js.decompress_blob "gzip" blob >>= fun blob -> *)
+         (* Ft_js.binary_string_of_blob blob >>= fun s -> *)
 
          _update_entry_status entry "Committing...";
          I.set_exn t [ n ] s ~info:(_info "Add downloaded file") >>= fun () ->
@@ -103,9 +108,9 @@ module Mnist = struct
     I.Repo.v config >>= fun repo ->
 
     let promises = [
-        (* _entry_data_of_repo `Test_labs repo; *)
+        _entry_data_of_repo `Test_labs repo;
         _entry_data_of_repo `Test_imgs repo;
-        (* _entry_data_of_repo `Train_labs repo; *)
+        _entry_data_of_repo `Train_labs repo;
         (* _entry_data_of_repo `Train_imgs repo; *)
       ] in
     Lwt.all promises >|= function

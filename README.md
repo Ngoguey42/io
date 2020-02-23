@@ -3,3 +3,4 @@
 - Handle errors with Lwt
 - Test (?)
 - Add ocamlformat to dune (?)
+- Where to add js stubs?

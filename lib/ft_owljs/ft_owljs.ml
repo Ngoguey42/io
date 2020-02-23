@@ -10,7 +10,15 @@ module I =
     (Irmin.Contents.String)
     (Irmin.Path.String_list)
     (Irmin.Branch.String)
-    (Irmin.Hash.SHA256)
+    (Irmin.Hash.BLAKE2B)
+
+    (*
+      (Irmin.Hash.BLAKE2B)  12sec
+      (Irmin.Hash.BLAKE2S)  15sec
+      (Irm in.Hash.SHA1)    13sec
+      (Irm in.Hash.SHA256)  23sec
+     *)
+
 (* module I = Ft.Irmin_mem.KV (Irmin.Contents.String) *)
 
 module Mnist = struct

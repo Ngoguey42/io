@@ -4,3 +4,4 @@
 - Test (?)
 - Add ocamlformat to dune (?)
 - Where to add js stubs?
+- Handle the case of corrupted cache/indexeddb

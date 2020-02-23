@@ -20,11 +20,11 @@ let header =
 let _ =
   let open Lwt.Infix in
   let error exn =
-    Printf.eprintf "Error!!!\n%!";
-    let msg = Printexc.to_string exn
-    and stack = Printexc.get_backtrace () in
-    Printf.eprintf "there was an error: %s%s\n" msg stack;
-    ignore exn;
+    let msg = Printexc.to_string exn in
+    let stack = Printexc.get_backtrace () in
+    let err = Printf.sprintf "there was an error: %s %s" msg stack in
+    print_endline err;
+    err |> Html.txt |> display;
     Lwt.return ()
   in
   let main () =

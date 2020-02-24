@@ -5,8 +5,7 @@ module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
 
-module MyHash = Ft_js.CryptoJs.MakeHash(struct let algo = `SHA1 end)
-
+(* module MyHash = Ft_js.CryptoJs.MakeHash(struct let algo = `SHA1 end) *)
 (* module I = *)
 (*   Irmin.Make (Irmin_indexeddb.Content_store) (Irmin_indexeddb.Branch_store) (Irmin.Metadata.None) *)
 (*     (Irmin.Contents.String) *)
@@ -42,10 +41,30 @@ module Mnist = struct
       | [] -> []
       | entry :: tl ->
           let n = filename_of_entry entry in
-          let elt = tr [ th [ txt n ]; th ~a:[ a_id n ] [ txt "unknown" ] ] in
+          let a0 = [
+              a_style "height: 25px;";
+            ] in
+          let a1 = [
+              a_style "text-align: right;";
+            ] in
+          let a2 = [
+              a_id n;
+              a_style "text-align: center; width: 175px;";
+
+            ] in
+          let elt = tr ~a:a0 [ th ~a:a1 [ txt n ]; th ~a:a2 [ txt "unknown" ] ] in
           elt :: aux tl
     in
-    table @@ aux entries
+    let thead = [%html
+      "<thead style='background: #EBEBEB'><tr><th colspan='2'>"
+      "MNIST dataset status"
+      "</th></tr></thead>"
+    ] in
+
+    let attrs = [
+        a_style "border: 1px solid black; border-radius: 3px;";
+      ] in
+    table ~a:attrs ~thead @@ aux entries
 
   let _status_div = lazy (Tyxml_js.To_dom.of_element @@ _create_status_div ())
 
@@ -103,7 +122,7 @@ module Mnist = struct
           Lwt.return data
     in
     data >>= fun _ ->
-    _update_entry_status entry "Ready";
+    _update_entry_status entry "&#10003;";
     Js_of_ocaml_lwt.Lwt_js.sleep 0.1  >>= fun () ->
     data
 

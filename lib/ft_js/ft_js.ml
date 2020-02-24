@@ -60,7 +60,6 @@ module CryptoJs = struct
 
 end
 
-
 let wrap_promise p =
   let lwt, lwt' = Lwt.wait () in
   let callback res =

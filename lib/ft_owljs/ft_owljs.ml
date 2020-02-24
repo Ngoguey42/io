@@ -94,6 +94,10 @@ module Mnist = struct
 
           let arr = Ft_js.decompress_array arr in
           let data = arr##toString |> Js.to_string in
+
+          _update_entry_status entry "Storing...";
+          Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
+
           Ft_js.Idb.set store n data >>= fun _ ->
 
           Lwt.return data

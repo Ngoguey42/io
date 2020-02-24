@@ -20,6 +20,18 @@ module Firebug = Js_of_ocaml.Firebug
 (*              (Irmin.Branch.String) *)
 (*              (MyHash) *)
 
+(*
+canvas = document.createElement("canvas");
+canvas.style = "width:30px; height:30px"
+canvas.width = 2; canvas.height = 2;
+context = canvas.getContext("2d");
+imgData = context.getImageData(0, 0, canvas.width, canvas.height);
+arr = new Uint8Array([255, 0, 0, 255,    255, 0, 0, 255,    255, 255, 0, 255,    255, 255, 0, 255])
+imgData.data.set(arr)
+context.putImageData(imgData, 0, 0);
+document.body.appendChild(canvas)
+ *)
+
 module Mnist = struct
   let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
 
@@ -82,9 +94,9 @@ module Mnist = struct
 
     _update_entry_status entry "Checking...";
     Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
-    let data =
+    let arr =
       Ft_js.Idb.get store n >>= function
-      | Some data -> data |> Lwt.return
+      | Some arr -> arr |> Lwt.return
       | None ->
           let progress i j =
             let f = float_of_int i /. float_of_int j *. 100. in
@@ -97,15 +109,14 @@ module Mnist = struct
           _update_entry_status entry "Unzipping...";
           Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
           let arr = Ft_js.decompress_array arr in
-          let data = arr##toString |> Js.to_string in
 
           _update_entry_status entry "Storing...";
           Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
-          Ft_js.Idb.set store n data >>= fun _ -> Lwt.return data
+          Ft_js.Idb.set store n arr >>= fun _ -> Lwt.return arr
     in
-    data >>= fun _ ->
+    arr >>= fun _ ->
     _update_entry_status entry "&#10003;";
-    Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () -> data
+    Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () -> arr
 
   let get () =
     let open Lwt.Infix in

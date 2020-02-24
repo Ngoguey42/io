@@ -70,7 +70,7 @@ let wrap_promise p =
 let decompress_array arr =
   (* Has a JavaScript dependency *)
   (* let open Lwt.Infix in *)
-  let arr : 'a Js.js_array Js.t =
+  let arr : Js_of_ocaml.Typed_array.uint8Array Js.t =
     Js.Unsafe.fun_call Js.Unsafe.global##.pako##.ungzip [| arr |> Js.Unsafe.inject |]
   in
   arr

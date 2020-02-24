@@ -10,7 +10,7 @@ open Js_of_ocaml
 (* Note: we currently assume all keys and values are strings.
  * This will always be the case for entries added using this interface. *)
 type key = Js.js_string Js.t
-type value = Js.js_string Js.t
+type value = Js_of_ocaml.Typed_array.uint8Array Js.t
 type store_name = Js.js_string Js.t
 type mode = Js.js_string Js.t
 

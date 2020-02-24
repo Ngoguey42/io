@@ -180,7 +180,7 @@ let bindings t =
           (fun () -> Lwt.wakeup set_r !bindings)
           (fun cursor ->
             let key = cursor##.key |> Js.to_string in
-            let value = cursor##.value |> Js.to_string  in
+            let value = cursor##.value  in
             bindings := (key, value) :: !bindings;
             cursor##continue
           );
@@ -190,7 +190,7 @@ let bindings t =
 
 let set t key value =
   trans_rw t (fun store ->
-    store##put (Js.string value) (Js.string key) |> ignore
+    store##put value (Js.string key) |> ignore
   )
 
 let remove t key =
@@ -206,7 +206,7 @@ let get t key =
       request##.onsuccess := Dom.handler (fun _event ->
         Js.Optdef.case request##.result
           (fun () -> None)
-          (fun s -> Some (Js.to_string s))
+          (fun s -> Some s)
         |> Lwt.wakeup set_r;
         Js._true
       )

@@ -7,6 +7,7 @@ module Firebug = Js_of_ocaml.Firebug
 
 let _outline = "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;"
 
+module Idb = Irmin_indexeddb_raw_noutf
 
 module CryptoJs = struct
 

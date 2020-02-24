@@ -7,22 +7,12 @@ module Firebug = Js_of_ocaml.Firebug
 
 module MyHash = Ft_js.CryptoJs.MakeHash(struct let algo = `SHA1 end)
 
-module I =
-  Irmin.Make (Irmin_indexeddb.Content_store) (Irmin_indexeddb.Branch_store) (Irmin.Metadata.None)
-    (Irmin.Contents.String)
-    (Irmin.Path.String_list)
-    (Irmin.Branch.String)
-    (MyHash)
-
-
-    (* (Irmin.Hash.BLAKE2B) *)
-
-(*
-      (Irmin.Hash.BLAKE2B)  12sec
-      (Irmin.Hash.BLAKE2S)  15sec
-      (Irm in.Hash.SHA1)    13sec
-      (Irm in.Hash.SHA256)  23sec
-     *)
+(* module I = *)
+(*   Irmin.Make (Irmin_indexeddb.Content_store) (Irmin_indexeddb.Branch_store) (Irmin.Metadata.None) *)
+(*     (Irmin.Contents.String) *)
+(*     (Irmin.Path.String_list) *)
+(*     (Irmin.Branch.String) *)
+(*     (MyHash) *)
 
 (* module I = Ft.Irmin_mem.Make *)
 (*              (Irmin.Metadata.None) *)
@@ -30,7 +20,6 @@ module I =
 (*              (Irmin.Path.String_list) *)
 (*              (Irmin.Branch.String) *)
 (*              (MyHash) *)
-(*              (\* (Irmin.Hash.BLAKE2B) *\) *)
 
 module Mnist = struct
   let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
@@ -71,27 +60,23 @@ module Mnist = struct
   let _update_entry_status entry new_msg =
     Printf.eprintf "> _update_entry_status %s -> %s\n%!" (filename_of_entry entry) new_msg;
     let elt = _entry_status_div entry in
-    let new_msg = new_msg |> Js.string in
-    (* let old_msg = elt##.innerHTML in *)
+    elt##.innerHTML := new_msg |> Js.string
 
-    (* old_msg##replace old_msg new_msg *)
-    elt##.innerHTML := new_msg
+  (* let _info msg () = *)
+  (*   let date = Int64.of_float (Unix.gettimeofday ()) in *)
+  (*   let author = "No one" in *)
+  (*   Irmin.Info.v ~date ~author msg *)
 
-  let _info msg () =
-    let date = Int64.of_float (Unix.gettimeofday ()) in
-    let author = "No one" in
-    Irmin.Info.v ~date ~author msg
-
-  let _entry_data_of_repo entry repo =
+  let _entry_data_of_idb entry store =
     let open Lwt.Infix in
     let n = filename_of_entry entry in
+
     _update_entry_status entry "Checking...";
     Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
-    I.master repo >>= fun t ->
-    I.find t [ n ] >>= fun res ->
-    let s =
-      match res with
-      | Some s -> Lwt.return s
+
+    let data =
+      Ft_js.Idb.get store n >>= function
+      | Some data -> data |> Lwt.return
       | None ->
           let progress i j =
             let f = float_of_int i /. float_of_int j *. 100. in
@@ -108,35 +93,32 @@ module Mnist = struct
           Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
 
           let arr = Ft_js.decompress_array arr in
-          let s = Js.to_string arr##toString in
+          let data = arr##toString |> Js.to_string in
+          Ft_js.Idb.set store n data >>= fun _ ->
 
-          (* Ft_js.binary_string_of_blob blob >>= fun s -> *)
-          (* Ft_js.decompress_blob "gzip" blob >>= fun blob -> *)
-          (* Ft_js.binary_string_of_blob blob >>= fun s -> *)
-
-          _update_entry_status entry "Committing...";
-          Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
-
-          I.set_exn t [ n ] s ~info:(_info "Add downloaded file") >>= fun () -> Lwt.return s
+          Lwt.return data
     in
-    s >>= fun _ ->
-    _update_entry_status entry "Available";
+    data >>= fun _ ->
+    _update_entry_status entry "Ready";
     Js_of_ocaml_lwt.Lwt_js.sleep 0.1  >>= fun () ->
-    s
+    data
 
   let get () =
     let open Lwt.Infix in
+    let store_name = Js.string "mnist-store" in
+    let init ~old_version upgrader =
+      ignore old_version;
+      Ft_js.Idb.create_store upgrader store_name
+    in
+    Ft_js.Idb.make "mnist-db" ~version:1 ~init >>= fun idb ->
+    let store = Ft_js.Idb.store idb store_name in
 
-    let config = Irmin_indexeddb.config "test-db" in
-    (* let config = Ft.Irmin_mem.config () in *)
-
-    I.Repo.v config >>= fun repo ->
     let promises =
       [
-        _entry_data_of_repo `Test_labs repo;
-        _entry_data_of_repo `Test_imgs repo;
-        _entry_data_of_repo `Train_labs repo;
-        _entry_data_of_repo `Train_imgs repo;
+        _entry_data_of_idb `Test_labs store;
+        _entry_data_of_idb `Test_imgs store;
+        _entry_data_of_idb `Train_labs store;
+        _entry_data_of_idb `Train_imgs store;
       ]
     in
     (* Lwt.all promises >|= function [ a; b ] -> (a, b) | _ -> assert false *)

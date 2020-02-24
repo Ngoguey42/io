@@ -1,6 +1,6 @@
 (library
  (public_name ft_js)
  (name ft_js)
- (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml ft)
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml ft irmin-indexeddb)
  (preprocess (pps tyxml-ppx js_of_ocaml-ppx))
  )

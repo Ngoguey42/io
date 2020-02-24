@@ -34,8 +34,9 @@ module Color = struct
           let y_offset = x_offset /. x_width *. y_width in
           y_offset +. y0
       | _ :: tail -> aux tail
-      | [] -> Printf.sprintf "Unreachable (x=%f)" x |> failwith
+      | [] -> failwith "Unreachable"
     in
+    if Float.is_nan x then failwith "Trying to interpolate a color with a NaN";
     if x < 0. || x > 1. then failwith "Trying to interpolate a color out of range";
     aux xys
 

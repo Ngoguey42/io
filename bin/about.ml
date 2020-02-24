@@ -83,10 +83,13 @@ let create_content () =
       (private navigation may fail because of this).
       <br/><br/>
 
+      with the
+      <a href="https://github.com/mirage/irmin/"><cite>irmin</cite></a>
+      OCaml library (modded with
       <a href="https://github.com/talex5/irmin-indexeddb"><cite>irmin-indexeddb</cite></a>
-      <cite>OCaml</cite> library and modded using the
-      <a href="https://cryptojs.gitbook.io/docs/"><cite>CryptoJS</cite></a>
-      <cite>JavaScript</cite> library.
+      and
+      <a href="https://cryptojs.gitbook.io/docs/"><cite>CryptoJS</cite></a>,
+      an <cite>OCaml</cite> and a <cite>JavaScript</cite> library).
 
       <h2>Author</h2>
       Made by ngoguey,

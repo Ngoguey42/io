@@ -16,24 +16,6 @@ let print_arr = Graph.Neuron.Optimise.Algodiff.A.print ~max_row:1000 ~max_col:10
 
 let print_arr_ad x = print_arr @@ Graph.Neuron.Optimise.Algodiff.unpack_arr x
 
-let test_owl () =
-  let w = 28 in
-  let open Ft_neural.Network_builder in
-  let n =
-    input2d 28 28 1
-    |> conv2d (`One 4) false (`One 2) 20
-    |> relu
-    |> conv2d (`One 3) false (`One 2) 20
-    |> relu
-    |> conv2d (`One 4) false (`One 2) 10
-    |> max_pool2d (`One 2) (`One 2)
-    |> softmax2d |> get_network
-  in
-  Graph.init n;
-  let x = Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [| 1; w; w; 1 |] in
-  let y, _ = Graph.forward n x in
-  (x, y)
-
 (* Firebug.console##log "y1"; *)
 (* Firebug.console##log (Array.length y1); *)
 (* for i=0 to Array.length y1 - 1 do *)
@@ -50,31 +32,30 @@ external float32ba_of_uint8arr : Js_of_ocaml.Typed_array.uint8Array Js.t -> (flo
 
 external uint8arr_of_float32ba : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t -> Js_of_ocaml.Typed_array.uint8Array Js.t = "ft_uint8arr_of_float32ba"
 
+let test_owl x =
+  (* let w = 28 in *)
+  let open Ft_neural.Network_builder in
+  let n =
+    input2d 28 28 1
+    |> conv2d (`One 4) false (`One 2) 20
+    |> relu
+    |> conv2d (`One 3) false (`One 2) 20
+    |> relu
+    |> conv2d (`One 4) false (`One 2) 10
+    |> max_pool2d (`One 2) (`One 2)
+    |> softmax2d |> get_network
+  in
+  Graph.init n;
+  (* let x = Graph.Neuron.Optimise.Algodiff.Arr.uniform ~a:~-.1. ~b:1. [| 1; w; w; 1 |] in *)
+  let y, _ = Graph.forward n x in
+  y
+
 let main () =
   let open Lwt.Infix in
-  let x, y = test_owl () in
   Dom.appendChild body @@ Ft_owljs.Mnist.status_div ();
-  let l =
-    [
-      Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt;
-      [%html "<br/>"];
-      Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt;
-      [%html "<br/>"];
-      Printf.sprintf "y" |> Html.txt;
-      y |> Ft_neural.to_flat_list |> Ft_js.create_softmax_div;
-    ]
-  in
-  display @@ Html.div l;
 
   Ft_owljs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
-
-  Printf.eprintf "\n%!";
-  Firebug.console##log train_imgs;
-  Firebug.console##log train_labs;
-  Firebug.console##log test_imgs;
-  Firebug.console##log test_labs;
-  Printf.eprintf "\n%!";
 
   let arr = test_imgs in
   let arr = Js.Unsafe.meth_call arr "slice" [|
@@ -92,7 +73,10 @@ let main () =
   let arr: ('a, 'b) Owl_base_dense_ndarray_generic.t = arr in
   Firebug.console##log arr;
 
-  (* let arr = Owl_base_dense_ndarray.D.( *)
+  let x = Owl_base_dense_ndarray_generic.reshape arr [|1; 28; 28; 1|]
+          |> Graph.Neuron.Optimise.Algodiff.pack_arr
+  in
+
   let arr = Owl_base_dense_ndarray_generic.(
       let arr = reshape arr [|28; 28; 1|] in
       repeat arr [|1; 1; 3|]
@@ -111,7 +95,18 @@ let main () =
   Js.Unsafe.meth_call imgdata##.data "set" [| i arr |] |> ignore;
   Js.Unsafe.meth_call ctx "putImageData" [| i imgdata; i 0; i 0 |] |> ignore;
 
+  let y = test_owl x in
   Dom.appendChild body elt;
-  ignore arr;
+  let l =
+    [
+      Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt;
+      [%html "<br/>"];
+      Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt;
+      [%html "<br/>"];
+      y |> Ft_neural.to_flat_list |> Ft_js.create_softmax_div;
+    ]
+  in
+  display @@ Html.div l;
+
 
   Lwt.return ()

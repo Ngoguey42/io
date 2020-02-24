@@ -67,7 +67,7 @@ module Mnist = struct
     Js.coerce_opt elt Dom_html.CoerceTo.th (fun _ -> assert false)
 
   let _update_entry_status entry new_msg =
-    Printf.eprintf "> _update_entry_status %s -> %s\n%!" (filename_of_entry entry) new_msg;
+    (* Printf.eprintf "> _update_entry_status %s -> %s\n%!" (filename_of_entry entry) new_msg; *)
     let elt = _entry_status_div entry in
     elt##.innerHTML := new_msg |> Js.string
 

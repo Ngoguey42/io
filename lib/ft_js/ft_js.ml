@@ -20,7 +20,7 @@ module CryptoJs = struct
   end
 
   module type HashConf = sig
-    val algo: [`SHA256]
+    val algo: [`SHA256 | `SHA1]
   end
 
   module MakeHash (Conf: HashConf) : Irmin.Hash.S = struct
@@ -29,11 +29,15 @@ module CryptoJs = struct
     let hash_size =
       match Conf.algo with
       | `SHA256 -> 32
+      | `SHA1 -> 20
 
     let _create_hasher: unit -> hasher Js.t = fun () ->
       match Conf.algo with
       | `SHA256 ->
          let ctor = Js.Unsafe.global##.CryptoJS##.algo##.SHA256 in
+         Js.Unsafe.meth_call ctor "create" [| |]
+      | `SHA1 ->
+         let ctor = Js.Unsafe.global##.CryptoJS##.algo##.SHA1 in
          Js.Unsafe.meth_call ctor "create" [| |]
 
     let short_hash : t -> int = fun h ->

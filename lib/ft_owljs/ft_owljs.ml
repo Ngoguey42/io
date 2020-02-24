@@ -5,14 +5,14 @@ module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
 
-module SHA256 = Ft_js.CryptoJs.MakeHash(struct let algo = `SHA256 end)
+module MyHash = Ft_js.CryptoJs.MakeHash(struct let algo = `SHA1 end)
 
-module I =
-  Irmin.Make (Irmin_indexeddb.Content_store) (Irmin_indexeddb.Branch_store) (Irmin.Metadata.None)
-    (Irmin.Contents.String)
-    (Irmin.Path.String_list)
-    (Irmin.Branch.String)
-    (SHA256)
+(* module I = *)
+(*   Irmin.Make (Irmin_indexeddb.Content_store) (Irmin_indexeddb.Branch_store) (Irmin.Metadata.None) *)
+(*     (Irmin.Contents.String) *)
+(*     (Irmin.Path.String_list) *)
+(*     (Irmin.Branch.String) *)
+(*     (MyHash) *)
     (* (Irmin.Hash.BLAKE2B) *)
 
 (*
@@ -22,13 +22,13 @@ module I =
       (Irm in.Hash.SHA256)  23sec
      *)
 
-(* module I = Ft.Irmin_mem.Make *)
-(*              (Irmin.Metadata.None) *)
-(*              (Irmin.Contents.String) *)
-(*              (Irmin.Path.String_list) *)
-(*              (Irmin.Branch.String) *)
-(*              (SHA256) *)
-(*              (\* (Irmin.Hash.BLAKE2B) *\) *)
+module I = Ft.Irmin_mem.Make
+             (Irmin.Metadata.None)
+             (Irmin.Contents.String)
+             (Irmin.Path.String_list)
+             (Irmin.Branch.String)
+             (MyHash)
+             (* (Irmin.Hash.BLAKE2B) *)
 
 module Mnist = struct
   let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
@@ -109,8 +109,8 @@ module Mnist = struct
   let get () =
     let open Lwt.Infix in
 
-    let config = Irmin_indexeddb.config "test-db" in
-    (* let config = Ft.Irmin_mem.config () in *)
+    (* let config = Irmin_indexeddb.config "test-db" in *)
+    let config = Ft.Irmin_mem.config () in
 
     I.Repo.v config >>= fun repo ->
     let promises =

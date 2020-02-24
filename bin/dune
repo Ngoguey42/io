@@ -8,6 +8,7 @@
                 ../vendored/pako_inflate.min.js
                 ../vendored/core.min.js
                 ../vendored/sha256.min.js
+                ../vendored/sha1.min.js
                 ))
 
  ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically

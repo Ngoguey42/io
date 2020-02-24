@@ -4,12 +4,16 @@ module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
 module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
+
+module SHA256 = Ft_js.CryptoJs.MakeHash(struct let algo = `SHA256 end)
+
 module I =
   Irmin.Make (Irmin_indexeddb.Content_store) (Irmin_indexeddb.Branch_store) (Irmin.Metadata.None)
     (Irmin.Contents.String)
     (Irmin.Path.String_list)
     (Irmin.Branch.String)
-    (Irmin.Hash.BLAKE2B)
+    (SHA256)
+    (* (Irmin.Hash.BLAKE2B) *)
 
 (*
       (Irmin.Hash.BLAKE2B)  12sec
@@ -18,7 +22,13 @@ module I =
       (Irm in.Hash.SHA256)  23sec
      *)
 
-(* module I = Ft.Irmin_mem.KV (Irmin.Contents.String) *)
+(* module I = Ft.Irmin_mem.Make *)
+(*              (Irmin.Metadata.None) *)
+(*              (Irmin.Contents.String) *)
+(*              (Irmin.Path.String_list) *)
+(*              (Irmin.Branch.String) *)
+(*              (SHA256) *)
+(*              (\* (Irmin.Hash.BLAKE2B) *\) *)
 
 module Mnist = struct
   let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
@@ -56,7 +66,9 @@ module Mnist = struct
     let elt = status_div##querySelector (Js.string ("#" ^ n)) in
     Js.coerce_opt elt Dom_html.CoerceTo.th (fun _ -> assert false)
 
-  let _update_entry_status entry msg = (_entry_status_div entry)##.innerHTML := Js.string msg
+  let _update_entry_status entry msg =
+    Printf.eprintf "> _update_entry_status %s -> %s\n%!" (filename_of_entry entry) msg;
+    (_entry_status_div entry)##.innerHTML := Js.string msg
 
   let _info msg () =
     let date = Int64.of_float (Unix.gettimeofday ()) in
@@ -96,9 +108,10 @@ module Mnist = struct
 
   let get () =
     let open Lwt.Infix in
-    let config = Irmin_indexeddb.config "test-db" in
 
+    let config = Irmin_indexeddb.config "test-db" in
     (* let config = Ft.Irmin_mem.config () in *)
+
     I.Repo.v config >>= fun repo ->
     let promises =
       [
@@ -108,5 +121,6 @@ module Mnist = struct
         (* _entry_data_of_repo `Train_imgs repo; *)
       ]
     in
+    (* Lwt.all promises >|= function [ a; b ] -> (a, b) | _ -> assert false *)
     Lwt.all promises >|= function [ a; b; c ] -> (a, b, c) | _ -> assert false
 end

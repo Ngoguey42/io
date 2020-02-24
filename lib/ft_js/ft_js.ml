@@ -7,6 +7,55 @@ module Firebug = Js_of_ocaml.Firebug
 
 let _outline = "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;"
 
+
+module CryptoJs = struct
+
+  class type js_hash = object
+    method toString : Js.js_string Js.t Js.meth
+  end
+
+  class type hasher = object
+    method update : Js.js_string Js.t -> unit Js.meth
+    method finalize : js_hash Js.t Js.meth
+  end
+
+  module type HashConf = sig
+    val algo: [`SHA256]
+  end
+
+  module MakeHash (Conf: HashConf) : Irmin.Hash.S = struct
+    type t = string
+
+    let hash_size =
+      match Conf.algo with
+      | `SHA256 -> 32
+
+    let _create_hasher: unit -> hasher Js.t = fun () ->
+      match Conf.algo with
+      | `SHA256 ->
+         let ctor = Js.Unsafe.global##.CryptoJS##.algo##.SHA256 in
+         Js.Unsafe.meth_call ctor "create" [| |]
+
+    let short_hash : t -> int = fun h ->
+      let l = Ft.List.chunk 8 h in
+      let l = List.map (fun x -> Scanf.sscanf x "%x" (fun x -> x)) l in
+      let i = List.fold_left (lxor) 0 l in
+      i
+
+    let hash f =
+      let h = _create_hasher () in
+      let aux s =
+        h##update (Js.string s)
+      in
+      f aux;
+      h##finalize##toString |> Js.to_string
+
+    let t = Irmin.Type.string
+  end
+
+end
+
+
 let wrap_promise p =
   let lwt, lwt' = Lwt.wait () in
   let callback res =

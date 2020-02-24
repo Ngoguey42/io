@@ -3,7 +3,12 @@
  (modes js)
  ; (js_of_ocaml (flags --opt=3 --no-sourcemap --pretty --no-inline --debug-info))
 
-  (js_of_ocaml (javascript_files ../vendored/irmin-indexeddb-helpers.js ../vendored/pako_inflate.min.js))
+  (js_of_ocaml (javascript_files
+                ../vendored/irmin-indexeddb-helpers.js
+                ../vendored/pako_inflate.min.js
+                ../vendored/core.min.js
+                ../vendored/sha256.min.js
+                ))
 
  ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
  ; picked otherwise and makes js crash.

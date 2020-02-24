@@ -5,6 +5,19 @@ module List = struct
     | a :: (_ :: _ as tail) -> a ^ sep ^ string_join sep tail
     | [ a ] -> a
     | [] -> ""
+
+  let split s idx =
+    let len = String.length s in
+    String.sub s 0 idx, String.sub s idx (len - idx)
+
+  let rec chunk size = function
+    | "" -> []
+    | s -> let len = String.length s in
+           if len <= size then [s]
+           else
+             let a, b = split s size in
+             a::chunk size b
+
 end
 
 module Color = struct

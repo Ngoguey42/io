@@ -41,29 +41,19 @@ module Mnist = struct
       | [] -> []
       | entry :: tl ->
           let n = filename_of_entry entry in
-          let a0 = [
-              a_style "height: 25px;";
-            ] in
-          let a1 = [
-              a_style "text-align: right;";
-            ] in
-          let a2 = [
-              a_id n;
-              a_style "text-align: center; width: 175px;";
-
-            ] in
+          let a0 = [ a_style "height: 25px;" ] in
+          let a1 = [ a_style "text-align: right;" ] in
+          let a2 = [ a_id n; a_style "text-align: center; width: 175px;" ] in
           let elt = tr ~a:a0 [ th ~a:a1 [ txt n ]; th ~a:a2 [ txt "unknown" ] ] in
           elt :: aux tl
     in
-    let thead = [%html
-      "<thead style='background: #EBEBEB'><tr><th colspan='2'>"
-      "MNIST dataset status"
-      "</th></tr></thead>"
-    ] in
+    let thead =
+      [%html
+        "<thead style='background: #EBEBEB'><tr><th colspan='2'>" "MNIST dataset status"
+          "</th></tr></thead>"]
+    in
 
-    let attrs = [
-        a_style "border: 1px solid black; border-radius: 3px;";
-      ] in
+    let attrs = [ a_style "border: 1px solid black; border-radius: 3px;" ] in
     table ~a:attrs ~thead @@ aux entries
 
   let _status_div = lazy (Tyxml_js.To_dom.of_element @@ _create_status_div ())
@@ -92,39 +82,30 @@ module Mnist = struct
 
     _update_entry_status entry "Checking...";
     Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
-
     let data =
       Ft_js.Idb.get store n >>= function
       | Some data -> data |> Lwt.return
       | None ->
           let progress i j =
             let f = float_of_int i /. float_of_int j *. 100. in
-            Printf.sprintf "Downloading... (%.0f%%)" f
-            |> _update_entry_status entry
+            Printf.sprintf "Downloading... (%.0f%%)" f |> _update_entry_status entry
           in
 
           _update_entry_status entry "Downloading... (0%)";
           Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
-
           Ft_js.array_of_url ~progress (url_of_entry entry) >>= fun arr ->
-
           _update_entry_status entry "Unzipping...";
           Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
-
           let arr = Ft_js.decompress_array arr in
           let data = arr##toString |> Js.to_string in
 
           _update_entry_status entry "Storing...";
           Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
-
-          Ft_js.Idb.set store n data >>= fun _ ->
-
-          Lwt.return data
+          Ft_js.Idb.set store n data >>= fun _ -> Lwt.return data
     in
     data >>= fun _ ->
     _update_entry_status entry "&#10003;";
-    Js_of_ocaml_lwt.Lwt_js.sleep 0.1  >>= fun () ->
-    data
+    Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () -> data
 
   let get () =
     let open Lwt.Infix in

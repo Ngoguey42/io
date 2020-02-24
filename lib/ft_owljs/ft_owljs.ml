@@ -20,18 +20,6 @@ module Firebug = Js_of_ocaml.Firebug
 (*              (Irmin.Branch.String) *)
 (*              (MyHash) *)
 
-(*
-canvas = document.createElement("canvas");
-canvas.style = "width:30px; height:30px"
-canvas.width = 2; canvas.height = 2;
-context = canvas.getContext("2d");
-imgData = context.getImageData(0, 0, canvas.width, canvas.height);
-arr = new Uint8Array([255, 0, 0, 255,    255, 0, 0, 255,    255, 255, 0, 255,    255, 255, 0, 255])
-imgData.data.set(arr)
-context.putImageData(imgData, 0, 0);
-document.body.appendChild(canvas)
- *)
-
 module Mnist = struct
   let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
 
@@ -130,13 +118,11 @@ module Mnist = struct
 
     let promises =
       [
-        _entry_data_of_idb `Test_labs store;
-        _entry_data_of_idb `Test_imgs store;
-        _entry_data_of_idb `Train_labs store;
         _entry_data_of_idb `Train_imgs store;
+        _entry_data_of_idb `Train_labs store;
+        _entry_data_of_idb `Test_imgs store;
+        _entry_data_of_idb `Test_labs store;
       ]
     in
-    (* Lwt.all promises >|= function [ a; b ] -> (a, b) | _ -> assert false *)
-    (* Lwt.all promises >|= function [ a; b; c ] -> (a, b, c) | _ -> assert false *)
     Lwt.all promises >|= function [ a; b; c; d ] -> (a, b, c, d) | _ -> assert false
 end

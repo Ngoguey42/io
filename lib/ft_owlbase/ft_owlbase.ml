@@ -12,6 +12,10 @@ module Make_neural (Graph : GRAPH) = struct
       Algodiff.Arr.shape arr |> Array.map string_of_int |> Array.to_list |> Ft.List.string_join ", "
       |> Printf.sprintf "(%s)"
 
+    let shape' arr =
+      Owl_base_dense_ndarray.D.shape arr |> Array.map string_of_int |> Array.to_list |> Ft.List.string_join ", "
+      |> Printf.sprintf "(%s)"
+
     let array arr =
       Algodiff.unpack_arr arr
       |> Owl_pretty.dsnda_to_string ~header:false ~max_row:1000 ~max_col:1000

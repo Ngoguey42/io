@@ -71,11 +71,20 @@ let create_content () =
       It implies that all deep-learning computations
       of this project happend inside a single-threaded javascript
       <a href="https://ocaml.xyz/book/backend.html">backend</a>.
-
       ONNX? owl-symbolic? webgl? a js deeplearning lib? totally drop owl to use a js lib ?
 
-      <br/>
-      MNIST downloaded from / cached to IndexedDb using
+
+      <br/><br/>
+      The <cite>MNIST</cite> dataset is downloaded from
+      <a href="http://yann.lecun.com/exdb/mnist/">http://yann.lecun.com/exdb/mnist</a>,
+      unzipped using the
+      <a href="https://github.com/nodeca/pako"><cite>pako</cite></a>
+      <cite>JavaScript</cite> library, and cached in the browser using the
+      <a href="https://github.com/talex5/irmin-indexeddb"><cite>irmin-indexeddb</cite></a>
+      <cite>OCaml</cite> library.
+
+      <br/><br/>
+
 
 
       <h2>Author</h2>

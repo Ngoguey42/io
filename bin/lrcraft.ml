@@ -53,33 +53,37 @@ let main () =
   Ft_owljs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
+  let pred_and_show img lab =
+    let x =
+      img
+      |> Ft_owljs.Conv.Cast.Ta.float32_of_uint8
+      |> Ft_owljs.Conv.Reinterpret.Float32.nd_of_ta
+      |> (fun x -> Owl_base_dense_ndarray_generic.reshape x [| 1; 28; 28; 1 |])
+      |> Graph.Neuron.Optimise.Algodiff.pack_arr
+    in
+    let y = test_owl x in
+    (* let l = *)
+    (*   [ *)
+    (*     Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt; *)
+    (*     [%html "<br/>"]; *)
+    (*     Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt; *)
+    (*     [%html "<br/>"]; *)
+    (*     (\* y |> Ft_neural.to_flat_list |> Ft_owljs.Mnist.create_softmax_div; *\) *)
+    (*   ] *)
+    (* in *)
+    (* display @@ Html.div l; *)
+    Ft_owljs.Mnist.truc img lab (Ft_neural.to_flat_list y)
+    |> Dom.appendChild body;
+  in
+
   let slice a b arr =
     Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
   in
+  for i = 0 to 10 do
+    let img = test_imgs |> slice (16 + 28 * 28 * (i)) (16 + 28 * 28 * (i + 1)) in
+    let lab = Js_of_ocaml.Typed_array.unsafe_get test_labs (8 + i) in
+    pred_and_show img lab;
+  done;
 
-  let img =
-    test_imgs
-    |> slice 16 (16 + 28 * 28)
-  in
-  Ft_owljs.Mnist.create_digit_canvas img |> Dom.appendChild body;
-
-  let x =
-    img
-    |> Ft_owljs.Conv.Cast.Ta.float32_of_uint8
-    |> Ft_owljs.Conv.Reinterpret.Float32.nd_of_ta
-    |> (fun x -> Owl_base_dense_ndarray_generic.reshape x [| 1; 28; 28; 1 |])
-    |> Graph.Neuron.Optimise.Algodiff.pack_arr
-  in
-  let y = test_owl x in
-  let l =
-    [
-      Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt;
-      [%html "<br/>"];
-      Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt;
-      [%html "<br/>"];
-      y |> Ft_neural.to_flat_list |> Ft_owljs.Mnist.create_softmax_div;
-    ]
-  in
-  display @@ Html.div l;
 
   Lwt.return ()

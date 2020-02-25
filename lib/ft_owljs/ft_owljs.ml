@@ -186,27 +186,27 @@ module Mnist = struct
     in
     Lwt.all promises >|= function [ a; b; c; d ] -> (a, b, c, d) | _ -> assert false
 
-  let create_softmax_div probas =
-    let open Html in
-    let outline = "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;" in
-    let rec aux l i =
-      match l with
-      | x :: tail ->
-         let c = Ft.Color.Jet.get x in
-         let c = Ft.Color.to_hex_string c in
-         ignore c;
-         let t = Printf.sprintf "%.0f%%" (x *. 100.) in
-         let t = [ i |> string_of_int |> Html.txt; br (); Html.txt t ] in
-         let style =
-           "width: 34px; height: 34px; text-align: center; color: white;" ^ outline
-           ^ "font-size: small;"
-         in
-         let style = Printf.sprintf "%s; background: %s" style c in
-         let elt = td ~a:[ a_style style ] t in
-         elt :: aux tail (i + 1)
-      | [] -> []
-    in
-    table @@ [ tr @@ aux probas 0 ]
+  (* let create_softmax_div probas = *)
+  (*   let open Html in *)
+  (*   let outline = "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;" in *)
+  (*   let rec aux l i = *)
+  (*     match l with *)
+  (*     | x :: tail -> *)
+  (*        let c = Ft.Color.Jet.get x in *)
+  (*        let c = Ft.Color.to_hex_string c in *)
+  (*        ignore c; *)
+  (*        let t = Printf.sprintf "%.0f%%" (x *. 100.) in *)
+  (*        let t = [ i |> string_of_int |> Html.txt; br (); Html.txt t ] in *)
+  (*        let style = *)
+  (*          "width: 40px; height: 40px; text-align: center; color: white;" ^ outline *)
+  (*          ^ "font-size: small;" *)
+  (*        in *)
+  (*        let style = Printf.sprintf "%s; background: %s" style c in *)
+  (*        let elt = td ~a:[ a_style style ] t in *)
+  (*        elt :: aux tail (i + 1) *)
+  (*     | [] -> [] *)
+  (*   in *)
+  (*   table @@ [ tr @@ aux probas 0 ] *)
 
   let create_digit_canvas : Conv.uint8_ta -> 'a = fun img ->
     let img =
@@ -221,8 +221,8 @@ module Mnist = struct
     let elt = Dom_html.createCanvas Dom_html.window##.document in
     elt##.width := 28;
     elt##.height := 28;
-    elt##.style##.width := Js.string "60px";
-    elt##.style##.height := Js.string "60px";
+    elt##.style##.width := Js.string "100%";
+    elt##.style##.height := Js.string "100%";
     let ctx = elt##getContext Dom_html._2d_ in
     let idata = ctx##getImageData  0. 0. 28. 28. in
     Firebug.console##log idata##.data;
@@ -230,5 +230,60 @@ module Mnist = struct
     ctx##putImageData idata 0. 0.;
     elt
 
+  let truc : Conv.uint8_ta -> int -> float list -> 'a = fun image lab pred ->
+    let open Html in
+    let style_out =
+      "border: 1px solid black; border-radius: 3px; padding: 1px; width: max-content; "
+      ^ "margin: 1px; "
+    in
+    let style_in =
+      "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; "
+      ^ "width: 40px; height: 40px; "
+      ^ "text-align: center; color: white; font-size: small; overflow: hidden; "
+      ^ "display: inline-block; margin: 1px; vertical-align: middle; line-height: 20px; "
+    in
+
+    let rec aux l i =
+      match l with
+      | x :: tail ->
+         let bg =
+           Ft.Color.Jet.get x |> Ft.Color.to_hex_string |> Printf.sprintf "background: %s; "
+         in
+         let t = [
+             i |> string_of_int |> Html.txt;
+             br ();
+             Html.txt @@ Printf.sprintf "%.0f%%" (x *. 100.);
+           ]
+         in
+         let style =
+           if i == lab then style_in ^ bg ^ "outline: 2px solid LimeGreen; " else style_in ^ bg
+         in
+         let elt =
+           div ~a:[ a_style style ] t
+           |> Tyxml_js.To_dom.of_element
+         in
+         elt :: aux tail (i + 1)
+      | [] -> []
+    in
+
+    let create ?style ?inner f children =
+      let elt = f Dom_html.window##.document in
+      (match style with
+      | None -> ()
+      | Some style -> elt##setAttribute (Js.string "style") (Js.string style));
+      (match inner with
+      | None -> ()
+      | Some inner -> elt##.innerHTML := (Js.string inner));
+      let rec aux = function
+        | [] -> ()
+        | hd::tl -> Dom.appendChild elt hd; aux tl
+      in
+      aux children;
+      Js.Opt.get (Dom_html.CoerceTo.element elt) (fun _ -> assert false)
+    in
+
+    (create Dom_html.createDiv ~style:style_in [create_digit_canvas image]
+     ::aux pred 0)
+    |> create Dom_html.createDiv ~style:style_out
 
 end

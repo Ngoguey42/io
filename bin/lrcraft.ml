@@ -7,7 +7,6 @@ module Firebug = Js_of_ocaml.Firebug
 module Graph = Owl_neural_generic.Make_Embedded (Owl_base_dense_ndarray.S)
 module Ft_neural = Ft_owlbase.Make_neural (Graph)
 
-(* let document = Dom_html.window##.document *)
 let body = Dom_html.window##.document##.body
 
 let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x)
@@ -28,14 +27,6 @@ let print_arr_ad x = print_arr @@ Graph.Neuron.Optimise.Algodiff.unpack_arr x
 (*     Firebug.console##log (Js.array @@ Graph.Neuron.Optimise.Algodiff.Arr.shape b); *)
 (*   done *)
 (* done; *)
-
-(* external float32ba_of_uint8arr : *)
-(*   Js_of_ocaml.Typed_array.uint8Array Js.t -> *)
-(*   (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t = "ft_float32ba_of_uint8arr" *)
-
-(* external uint8arr_of_float32ba : *)
-(*   (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t -> *)
-(*   Js_of_ocaml.Typed_array.uint8Array Js.t = "ft_uint8arr_of_float32ba" *)
 
 let test_owl x =
   (* let w = 28 in *)
@@ -70,6 +61,8 @@ let main () =
     test_imgs
     |> slice 16 (16 + 28 * 28)
   in
+  Ft_owljs.Mnist.create_digit_canvas img |> Dom.appendChild body;
+
   let x =
     img
     |> Ft_owljs.Conv.Cast.Ta.float32_of_uint8
@@ -77,35 +70,14 @@ let main () =
     |> (fun x -> Owl_base_dense_ndarray_generic.reshape x [| 1; 28; 28; 1 |])
     |> Graph.Neuron.Optimise.Algodiff.pack_arr
   in
-  let arr =
-    img
-    |> Ft_owljs.Conv.Reinterpret.Uint8.nd_of_ta
-    |> (fun x -> Owl_base_dense_ndarray_generic.reshape x [| 28; 28; 1 |])
-    |> (fun x -> Owl_base_dense_ndarray_generic.repeat x [| 1; 1; 3 |])
-    |> Owl_base_dense_ndarray_generic.pad ~v:(char_of_int 255) [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
-    |> Ft_owljs.Conv.Reinterpret.Uint8.ta_of_nd
-  in
-
-  let elt =
-    [%html "<canvas style='width:60px; height:60px' width='28' height='28'> </canvas>"]
-    |> Tyxml_js.To_dom.of_element
-  in
-  let i = Js.Unsafe.inject in
-  ignore i;
-  let ctx = Js.Unsafe.meth_call elt "getContext" [| Js.string "2d" |> i |] in
-  let imgdata = Js.Unsafe.meth_call ctx "getImageData" [| i 0; i 0; i 28; i 28 |] in
-  Js.Unsafe.meth_call imgdata##.data "set" [| i arr |] |> ignore;
-  Js.Unsafe.meth_call ctx "putImageData" [| i imgdata; i 0; i 0 |] |> ignore;
-
   let y = test_owl x in
-  Dom.appendChild body elt;
   let l =
     [
       Ft_neural.Str.shape x |> Printf.sprintf "x shape: %s" |> Html.txt;
       [%html "<br/>"];
       Ft_neural.Str.shape y |> Printf.sprintf "y shape: %s" |> Html.txt;
       [%html "<br/>"];
-      y |> Ft_neural.to_flat_list |> Ft_js.create_softmax_div;
+      y |> Ft_neural.to_flat_list |> Ft_owljs.Mnist.create_softmax_div;
     ]
   in
   display @@ Html.div l;

@@ -19,6 +19,11 @@ module Firebug = Js_of_ocaml.Firebug
 (*              (Irmin.Path.String_list) *)
 (*              (Irmin.Branch.String) *)
 (*              (MyHash) *)
+(* let _info msg () = *)
+(*   let date = Int64.of_float (Unix.gettimeofday ()) in *)
+(*   let author = "No one" in *)
+(*   Irmin.Info.v ~date ~author msg *)
+
 
 module Conv = struct
 
@@ -131,11 +136,6 @@ module Mnist = struct
     let elt = _entry_status_div entry in
     elt##.innerHTML := new_msg |> Js.string
 
-  (* let _info msg () = *)
-  (*   let date = Int64.of_float (Unix.gettimeofday ()) in *)
-  (*   let author = "No one" in *)
-  (*   Irmin.Info.v ~date ~author msg *)
-
   let _entry_data_of_idb entry store =
     let open Lwt.Infix in
     let n = filename_of_entry entry in
@@ -185,4 +185,50 @@ module Mnist = struct
       ]
     in
     Lwt.all promises >|= function [ a; b; c; d ] -> (a, b, c, d) | _ -> assert false
+
+  let create_softmax_div probas =
+    let open Html in
+    let outline = "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;" in
+    let rec aux l i =
+      match l with
+      | x :: tail ->
+         let c = Ft.Color.Jet.get x in
+         let c = Ft.Color.to_hex_string c in
+         ignore c;
+         let t = Printf.sprintf "%.0f%%" (x *. 100.) in
+         let t = [ i |> string_of_int |> Html.txt; br (); Html.txt t ] in
+         let style =
+           "width: 34px; height: 34px; text-align: center; color: white;" ^ outline
+           ^ "font-size: small;"
+         in
+         let style = Printf.sprintf "%s; background: %s" style c in
+         let elt = td ~a:[ a_style style ] t in
+         elt :: aux tail (i + 1)
+      | [] -> []
+    in
+    table @@ [ tr @@ aux probas 0 ]
+
+  let create_digit_canvas : Conv.uint8_ta -> 'a = fun img ->
+    let img =
+      img
+      |> Conv.Reinterpret.Uint8.nd_of_ta
+      |> (fun x -> Owl_base_dense_ndarray_generic.reshape x [| 28; 28; 1 |])
+      |> (fun x -> Owl_base_dense_ndarray_generic.repeat x [| 1; 1; 3 |])
+      |> Owl_base_dense_ndarray_generic.pad ~v:(char_of_int 255) [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
+      |> Conv.Reinterpret.Uint8.ta_of_nd
+    in
+
+    let elt = Dom_html.createCanvas Dom_html.window##.document in
+    elt##.width := 28;
+    elt##.height := 28;
+    elt##.style##.width := Js.string "60px";
+    elt##.style##.height := Js.string "60px";
+    let ctx = elt##getContext Dom_html._2d_ in
+    let idata = ctx##getImageData  0. 0. 28. 28. in
+    Firebug.console##log idata##.data;
+    Js.Unsafe.meth_call idata##.data "set" [| Js.Unsafe.inject img |] |> ignore;
+    ctx##putImageData idata 0. 0.;
+    elt
+
+
 end

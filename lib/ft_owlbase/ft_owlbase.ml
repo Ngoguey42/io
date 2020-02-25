@@ -1,8 +1,8 @@
 (* Create a signature with type constraints to make Owl_pretty work with Graph *)
 module type GRAPH =
   Owl_neural_graph_sig.Sig
-    with type Neuron.Optimise.Algodiff.A.arr := Owl_base_dense_ndarray.D.arr
-    with type Neuron.Optimise.Algodiff.A.elt := Owl_base_dense_ndarray.D.elt
+    with type Neuron.Optimise.Algodiff.A.arr := Owl_base_dense_ndarray.S.arr
+    with type Neuron.Optimise.Algodiff.A.elt := Owl_base_dense_ndarray.S.elt
 
 module Make_neural (Graph : GRAPH) = struct
   module Algodiff = Graph.Neuron.Optimise.Algodiff
@@ -13,7 +13,7 @@ module Make_neural (Graph : GRAPH) = struct
       |> Printf.sprintf "(%s)"
 
     let shape' arr =
-      Owl_base_dense_ndarray.D.shape arr |> Array.map string_of_int |> Array.to_list |> Ft.List.string_join ", "
+      Algodiff.A.shape arr |> Array.map string_of_int |> Array.to_list |> Ft.List.string_join ", "
       |> Printf.sprintf "(%s)"
 
     let array arr =
@@ -24,7 +24,7 @@ module Make_neural (Graph : GRAPH) = struct
   let to_flat_list arr =
     (* val iter : (elt -> unit) -> arr -> unit *)
     let l = ref [] in
-    Algodiff.unpack_arr arr |> Owl_base_dense_ndarray.D.iter (fun x -> l := x :: !l);
+    Algodiff.unpack_arr arr |> Owl_base_dense_ndarray.S.iter (fun x -> l := x :: !l);
     List.rev !l
 
   module Network_builder = struct

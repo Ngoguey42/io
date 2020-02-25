@@ -20,6 +20,66 @@ module Firebug = Js_of_ocaml.Firebug
 (*              (Irmin.Branch.String) *)
 (*              (MyHash) *)
 
+module Conv = struct
+
+  (* TypedArray *)
+  type uint8_ta = Js_of_ocaml.Typed_array.uint8Array Js.t
+  type float32_ta = Js_of_ocaml.Typed_array.float32Array Js.t
+  type arrayBuffer = Js_of_ocaml.Typed_array.arrayBuffer Js.t
+  type bigstring = Js_of_ocaml.Typed_array.Bigstring.t
+
+  (* BigArray *)
+  type float32_bag = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
+  type uint8_bag = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
+
+  (* Ndarray *)
+  type float32_nd = Owl_base_dense_ndarray.S.arr
+  type uint8_nd = (char, Bigarray.int8_unsigned_elt) Owl_base_dense_ndarray.Generic.t
+
+  module Cast = struct
+    module Ta = struct
+      let uint8_of_float32 : float32_ta -> uint8_ta = fun arr ->
+        Js.Unsafe.fun_call Js.Unsafe.global##.Uint32Array##.from [| Js.Unsafe.inject arr |]
+      let float32_of_uint8 : uint8_ta -> float32_ta = fun arr ->
+        Js.Unsafe.fun_call Js.Unsafe.global##.Float32Array##.from [| Js.Unsafe.inject arr |]
+    end
+  end
+  module Reinterpret = struct
+    module Uint8 = struct
+      (* Not using `Js_of_ocaml.Typed_array.Bigstring` because we want to keep the shape *)
+      external _bag_of_ta : uint8_ta -> uint8_bag = "ft_owljs_uint8_bag_of_ta"
+      let nd_of_ta arr =
+        let arr : uint8_ta = arr in
+        let arr : uint8_bag = _bag_of_ta arr in
+        let arr : uint8_nd = arr in
+        arr
+
+      external _ta_of_bag : uint8_bag -> uint8_ta = "ft_owljs_uint8_ta_of_bag"
+      let ta_of_nd arr =
+        let arr : uint8_nd = arr in
+        let arr : uint8_bag = arr in
+        let arr : uint8_ta = _ta_of_bag arr in
+        arr
+    end
+    module Float32 = struct
+      external _bag_of_ta : float32_ta -> float32_bag = "ft_owljs_float32_bag_of_ta"
+      let nd_of_ta arr =
+        let arr : float32_ta = arr in
+        let arr : float32_bag = _bag_of_ta arr in
+        let arr : float32_nd = arr in
+        arr
+
+      external _ta_of_bag : float32_bag -> float32_ta = "ft_owljs_float32_ta_of_bag"
+      let ta_of_nd arr =
+        let arr : float32_nd = arr in
+        let arr : float32_bag = arr in
+        let arr : float32_ta = _ta_of_bag arr in
+        arr
+    end
+  end
+
+end
+
 module Mnist = struct
   let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
 

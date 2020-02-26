@@ -4,7 +4,9 @@ module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
 module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
-
+module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+module Typed_array = Js_of_ocaml.Typed_array
+module XmlHttpRequest = Js_of_ocaml_lwt.XmlHttpRequest
 module Idb = Irmin_indexeddb_raw_noutf
 
 module CryptoJs = struct
@@ -68,7 +70,7 @@ let wrap_promise p =
 let decompress_array arr =
   (* Has a JavaScript dependency *)
   (* let open Lwt.Infix in *)
-  let arr : Js_of_ocaml.Typed_array.uint8Array Js.t =
+  let arr : Typed_array.uint8Array Js.t =
     Js.Unsafe.fun_call Js.Unsafe.global##.pako##.ungzip [| arr |> Js.Unsafe.inject |]
   in
   arr
@@ -89,7 +91,7 @@ let decompress_blob (way : string) b =
 let blob_of_url ?progress url =
   let open Lwt.Infix in
   let f =
-    Js_of_ocaml_lwt.XmlHttpRequest.perform_raw ~response_type:Js_of_ocaml.XmlHttpRequest.Blob
+    XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob
   in
   let future = match progress with Some progress -> f ~progress url | None -> f url in
   future >|= fun resp ->
@@ -106,3 +108,12 @@ let array_of_url ?progress url =
 let binary_string_of_blob b =
   let open Lwt.Infix in
   Js_of_ocaml_lwt.File.readAsBinaryString b >|= fun s -> Js.to_bytestring s
+
+let to_dom_html cast html =
+  Tyxml_js.To_dom.of_element html |> cast |> Js.Opt.to_option |> function
+   | None -> failwith "fail"
+   | Some elt -> elt
+
+let select elt query cast =
+  let elt = elt##querySelector (Js.string query) in
+  Js.coerce_opt elt cast (fun _ -> assert false)

@@ -4,3 +4,4 @@
 - Handle the case of corrupted cache/indexeddb
 - give better names to js vendored stubs
 - find a way to reference the js stubs in their owl library
+- constrain the dependencies (with >=)

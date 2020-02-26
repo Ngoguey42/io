@@ -4,6 +4,9 @@ module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
 module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
+module Ndarray = Owl_base_dense_ndarray_generic
+module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+module Typed_array = Js_of_ocaml.Typed_array
 
 (* module MyHash = Ft_js.CryptoJs.MakeHash(struct let algo = `SHA1 end) *)
 (* module I = *)
@@ -24,35 +27,43 @@ module Firebug = Js_of_ocaml.Firebug
 (*   let author = "No one" in *)
 (*   Irmin.Info.v ~date ~author msg *)
 
-
 module Conv = struct
-
   (* TypedArray *)
-  type uint8_ta = Js_of_ocaml.Typed_array.uint8Array Js.t
-  type float32_ta = Js_of_ocaml.Typed_array.float32Array Js.t
-  type arrayBuffer = Js_of_ocaml.Typed_array.arrayBuffer Js.t
-  type bigstring = Js_of_ocaml.Typed_array.Bigstring.t
+  type uint8_ta = Typed_array.uint8Array Js.t
+
+  type float32_ta = Typed_array.float32Array Js.t
+
+  type arrayBuffer = Typed_array.arrayBuffer Js.t
+
+  type bigstring = Typed_array.Bigstring.t
 
   (* BigArray *)
   type float32_bag = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
+
   type uint8_bag = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
   (* Ndarray *)
   type float32_nd = Owl_base_dense_ndarray.S.arr
-  type uint8_nd = (char, Bigarray.int8_unsigned_elt) Owl_base_dense_ndarray.Generic.t
+
+  type uint8_nd = (char, Bigarray.int8_unsigned_elt) Ndarray.t
 
   module Cast = struct
     module Ta = struct
-      let uint8_of_float32 : float32_ta -> uint8_ta = fun arr ->
-        Js.Unsafe.fun_call Js.Unsafe.global##.Uint32Array##.from [| Js.Unsafe.inject arr |]
-      let float32_of_uint8 : uint8_ta -> float32_ta = fun arr ->
-        Js.Unsafe.fun_call Js.Unsafe.global##.Float32Array##.from [| Js.Unsafe.inject arr |]
+      let uint8_of_float32 : float32_ta -> uint8_ta =
+       fun arr ->
+        Js.Unsafe.fun_call Js.Unsafe.global ##. Uint32Array##.from [| Js.Unsafe.inject arr |]
+
+      let float32_of_uint8 : uint8_ta -> float32_ta =
+       fun arr ->
+        Js.Unsafe.fun_call Js.Unsafe.global ##. Float32Array##.from [| Js.Unsafe.inject arr |]
     end
   end
+
   module Reinterpret = struct
     module Uint8 = struct
-      (* Not using `Js_of_ocaml.Typed_array.Bigstring` because we want to keep the shape *)
+      (* Not using `Typed_array.Bigstring` because we want to keep the shape *)
       external _bag_of_ta : uint8_ta -> uint8_bag = "ft_owljs_uint8_bag_of_ta"
+
       let nd_of_ta arr =
         let arr : uint8_ta = arr in
         let arr : uint8_bag = _bag_of_ta arr in
@@ -60,14 +71,17 @@ module Conv = struct
         arr
 
       external _ta_of_bag : uint8_bag -> uint8_ta = "ft_owljs_uint8_ta_of_bag"
+
       let ta_of_nd arr =
         let arr : uint8_nd = arr in
         let arr : uint8_bag = arr in
         let arr : uint8_ta = _ta_of_bag arr in
         arr
     end
+
     module Float32 = struct
       external _bag_of_ta : float32_ta -> float32_bag = "ft_owljs_float32_bag_of_ta"
+
       let nd_of_ta arr =
         let arr : float32_ta = arr in
         let arr : float32_bag = _bag_of_ta arr in
@@ -75,6 +89,7 @@ module Conv = struct
         arr
 
       external _ta_of_bag : float32_bag -> float32_ta = "ft_owljs_float32_ta_of_bag"
+
       let ta_of_nd arr =
         let arr : float32_nd = arr in
         let arr : float32_bag = arr in
@@ -82,7 +97,6 @@ module Conv = struct
         arr
     end
   end
-
 end
 
 module Mnist = struct
@@ -105,21 +119,13 @@ module Mnist = struct
     let rec aux = function
       | [] -> []
       | entry :: tl ->
-          let n = filename_of_entry entry in
-          let a0 = [ a_style "height: 25px;" ] in
-          let a1 = [ a_style "text-align: right;" ] in
-          let a2 = [ a_id n; a_style "text-align: center; width: 175px;" ] in
-          let elt = tr ~a:a0 [ th ~a:a1 [ txt n ]; th ~a:a2 [ txt "unknown" ] ] in
-          elt :: aux tl
+         let n = filename_of_entry entry in
+         [%html "<tr><th>" [txt n] "</th><th class=" [n] ">unknown</th></tr>"]
+         :: aux tl
     in
-    let thead =
-      [%html
-        "<thead style='background: #EBEBEB'><tr><th colspan='2'>" "MNIST dataset status"
-          "</th></tr></thead>"]
-    in
-
-    let attrs = [ a_style "border: 1px solid black; border-radius: 3px;" ] in
-    table ~a:attrs ~thead @@ aux entries
+    table ~a:[a_class ["mnist-status"]]
+          ~thead:[%html "<thead><tr><th colspan='2'>MNIST dataset status</th></tr></thead>"]
+      (aux entries)
 
   let _status_div = lazy (Tyxml_js.To_dom.of_element @@ _create_status_div ())
 
@@ -127,9 +133,13 @@ module Mnist = struct
 
   let _entry_status_div entry =
     let status_div = status_div () in
+    Firebug.console##log status_div;
     let n = filename_of_entry entry in
-    let elt = status_div##querySelector (Js.string ("#" ^ n)) in
-    Js.coerce_opt elt Dom_html.CoerceTo.th (fun _ -> assert false)
+    Printf.eprintf "%s\n%!" n;
+    Ft_js.select status_div ("." ^ n) Dom_html.CoerceTo.th
+
+    (* let elt = status_div##querySelector (Js.string ("#" ^ n)) in *)
+    (* Js.coerce_opt elt Dom_html.CoerceTo.th (fun _ -> assert false) *)
 
   let _update_entry_status entry new_msg =
     (* Printf.eprintf "> _update_entry_status %s -> %s\n%!" (filename_of_entry entry) new_msg; *)
@@ -141,7 +151,7 @@ module Mnist = struct
     let n = filename_of_entry entry in
 
     _update_entry_status entry "Checking...";
-    Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
+    Lwt_js.sleep 0.1 >>= fun () ->
     let arr =
       Ft_js.Idb.get store n >>= function
       | Some arr -> arr |> Lwt.return
@@ -152,19 +162,19 @@ module Mnist = struct
           in
 
           _update_entry_status entry "Downloading... (0%)";
-          Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
+          Lwt_js.sleep 0.1 >>= fun () ->
           Ft_js.array_of_url ~progress (url_of_entry entry) >>= fun arr ->
           _update_entry_status entry "Unzipping...";
-          Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
+          Lwt_js.sleep 0.1 >>= fun () ->
           let arr = Ft_js.decompress_array arr in
 
           _update_entry_status entry "Storing...";
-          Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () ->
+          Lwt_js.sleep 0.1 >>= fun () ->
           Ft_js.Idb.set store n arr >>= fun _ -> Lwt.return arr
     in
     arr >>= fun _ ->
     _update_entry_status entry "&#10003;";
-    Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun () -> arr
+    Lwt_js.sleep 0.1 >>= fun () -> arr
 
   let get () =
     let open Lwt.Infix in
@@ -186,104 +196,36 @@ module Mnist = struct
     in
     Lwt.all promises >|= function [ a; b; c; d ] -> (a, b, c, d) | _ -> assert false
 
-  (* let create_softmax_div probas = *)
-  (*   let open Html in *)
-  (*   let outline = "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;" in *)
-  (*   let rec aux l i = *)
-  (*     match l with *)
-  (*     | x :: tail -> *)
-  (*        let c = Ft.Color.Jet.get x in *)
-  (*        let c = Ft.Color.to_hex_string c in *)
-  (*        ignore c; *)
-  (*        let t = Printf.sprintf "%.0f%%" (x *. 100.) in *)
-  (*        let t = [ i |> string_of_int |> Html.txt; br (); Html.txt t ] in *)
-  (*        let style = *)
-  (*          "width: 40px; height: 40px; text-align: center; color: white;" ^ outline *)
-  (*          ^ "font-size: small;" *)
-  (*        in *)
-  (*        let style = Printf.sprintf "%s; background: %s" style c in *)
-  (*        let elt = td ~a:[ a_style style ] t in *)
-  (*        elt :: aux tail (i + 1) *)
-  (*     | [] -> [] *)
-  (*   in *)
-  (*   table @@ [ tr @@ aux probas 0 ] *)
-
-  let create_digit_canvas : Conv.uint8_ta -> 'a = fun img ->
+  let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
     let img =
-      img
-      |> Conv.Reinterpret.Uint8.nd_of_ta
-      |> (fun x -> Owl_base_dense_ndarray_generic.reshape x [| 28; 28; 1 |])
-      |> (fun x -> Owl_base_dense_ndarray_generic.repeat x [| 1; 1; 3 |])
-      |> Owl_base_dense_ndarray_generic.pad ~v:(char_of_int 255) [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
+      img |> Conv.Reinterpret.Uint8.nd_of_ta
+      |> (fun x -> Ndarray.reshape x [| 28; 28; 1 |])
+      |> (fun x -> Ndarray.repeat x [| 1; 1; 3 |])
+      |> Ndarray.pad ~v:(char_of_int 255) [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
       |> Conv.Reinterpret.Uint8.ta_of_nd
     in
-
-    let elt = Dom_html.createCanvas Dom_html.window##.document in
-    elt##.width := 28;
-    elt##.height := 28;
-    elt##.style##.width := Js.string "100%";
-    elt##.style##.height := Js.string "100%";
-    let ctx = elt##getContext Dom_html._2d_ in
-    let idata = ctx##getImageData  0. 0. 28. 28. in
+    canvas##.width := 28;
+    canvas##.height := 28;
+    canvas##.style##.height := Js.string "100%";
+    canvas##.style##.width := Js.string "100%";
+    let ctx = canvas##getContext Dom_html._2d_ in
+    let idata = ctx##getImageData 0. 0. 28. 28. in
     Firebug.console##log idata##.data;
     Js.Unsafe.meth_call idata##.data "set" [| Js.Unsafe.inject img |] |> ignore;
-    ctx##putImageData idata 0. 0.;
+    ctx##putImageData idata 0. 0.
+
+  let html_pred_overview img lab pred =
+    let txt = Format.kasprintf Html.txt in
+    let txt' = Format.kasprintf Html.txt in
+    let aux i x =
+      let bg = "background: " ^ Ft.Color.(Jet.get x |> to_hex_string) in
+      let cls = [ (if i == lab then "good-one" else "") ] in
+      [%html "<div style='" bg "' class='" cls "'>" [txt "%d" i] "<br/>" [txt' "%.0f%%" (x *. 100.)]"</div>"]
+    in
+    let elt =
+      [%html "<div class='mnist-pred'><div><canvas></canvas></div>" (List.mapi aux pred) "</div>"]
+      |> Tyxml_js.To_dom.of_element
+    in
+    Ft_js.select elt "canvas" Dom_html.CoerceTo.canvas |> put_digit_to_canvas img;
     elt
-
-  let truc : Conv.uint8_ta -> int -> float list -> 'a = fun image lab pred ->
-    let open Html in
-    let style_out =
-      "border: 1px solid black; border-radius: 3px; padding: 1px; width: max-content; "
-      ^ "margin: 1px; "
-    in
-    let style_in =
-      "text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; "
-      ^ "width: 40px; height: 40px; "
-      ^ "text-align: center; color: white; font-size: small; overflow: hidden; "
-      ^ "display: inline-block; margin: 1px; vertical-align: middle; line-height: 20px; "
-    in
-
-    let rec aux l i =
-      match l with
-      | x :: tail ->
-         let bg =
-           Ft.Color.Jet.get x |> Ft.Color.to_hex_string |> Printf.sprintf "background: %s; "
-         in
-         let t = [
-             i |> string_of_int |> Html.txt;
-             br ();
-             Html.txt @@ Printf.sprintf "%.0f%%" (x *. 100.);
-           ]
-         in
-         let style =
-           if i == lab then style_in ^ bg ^ "outline: 2px solid LimeGreen; " else style_in ^ bg
-         in
-         let elt =
-           div ~a:[ a_style style ] t
-           |> Tyxml_js.To_dom.of_element
-         in
-         elt :: aux tail (i + 1)
-      | [] -> []
-    in
-
-    let create ?style ?inner f children =
-      let elt = f Dom_html.window##.document in
-      (match style with
-      | None -> ()
-      | Some style -> elt##setAttribute (Js.string "style") (Js.string style));
-      (match inner with
-      | None -> ()
-      | Some inner -> elt##.innerHTML := (Js.string inner));
-      let rec aux = function
-        | [] -> ()
-        | hd::tl -> Dom.appendChild elt hd; aux tl
-      in
-      aux children;
-      Js.Opt.get (Dom_html.CoerceTo.element elt) (fun _ -> assert false)
-    in
-
-    (create Dom_html.createDiv ~style:style_in [create_digit_canvas image]
-     ::aux pred 0)
-    |> create Dom_html.createDiv ~style:style_out
-
 end

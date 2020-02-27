@@ -26,5 +26,5 @@
     vertical-align: middle;
     line-height: 20px;
 }
-.mnist-pred .good-one { outline: 2px solid LimeGreen; }
+.mnist-pred .good-one { outline: 2px solid black; }
 /* ************************************************************************** */

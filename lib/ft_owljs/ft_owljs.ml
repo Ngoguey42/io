@@ -219,7 +219,7 @@ module Mnist = struct
     let txt = Format.kasprintf Html.txt in
     let txt' = Format.kasprintf Html.txt in
     let aux i x =
-      let bg = "background: " ^ Ft.Color.(Jet.get x |> to_hex_string) in
+      let bg = "background: " ^ Ft.Color.(Firegrass.get x |> to_hex_string) in
       let cls = [ (if i == lab then "good-one" else "") ] in
       [%html "<div style='" bg "' class='" cls "'>" [txt "%d" i] "<br/>" [txt' "%.0f%%" (x *. 100.)]"</div>"]
     in

@@ -39,7 +39,7 @@ module Make_neural (Graph : GRAPH) = struct
       let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
       let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
       let out_node =
-        Graph.conv2d ~padding ~act_typ:Graph.Neuron.Activation.None
+        Graph.conv2d ~padding
           [| kx; ky; upstream.filters; out_filters |]
           [| sx; sy |] upstream.node
       in
@@ -55,7 +55,7 @@ module Make_neural (Graph : GRAPH) = struct
       let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
       let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
       let node =
-        Graph.max_pool2d ~padding:Owl_types.VALID ~act_typ:Graph.Neuron.Activation.None [| kx; ky |]
+        Graph.max_pool2d ~padding:Owl_types.VALID [| kx; ky |]
           [| sx; sy |] upstream.node
       in
       { upstream with node }

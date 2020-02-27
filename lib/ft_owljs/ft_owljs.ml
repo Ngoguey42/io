@@ -47,6 +47,9 @@ module Conv = struct
 
   type uint8_nd = (char, Bigarray.int8_unsigned_elt) Ndarray.t
 
+  let list_of_ta : ('a, 'b) Typed_array.typedArray Js.t -> 'a list = fun arr ->
+    List.init arr##.length (fun i -> Typed_array.unsafe_get arr i)
+
   module Cast = struct
     module Ta = struct
       let uint8_of_float32 : float32_ta -> uint8_ta =
@@ -133,9 +136,7 @@ module Mnist = struct
 
   let _entry_status_div entry =
     let status_div = status_div () in
-    Firebug.console##log status_div;
     let n = filename_of_entry entry in
-    Printf.eprintf "%s\n%!" n;
     Ft_js.select status_div ("." ^ n) Dom_html.CoerceTo.th
 
     (* let elt = status_div##querySelector (Js.string ("#" ^ n)) in *)
@@ -210,7 +211,7 @@ module Mnist = struct
     canvas##.style##.width := Js.string "100%";
     let ctx = canvas##getContext Dom_html._2d_ in
     let idata = ctx##getImageData 0. 0. 28. 28. in
-    Firebug.console##log idata##.data;
+    (* Firebug.console##log idata##.data; *)
     Js.Unsafe.meth_call idata##.data "set" [| Js.Unsafe.inject img |] |> ignore;
     ctx##putImageData idata 0. 0.
 

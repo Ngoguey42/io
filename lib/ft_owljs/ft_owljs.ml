@@ -195,7 +195,10 @@ module Mnist = struct
         _entry_data_of_idb `Test_labs store;
       ]
     in
-    Lwt.all promises >|= function [ a; b; c; d ] -> (a, b, c, d) | _ -> assert false
+    Lwt.all promises >|= fun l ->
+    Ft_js.Idb.close store.db;
+
+    match l with [ a; b; c; d ] -> (a, b, c, d) | _ -> assert false
 
   let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
     let img =

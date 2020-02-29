@@ -58,13 +58,18 @@ module CryptoJs = struct
   end
 end
 
-let wrap_promise p =
+class type ['a] promise =
+  object
+    method then_ : ('a -> bool Js.t) Js.callback -> Js.Unsafe.any Js.t Js.meth
+  end
+
+let wrap_promise : 'a promise Js.t -> 'a Lwt.t = fun p ->
   let lwt, lwt' = Lwt.wait () in
   let callback res =
     Lwt.wakeup lwt' res;
     Js._true
   in
-  Js.Unsafe.meth_call p "then" [| callback |> Dom.handler |> Js.Unsafe.inject |] |> ignore;
+  p##then_ (Js.wrap_callback callback) |> ignore;
   lwt
 
 let decompress_array arr =

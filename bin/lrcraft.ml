@@ -51,6 +51,15 @@ let main () =
   Ft_owljs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
+  Ft_owljs.Tf.main train_imgs train_labs test_imgs test_labs >>= fun _ ->
+  (* Js.Unsafe.fun_call Js.Unsafe.global##.ft_tf_test_ [| *)
+  (*                      train_imgs|> Js.Unsafe.inject;  train_labs|> Js.Unsafe.inject;  test_imgs|> Js.Unsafe.inject;  test_labs|> Js.Unsafe.inject; *)
+  (*                    |] *)
+  (* |> Ft_js.wrap_promise >>= fun _ -> *)
+
+  Printf.eprintf "Done\n%!";
+  if 42 == 42 then assert false;
+
   let slice a b arr =
     Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
   in
@@ -60,11 +69,8 @@ let main () =
     input2d 28 28 1
     |> conv2d (`One 4) false (`One 2) 10 |> relu
     |> conv2d (`One 3) false (`One 2) 10 |> relu
-
     |> conv2d (`One 3) false (`One 1) 10 |> relu
     |> conv2d (`One 3) false (`One 1) 10
-
-    (* |> conv2d (`One 4) false (`One 2) 10 *)
 
     |> max_pool2d (`One 2) (`One 2) |> softmax2d |> get_network
   in
@@ -73,14 +79,16 @@ let main () =
   let optim = Ft_neural.Adam.create ~beta1:0.9 ~beta2:0.999 nn in
 
   let rec aux optim = function
-    | 1000 -> Lwt.return optim
+    | 1 -> Lwt.return optim
+    (* | 1000 -> Lwt.return optim *)
     | i ->
 
-       Printf.printf "> %d\n%!" i;
-       let time = (new%js Js.date_now)##valueOf /. 1000. in
+        Printf.printf "> %d\n%!" i;
+        let time = (new%js Js.date_now)##valueOf /. 1000. in
 
         let j = Random.int 55000 in
-        let batch_size = 600 in
+        let batch_size = 5 in
+        (* let batch_size = 600 in *)
         let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
         let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_owljs.Conv.list_of_ta in
         let xs =

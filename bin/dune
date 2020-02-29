@@ -9,6 +9,7 @@
                 ../vendored/core.min.js
                 ../vendored/sha256.min.js
                 ../vendored/sha1.min.js
+;                ../vendored/tf.js
                 ../lib/ft_owljs/stubs.js
                 ))
 

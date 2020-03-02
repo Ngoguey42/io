@@ -36,15 +36,13 @@ class type tensor =
 class type variable =
   object
     inherit tensor
+
     method name : Js.js_string Js.t Js.readonly_prop
 
     method val_ : tensor Js.t Js.readonly_prop
   end
 
-class type named_tensor_map =
-  object
-    (* method get : Js.js_string Js.t -> tensor Js.t Js.meth *)
-  end
+class type named_tensor_map = object end
 
 class type layer =
   object
@@ -69,7 +67,6 @@ class type optimizer =
     method applyGradients_array : tensor Js.t Js.js_array Js.t -> unit Js.meth
 
     method applyGradients_map : named_tensor_map Js.t -> unit Js.meth
-
   end
 
 class type adam =
@@ -97,160 +94,156 @@ class type model =
 
 class type variable_grads_ret =
   object
-    method value: tensor Js.t Js.readonly_prop
-    method grads: named_tensor_map Js.t Js.readonly_prop
+    method value : tensor Js.t Js.readonly_prop
+
+    method grads : named_tensor_map Js.t Js.readonly_prop
   end
 
-let variable_grads : (unit -> tensor Js.t) Js.callback -> tensor Js.t * named_tensor_map Js.t =
-  fun f ->
-  let open Js.Unsafe in
-  let ret : variable_grads_ret Js.t = fun_call global##.tf##.variableGrads [| inject f |] in
-  ret##.value, ret##.grads
-
 let tensor_of_ta : int array -> float32_ta -> tensor Js.t =
-  fun shape ta ->
+ fun shape ta ->
   let open Js.Unsafe in
   fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject |]
 
 let one_hot_of_ta : int -> uint8_ta -> tensor Js.t =
-  fun width arr ->
+ fun width arr ->
   let open Js.Unsafe in
   let arr = fun_call global##.tf##.tensor1d [| inject arr; "int32" |> Js.string |> inject |] in
   fun_call global##.tf##.oneHot [| inject arr; inject width |]
 
-let ones : int array -> tensor Js.t =
-  fun shape ->
-  let open Js.Unsafe in
-  fun_call global##.tf##.ones [| shape |> Js.array |> inject |]
-
-let input : ?dtype:_ -> int array -> symbolicTensor Js.t =
-  fun ?(dtype = `Float32) shape ->
-  let open Js.Unsafe in
-  let params =
-    object%js (self)
-      val shape = Js.array shape
-
-      val dtype = Js.string (match dtype with `Float32 -> "float32" | `Uint8 -> "uint8")
-    end
-  in
-  fun_call global##.tf##.input [| params |> inject |]
-
 module Ops = struct
   open Js.Unsafe
 
-  let clip_by_value : float -> float -> tensor Js.t -> tensor Js.t = fun min max x ->
-    fun_call global##.tf##.clipByValue [| inject x ; inject min ; inject max |]
+  let ones : int array -> tensor Js.t =
+   fun shape -> fun_call global##.tf##.ones [| shape |> Js.array |> inject |]
 
-  let neg : tensor Js.t -> tensor Js.t = fun x ->
-    fun_call global##.tf##.neg [| inject x |]
+  let clip_by_value : float -> float -> tensor Js.t -> tensor Js.t =
+   fun min max x -> fun_call global##.tf##.clipByValue [| inject x; inject min; inject max |]
 
-  let mul : tensor Js.t -> tensor Js.t -> tensor Js.t = fun x x' ->
-    fun_call global##.tf##.mul [| inject x; inject x' |]
+  let neg : tensor Js.t -> tensor Js.t = fun x -> fun_call global##.tf##.neg [| inject x |]
 
-  let log : tensor Js.t -> tensor Js.t = fun x ->
-    fun_call global##.tf##.log [| inject x |]
+  let mul : tensor Js.t -> tensor Js.t -> tensor Js.t =
+   fun x x' -> fun_call global##.tf##.mul [| inject x; inject x' |]
 
-  let sum : ?axis:int -> bool -> tensor Js.t -> tensor Js.t = fun ?axis keepdims x ->
-    let axis = match axis with
-      | None -> Js.Opt.empty
-      | Some axis -> Js.Opt.return axis
-    in
+  let log : tensor Js.t -> tensor Js.t = fun x -> fun_call global##.tf##.log [| inject x |]
+
+  let sum : ?axis:int -> bool -> tensor Js.t -> tensor Js.t =
+   fun ?axis keepdims x ->
+    let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.sum [| inject x; inject axis; inject keepdims |]
 
-  let mean : ?axis:int -> bool -> tensor Js.t -> tensor Js.t = fun ?axis keepdims x ->
-    let axis = match axis with
-      | None -> Js.Opt.empty
-      | Some axis -> Js.Opt.return axis
-    in
+  let mean : ?axis:int -> bool -> tensor Js.t -> tensor Js.t =
+   fun ?axis keepdims x ->
+    let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.mean [| inject x; inject axis; inject keepdims |]
 
-  let min : ?axis:int -> bool -> tensor Js.t -> tensor Js.t = fun ?axis keepdims x ->
-    let axis = match axis with
-      | None -> Js.Opt.empty
-      | Some axis -> Js.Opt.return axis
-    in
+  let min : ?axis:int -> bool -> tensor Js.t -> tensor Js.t =
+   fun ?axis keepdims x ->
+    let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.min [| inject x; inject axis; inject keepdims |]
 
-  let max : ?axis:int -> bool -> tensor Js.t -> tensor Js.t = fun ?axis keepdims x ->
-    let axis = match axis with
-      | None -> Js.Opt.empty
-      | Some axis -> Js.Opt.return axis
-    in
+  let max : ?axis:int -> bool -> tensor Js.t -> tensor Js.t =
+   fun ?axis keepdims x ->
+    let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.max [| inject x; inject axis; inject keepdims |]
-
 end
 
+module Layers = struct
+  let input : ?dtype:_ -> int array -> symbolicTensor Js.t =
+   fun ?(dtype = `Float32) shape ->
+    let open Js.Unsafe in
+    let params =
+      object%js (self)
+        val shape = Js.array shape
+
+        val dtype = Js.string (match dtype with `Float32 -> "float32" | `Uint8 -> "uint8")
+      end
+    in
+    fun_call global##.tf##.input [| params |> inject |]
+
+  let conv2d : ?weights:float32_nd * float32_nd -> _ -> _ -> _ -> _ -> conv2d Js.t =
+   fun ?weights kernel_size padding stride out_filters ->
+    let padding = match padding with true -> "same" | false -> "valid" in
+    let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
+    let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
+    let weights =
+      match weights with
+      | None -> Js.Opt.empty
+      | Some (kernel, bias) ->
+          let shape = Ndarray.shape kernel in
+          let kernel = kernel |> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
+          let shape = Ndarray.shape bias in
+          let bias = bias |> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
+          [| kernel; bias |] |> Js.array |> Js.Opt.return
+    in
+    let params =
+      object%js (self)
+        val kernelSize = Js.array [| kx; ky |]
+
+        val filters = out_filters
+
+        val strides = Js.array [| sx; sy |]
+
+        val padding = Js.string padding
+
+        val weights = weights
+      end
+    in
+    let open Js.Unsafe in
+    fun_call global##.tf##.layers##.conv2d [| inject params |]
+
+  let max_pool2d kernel_size stride : layer Js.t =
+    let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
+    let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
+    let params =
+      object%js (self)
+        val poolSize = Js.array [| kx; ky |]
+
+        val strides = Js.array [| sx; sy |]
+      end
+    in
+    let open Js.Unsafe in
+    fun_call global##.tf##.layers##.maxPooling2d [| inject params |]
+
+  let relu () : layer Js.t =
+    let open Js.Unsafe in
+    let params = object%js (self) end in
+    fun_call global##.tf##.layers##.reLU [| inject params |]
+
+  let softmax ?(axis = 3) () : layer Js.t =
+    let params =
+      object%js (self)
+        val axis = axis
+      end
+    in
+    let open Js.Unsafe in
+    fun_call global##.tf##.layers##.softmax [| inject params |]
+
+  let classify : layer Js.t -> [> ] =
+   fun l ->
+    match Js.to_string l##getClassName with
+    | "ReLU" -> `Relu l
+    | "Softmax" -> `Softmax l
+    | "MaxPooling2D" -> `Maxpool2d
+    | "Conv2D" -> `Conv2d (Js.Unsafe.coerce l :> conv2d Js.t)
+    | "Sequential" | "Model" -> `Model (Js.Unsafe.coerce l :> model Js.t)
+    | name -> failwith ("unknown class name:" ^ name)
+end
+
+let variable_grads : (unit -> tensor Js.t) Js.callback -> tensor Js.t * named_tensor_map Js.t =
+ fun f ->
+  let open Js.Unsafe in
+  let ret : variable_grads_ret Js.t = fun_call global##.tf##.variableGrads [| inject f |] in
+  (ret##.value, ret##.grads)
+
 let categorical_crossentropy : float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
-  fun epsilon pred truth ->
+ fun epsilon pred truth ->
   (* let b, h, w, c = pred##.shape in *)
   pred
   |> Ops.clip_by_value epsilon (1. -. epsilon)
-  |> Ops.log
-  |> Ops.mul truth
-  |> Ops.neg
-  |> Ops.sum ~axis:(-1) true
-  |> Ops.mean ~axis:0 true
-
-let conv2d : ?weights:float32_nd * float32_nd -> _ -> _ -> _ -> _ -> conv2d Js.t =
-  fun ?weights kernel_size padding stride out_filters ->
-  let padding = match padding with true -> "same" | false -> "valid" in
-  let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
-  let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
-  let weights =
-    match weights with
-    | None -> Js.Opt.empty
-    | Some (kernel, bias) ->
-       let shape = Ndarray.shape kernel in
-       let kernel = kernel |> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
-       let shape = Ndarray.shape bias in
-       let bias = bias |> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
-       [| kernel; bias |] |> Js.array |> Js.Opt.return
-  in
-  let params =
-    object%js (self)
-      val kernelSize = Js.array [| kx; ky |]
-
-      val filters = out_filters
-
-      val strides = Js.array [| sx; sy |]
-
-      val padding = Js.string padding
-
-      val weights = weights
-    end
-  in
-  let open Js.Unsafe in
-  fun_call global##.tf##.layers##.conv2d [| inject params |]
-
-let max_pool2d kernel_size stride : layer Js.t =
-  let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
-  let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
-  let params =
-    object%js (self)
-      val poolSize = Js.array [| kx; ky |]
-
-      val strides = Js.array [| sx; sy |]
-    end
-  in
-  let open Js.Unsafe in
-  fun_call global##.tf##.layers##.maxPooling2d [| inject params |]
-
-let relu () : layer Js.t =
-  let open Js.Unsafe in
-  let params = object%js (self) end in
-  fun_call global##.tf##.layers##.reLU [| inject params |]
-
-let softmax ?(axis = 3) () : layer Js.t =
-  let params =
-    object%js (self)
-      val axis = axis
-    end
-  in
-  let open Js.Unsafe in
-  fun_call global##.tf##.layers##.softmax [| inject params |]
+  |> Ops.log |> Ops.mul truth |> Ops.neg |> Ops.sum ~axis:(-1) true |> Ops.mean ~axis:0 true
 
 let model : symbolicTensor Js.t list -> symbolicTensor Js.t list -> model Js.t =
-  fun inputs outputs ->
+ fun inputs outputs ->
   let params =
     object%js (self)
       val inputs = inputs |> Array.of_list |> Js.array
@@ -262,23 +255,23 @@ let model : symbolicTensor Js.t list -> symbolicTensor Js.t list -> model Js.t =
   fun_call global##.tf##.model [| inject params |]
 
 let chain :
-      symbolicTensor Js.t -> symbolicTensor Js.t list -> symbolicTensor Js.t -> symbolicTensor Js.t =
-  fun a b_inputs b ->
+    symbolicTensor Js.t -> symbolicTensor Js.t list -> symbolicTensor Js.t -> symbolicTensor Js.t =
+ fun a b_inputs b ->
   let b = model b_inputs [ b ] in
   b##apply a
 
 let adam : float -> float -> float -> float -> adam Js.t =
-  fun lr beta1 beta2 epsilon ->
+ fun lr beta1 beta2 epsilon ->
   let open Js.Unsafe in
   fun_call global##.tf##.train##.adam [| inject lr; inject beta1; inject beta2; inject epsilon |]
 
 let sgd : float -> optimizer Js.t =
-  fun lr ->
+ fun lr ->
   let open Js.Unsafe in
   fun_call global##.tf##.train##.sgd [| inject lr |]
 
 let compile : model Js.t -> optimizer Js.t -> string -> unit =
-  fun m optim loss ->
+ fun m optim loss ->
   let params =
     object%js (self)
       val optimizer = optim
@@ -289,38 +282,28 @@ let compile : model Js.t -> optimizer Js.t -> string -> unit =
   let open Js.Unsafe in
   meth_call m "compile" [| inject params |]
 
-let classify_layer : layer Js.t -> [> ] =
-  fun l ->
-  match Js.to_string l##getClassName with
-  | "ReLU" -> `Relu l
-  | "Softmax" -> `Softmax l
-  | "MaxPooling2D" -> `Maxpool2d
-  | "Conv2D" -> `Conv2d (Js.Unsafe.coerce l :> conv2d Js.t)
-  | "Sequential" | "Model" -> `Model (Js.Unsafe.coerce l :> model Js.t)
-  | name -> failwith ("unknown class name:" ^ name)
-
 let main train_imgs train_labs test_imgs test_labs =
   let ( ||> ) : symbolicTensor Js.t -> < layer ; .. > Js.t -> symbolicTensor Js.t =
-    fun a b ->
-    b##apply a in
+   fun a b -> b##apply a
+  in
 
   Printf.eprintf "Coucou\n%!";
-  let weights = [| ones [| 4; 4; 1; 10 |]; ones [| 10 |] |] in
+  let weights = [| Ops.ones [| 4; 4; 1; 10 |]; Ops.ones [| 10 |] |] in
 
   Printf.eprintf "a\n%!";
-  let x = input [| 28; 28; 1 |] in
+  let x = Layers.input [| 28; 28; 1 |] in
   Printf.eprintf "b\n%!";
   let y =
     x
-    ||> conv2d (`One 4) false (`One 2) 10
-    ||> relu ()
-    ||> conv2d (`One 3) false (`One 2) 10
-    ||> relu ()
-    ||> conv2d (`One 3) false (`One 1) 10
-    ||> relu ()
-    ||> conv2d (`One 3) false (`One 1) 10
-    ||> max_pool2d (`One 2) (`One 2)
-    ||> softmax ()
+    ||> Layers.conv2d (`One 4) false (`One 2) 10
+    ||> Layers.relu ()
+    ||> Layers.conv2d (`One 3) false (`One 2) 10
+    ||> Layers.relu ()
+    ||> Layers.conv2d (`One 3) false (`One 1) 10
+    ||> Layers.relu ()
+    ||> Layers.conv2d (`One 3) false (`One 1) 10
+    ||> Layers.max_pool2d (`One 2) (`One 2)
+    ||> Layers.softmax ()
   in
   Printf.eprintf "c\n%!";
   let m = model [ x ] [ y ] in

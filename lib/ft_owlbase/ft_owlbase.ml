@@ -34,6 +34,7 @@ module Make_neural (Graph : GRAPH) = struct
 
 
   module Network_builder = struct
+    (* TODO: Remove *)
     (* Base functions:
        https://ocaml.xyz/owl/owl-base/Owl_neural_graph/Make/index.html
      *)
@@ -160,4 +161,42 @@ module Make_neural (Graph : GRAPH) = struct
       { r with step; rgrad; rgrad_sq }, updates
   end
 
+end
+
+module Init = struct
+  (* Shamelessly copied from owl-base *)
+
+  let calc_fans s =
+    let _prod x = Array.fold_left (fun p q -> p * q) 1 x in
+    let l = Array.length s in
+    let fan_in, fan_out =
+      (* for matrices *)
+      if l = 2 then (float_of_int s.(0), float_of_int s.(1))
+        (* for convolution kernels 1d, 2d, 3d *)
+      else if l > 2 && l < 6 then
+        let s' = Array.sub s 0 (l - 2) in
+        let receptive = _prod s' in
+        let i = s.(l - 2) * receptive |> float_of_int in
+        let o = s.(l - 1) * receptive |> float_of_int in
+        (i, o) (* for no specific assumptions *)
+      else
+        let i_o = _prod s |> float_of_int |> Stdlib.sqrt in
+        (i_o, i_o)
+    in
+    (fan_in, fan_out)
+
+  let run ?(kind = Bigarray.Float32) t s =
+    let fan_in, fan_out = calc_fans s in
+    let r0 = sqrt (1. /. fan_in) in
+    let r1 = sqrt (6. /. (fan_in +. fan_out)) in
+    let r2 = sqrt (2. /. (fan_in +. fan_out)) in
+    let uniform, gaussian, float_to_elt = Ndarray.(uniform, gaussian, float_to_elt) in
+    match t with
+    | `Uniform (a, b) -> uniform kind ~a:(float_to_elt a) ~b:(float_to_elt b) s
+    | `Gaussian (mu, sigma) -> gaussian kind ~mu:(float_to_elt mu) ~sigma:(float_to_elt sigma) s
+    | `Standard -> uniform kind ~a:(float_to_elt (-.r0)) ~b:(float_to_elt r0) s
+    | `Tanh -> uniform kind ~a:(float_to_elt (-.r1)) ~b:(float_to_elt r1) s
+    | `GlorotUniform -> uniform kind ~a:(float_to_elt (-.r1)) ~b:(float_to_elt r1) s
+    | `GlorotNormal -> gaussian kind ~sigma:(float_to_elt r2) s
+    | `LecunNormal -> gaussian kind ~sigma:(float_to_elt r0) s
 end

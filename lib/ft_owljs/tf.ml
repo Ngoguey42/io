@@ -10,6 +10,7 @@ module Typed_array = Js_of_ocaml.Typed_array
 
 type uint8_ta = Typed_array.uint8Array Js.t
 type float32_ta = Typed_array.float32Array Js.t
+type float32_nd = (float, Bigarray.float32_elt) Ndarray.t
 
 class type symbolicTensor =
   object
@@ -50,11 +51,11 @@ class type model =
     method predict : tensor Js.t -> tensor Js.t Js.meth
   end
 
-let tensor_of_ta : int array -> float32_ta Js.t -> tensor Js.t = fun shape ta ->
+let tensor_of_ta : int array -> float32_ta -> tensor Js.t = fun shape ta ->
   let open Js.Unsafe in
   fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject  |]
 
-let one_hot_of_ta : int -> uint8_ta Js.t -> tensor Js.t = fun width arr ->
+let one_hot_of_ta : int -> uint8_ta -> tensor Js.t = fun width arr ->
   let open Js.Unsafe in
   let arr = fun_call global##.tf##.tensor1d [| inject arr; "int32" |> Js.string |> inject |] in
   fun_call global##.tf##.oneHot [| inject arr; inject width |]
@@ -71,12 +72,20 @@ let input : int array -> symbolicTensor Js.t = fun shape ->
   in
   fun_call global##.tf##.input [| params |> inject |]
 
-let conv2d : ?weights:tensor Js.t array -> _ -> _ -> _ -> _ -> conv2d Js.t =
+let conv2d : ?weights:(float32_nd * float32_nd) -> _ -> _ -> _ -> _ -> conv2d Js.t =
   fun ?weights kernel_size padding stride out_filters ->
   let padding = match padding with true -> "same" | false -> "valid" in
   let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
   let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
-  let weights = match weights with Some w -> Js.Opt.return w | None -> Js.Opt.empty in
+  let weights = match weights with
+    | None -> Js.Opt.empty
+    | Some (kernel, bias) ->
+       let shape = Ndarray.shape kernel in
+       let kernel = kernel|> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
+       let shape = Ndarray.shape bias in
+       let bias = bias|> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
+       [| kernel, bias |] |> Js.array |> Js.Opt.return
+  in
   let params = object%js (self)
       val kernelSize = Js.array [| kx; ky |]
       val filters = out_filters
@@ -121,8 +130,6 @@ let model : symbolicTensor Js.t list -> symbolicTensor Js.t list -> model Js.t =
   let open Js.Unsafe in
   fun_call global##.tf##.model [| inject params |]
 
-let (||>) : symbolicTensor Js.t -> layer Js.t -> symbolicTensor Js.t = fun a b -> b##apply a
-
 let adam : float -> float -> float -> float -> adam Js.t = fun lr beta1 beta2 epsilon ->
   let open Js.Unsafe in
   fun_call global##.tf##.train##.adam [| inject lr; inject beta1; inject beta2; inject epsilon |]
@@ -138,6 +145,8 @@ let compile : model Js.t -> optimizer Js.t -> string -> unit = fun m optim loss 
 
 
 let main train_imgs train_labs test_imgs test_labs =
+
+  let (||>) : symbolicTensor Js.t -> layer Js.t -> symbolicTensor Js.t = fun a b -> b##apply a in
 
   Printf.eprintf "Coucou\n%!";
   let weights = [| ones [| 4; 4; 1; 10 |]; ones [| 10 |] |] in

@@ -8,8 +8,9 @@ module Ndarray = Owl_base_dense_ndarray_generic
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Typed_array = Js_of_ocaml.Typed_array
 
-module Tf = Tf
+module Tfjs_api = Tfjs_api
 module Conv = Conv
+module Deeplearning = Deeplearning
 
 (* module MyHash = Ft_js.CryptoJs.MakeHash(struct let algo = `SHA1 end) *)
 (* module I = *)

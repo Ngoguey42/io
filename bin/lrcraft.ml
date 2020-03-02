@@ -51,7 +51,8 @@ let main () =
   Ft_owljs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
-  Ft_owljs.Tf.main train_imgs train_labs test_imgs test_labs >>= fun _ ->
+  Ft_owljs.Deeplearning.main train_imgs train_labs test_imgs test_labs >>= fun _ ->
+  (* Ft_owljs.Tf.main train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
   (* Js.Unsafe.fun_call Js.Unsafe.global##.ft_tf_test_ [| *)
   (*                      train_imgs|> Js.Unsafe.inject;  train_labs|> Js.Unsafe.inject;  test_imgs|> Js.Unsafe.inject;  test_labs|> Js.Unsafe.inject; *)
   (*                    |] *)

@@ -29,7 +29,9 @@ let _ =
     Lwt.return ()
   in
   let main () =
+    Printf.printf "Hello\n%!";
     Js_of_ocaml_lwt.Lwt_js_events.onload () >>= fun _ ->
+    Printf.printf "Hello (onload)\n%!";
     display header;
 
     let pagename =

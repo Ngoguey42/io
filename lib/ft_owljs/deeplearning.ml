@@ -9,19 +9,22 @@ module Graph = Owl_neural_generic.Make_Embedded (Owl_base_dense_ndarray.S)
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module StringMap = Map.Make (String)
 module StringSet = Set.Make (String)
+module Typed_array = Js_of_ocaml.Typed_array
 
 type float32_nd = (float, Bigarray.float32_elt) Ndarray.t
 
 type int32_nd = (int, Bigarray.int32_elt) Ndarray.t
 
-(* TODO: Move what can be moved to ft_owlbase *)
+(* TODO: Move what can be moved to ft_owlbase
+   rename to network ? make type network a type t? make Network_builder a Builder ?
+*)
 
 type conv_optimizer =
   | Adam of {
       (* beta 1 *)
-      beta_rgrad : float;
+      beta1 : float;
       (* beta 2 *)
-      beta_rgrad_sq : float;
+      beta2 : float;
       (* number of updates performed *)
       step : int;
       (* Running gradient of kernel *)
@@ -77,10 +80,11 @@ module Network_builder = struct
     let optimizer =
       match optimizer with
       | `SGD -> SGD
-      | `Adam (beta_rgrad, beta_rgrad_sq) ->
+      | `Adam (beta1, beta2) ->
           Adam
             {
-              beta_rgrad; beta_rgrad_sq;
+              beta1;
+              beta2;
               step = 0;
               rgrad_kernel = Ndarray.zeros Bigarray.Float32 kshape;
               rgrad_sq_kernel = Ndarray.zeros Bigarray.Float32 kshape;
@@ -106,13 +110,13 @@ module Network_builder = struct
 end
 
 let str t =
+  (* TODO: Throw away? *)
   let t = t##toString in
   let t = t##replace_string (Js.string "Tensor") (Js.string "") in
   let t = t##trim in
   t |> Js.to_string
 
 module Tfjs = struct
-
   type optimization_map = (float -> Tfjs_api.tensor Js.t -> unit) StringMap.t
 
   type ('a, 'b) accu = {
@@ -123,7 +127,38 @@ module Tfjs = struct
 
   type tflayer = Tfjs_api.layer Js.t
 
-  let tflayer_of_layer : layer -> tflayer =
+  let unpack_optimizations : layer -> tflayer -> optimization_map =
+   fun layer tflayer ->
+    match (layer, Tfjs_api.Layers.classify tflayer) with
+    | Conv2d { optimizer = SGD; _ }, `Conv2d tflayer ->
+        let apply_grads which lr grad =
+          let weights =
+            match which with `Kernel -> tflayer##.kernel##.val_ | `Bias -> tflayer##.bias##.val_
+          in
+          Tfjs_api.sgd_updater#update weights lr grad
+        in
+        let kname = Printf.sprintf "%s/kernel" (Js.to_string tflayer##.name) in
+        let bname = Printf.sprintf "%s/bias" (Js.to_string tflayer##.name) in
+        StringMap.empty
+        |> StringMap.add kname (apply_grads `Kernel)
+        |> StringMap.add bname (apply_grads `Bias)
+    | Conv2d { optimizer = Adam conf; _ }, `Conv2d tflayer ->
+        let updater = Tfjs_api.create_adam_updater 1e-10 conf.beta1 conf.beta2 conf.step in
+        let kernel_updater = updater conf.rgrad_kernel conf.rgrad_sq_kernel in
+        let bias_updater = updater conf.rgrad_bias conf.rgrad_sq_bias in
+        let apply_grads which lr grad =
+          match which with
+          | `Kernel -> kernel_updater#update tflayer##.kernel##.val_ lr grad
+          | `Bias -> bias_updater#update tflayer##.bias##.val_ lr grad
+        in
+        let kname = Printf.sprintf "%s/kernel" (Js.to_string tflayer##.name) in
+        let bname = Printf.sprintf "%s/bias" (Js.to_string tflayer##.name) in
+        StringMap.empty
+        |> StringMap.add kname (apply_grads `Kernel)
+        |> StringMap.add bname (apply_grads `Bias)
+    | _, _ -> StringMap.empty
+
+  let unpack_layer : layer -> tflayer =
    fun layer ->
     let open Tfjs_api.Layers in
     match layer with
@@ -145,58 +180,43 @@ module Tfjs = struct
     | Relu -> relu ()
     | Softmax2d { axis } -> softmax ~axis ()
 
-  let optimizations_of_layer : layer -> tflayer -> optimization_map =
-   fun layer tflayer ->
-    match (layer, Tfjs_api.Layers.classify tflayer) with
-    | Conv2d { optimizer = SGD; _ }, `Conv2d tflayer ->
-        let apply_grads which lr grad =
-          let weights = match which with | `Kernel -> tflayer##.kernel##.val_ | `Bias -> tflayer##.bias##.val_ in
-          let weights' =
-            grad
-            |> Tfjs_api.Ops.mul (Tfjs_api.scalar (~-.lr))
-            |> Tfjs_api.Ops.add weights
-          in
-          weights##assign weights';
-        in
-        let kname = Printf.sprintf "%s/kernel" (Js.to_string tflayer##.name) in
-        let bname = Printf.sprintf "%s/bias" (Js.to_string tflayer##.name) in
-        StringMap.empty
-        |> StringMap.add kname (apply_grads `Kernel)
-        |> StringMap.add bname (apply_grads `Bias)
-
-        (* | Conv2d { optimizer = Adam _; _ }, `Conv2d tflayer -> *)
-        (* TODO: Implement adam *)
-    | _, _ -> StringMap.empty
-
   let unpack : network -> 'a =
-    (* TODO: Implement repacking *)
    fun net ->
     let aux acc net =
       match (acc.input, acc.network, net) with
       | None, None, Input2d { out_filters; dtype } ->
+         (* TODO: h/w/epsilon *)
           let x = Tfjs_api.Layers.input ~dtype [| 28; 28; out_filters |] in
           { acc with input = Some x; network = Some x }
       | Some _, Some tfnet, Inner (_, layer) ->
-          let tflayer = tflayer_of_layer layer in
-          let optimizations = optimizations_of_layer layer tflayer in
+          let tflayer = unpack_layer layer in
+          let optimizations = unpack_optimizations layer tflayer in
           {
             acc with
             network = Some (tflayer##apply tfnet);
-            optimizations = StringMap.union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith) optimizations acc.optimizations;
+            optimizations =
+              StringMap.union
+                (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith)
+                optimizations acc.optimizations;
           }
       | _, _, _ -> failwith "unreachable"
     in
-    match fold_top_down aux { input = None; network = None; optimizations = StringMap.empty; } net with
+    match
+      fold_top_down aux { input = None; network = None; optimizations = StringMap.empty } net
+    with
     | { input = Some input; network = Some network; optimizations; _ } ->
         (input, network, optimizations)
     | _ -> failwith "unreachable"
 end
 
-let main train_imgs train_labs test_imgs test_labs =
+let main' train_imgs train_labs test_imgs test_labs =
   let open Network_builder in
   let open Lwt.Infix in
-  let optimizer = `SGD in
-  (* let optimizer = `Adam (0.9, 0.999) in *)
+
+  Tfjs_api.setup_backend `Webgl >>= fun _ ->
+
+  (* let optimizer = `SGD in *)
+  let optimizer = `Adam (0.9, 0.999) in
   let x, encoder, optimizations =
     input2d 1
     |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer
@@ -213,72 +233,90 @@ let main train_imgs train_labs test_imgs test_labs =
     |> softmax2d |> finalize |> Tfjs.unpack
   in
 
-  let optimizations = StringMap.union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith) optimizations optimizations' in
+  let optimizations =
+    StringMap.union
+      (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith)
+      optimizations optimizations'
+  in
   let opti_names =
-    StringMap.to_seq optimizations
-    |> Seq.map (fun (name, _) -> name)
-    |> StringSet.of_seq
+    StringMap.to_seq optimizations |> Seq.map (fun (name, _) -> name) |> StringSet.of_seq
   in
 
   let y = Tfjs_api.chain encoder [ x' ] decoder in
   let m = Tfjs_api.model [ x ] [ y ] in
+  (* No need to compile the model *)
 
   let slice a b arr =
     Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
   in
 
+  let train_on_batch i =
+    let time = (new%js Js.date_now)##valueOf /. 1000. in
+
+    Printf.eprintf
+      "********************************************************************************\n%!";
+    let j = Random.int 40000 in
+    let batch_size = 10000 in
+    let imgs =
+      train_imgs
+      |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size)))
+      |> Tfjs_api.tensor_of_ta [| batch_size; 28; 28; 1 |]
+    in
+    let labs =
+      train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Tfjs_api.one_hot_of_ta 10
+    in
+    let labs = labs##reshape (Js.array [| batch_size; 1; 1; 10 |]) in
+    let f () =
+
+      (* The tfjs models use `execute` both inside `predict` and `train` functions,
+       * with a `training: bool` parameter.
+       * this means that the graph is always allocated and kept in memory, even if
+       * no backward will follow. *)
+      let pred = m##predict imgs in
+      let loss = Tfjs_api.categorical_crossentropy 1e-10 pred labs in
+      let loss = Tfjs_api.Ops.sum false loss in
+      Printf.printf "Loss: %s\n%!" (str loss);
+      loss
+    in
+
+    let _, grads = Tfjs_api.variable_grads f in
+    let grad_names =
+      Tfjs_api.Named_tensor_map.to_seq grads
+      |> Seq.map (fun (name, _) -> name)
+      |> StringSet.of_seq
+    in
+
+    let no_grad = StringSet.diff opti_names grad_names in
+    let no_opti = StringSet.diff grad_names opti_names in
+    ( match (StringSet.choose_opt no_grad, StringSet.choose_opt no_opti) with
+      | None, None -> ()
+      | Some name, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
+      | _, Some name -> Printf.sprintf "Missing at least the <%s> optimizer" name |> failwith );
+
+    let lr = 1e-3 in
+    StringMap.iter
+      (fun name optimization -> optimization lr (Tfjs_api.Named_tensor_map.find name grads))
+      optimizations;
+
+    let time' = (new%js Js.date_now)##valueOf /. 1000. in
+    Printf.printf "> %d took %fsec\n%!" i (time' -. time);
+    (* TODO: Implement repacking *)
+  in
   let rec aux = function
-    | 60 -> Lwt.return ()
-    | i ->
-        Printf.eprintf
-          "********************************************************************************\n%!";
-        let j = Random.int 50000 in
-        let batch_size = 10000 in
-        let imgs =
-          train_imgs
-          |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size)))
-          |> Tfjs_api.tensor_of_ta [| batch_size; 28; 28; 1 |]
-        in
-        let labs =
-          train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Tfjs_api.one_hot_of_ta 10
-        in
-        let labs = labs##reshape (Js.array [| batch_size; 1; 1; 10 |]) in
-
-        let f =
-          Js.wrap_callback (fun () ->
-              (* TODO: predict keeps the graph?!?!?!? why is it working *)
-              let pred = m##predict imgs in
-
-              let loss = Tfjs_api.categorical_crossentropy 1e-10 pred labs in
-              let loss = Tfjs_api.Ops.sum false loss in
-              Printf.printf "Loss: %s\n%!" (str loss);
-              loss)
-        in
-        ignore f;
-
-
-        let _, grads = Tfjs_api.variable_grads f in
-        let grad_names =
-          Tfjs_api.Named_tensor_map.to_seq grads
-          |> Seq.map (fun (name, _) -> name)
-          |> StringSet.of_seq
-        in
-
-        let no_grad = StringSet.diff opti_names grad_names in
-        let no_opti = StringSet.diff grad_names opti_names in
-        (match StringSet.choose_opt no_grad, StringSet.choose_opt no_opti with
-         | None, None -> ()
-         | Some name, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
-         | _, Some name -> Printf.sprintf "Missing at least the <%s> optimizer" name |> failwith);
-
-        let lr = 1e-3 in
-        StringMap.iter (fun name optimization -> optimization lr (Tfjs_api.Named_tensor_map.find name grads)) optimizations;
-
-        (* TODO: Garbage collection *)
-        (* TODO: Catch memory errors and such *)
-        (* TODO: CPU/GPU mode *)
-        Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1)
+    | 5 -> Lwt.return ()
+    | i -> Tfjs_api.tidy (fun () -> train_on_batch i);
+           Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1)
   in
   aux 0 >>= fun _ ->
-  ignore (train_imgs, train_labs, test_imgs, test_labs, x, m, optimizations, optimizations');
+  ignore (train_imgs, train_labs, test_imgs, test_labs);
+
+  Lwt.return ()
+
+let main train_imgs train_labs test_imgs test_labs =
+  let open Lwt.Infix in
+
+  Tfjs_api.tidy_lwt (fun () -> main' train_imgs train_labs test_imgs test_labs) >>= fun () ->
+  Tfjs_api.disposeVariables ();
+  Firebug.console##log (Tfjs_api.memory ());
+
   Lwt.return ()

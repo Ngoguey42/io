@@ -72,6 +72,8 @@ class type layer =
     method apply : symbolicTensor Js.t -> symbolicTensor Js.t Js.meth
 
     method getClassName : Js.js_string Js.t Js.meth
+
+    method name : Js.js_string Js.t Js.readonly_prop
   end
 
 class type conv2d =
@@ -170,20 +172,24 @@ module Ops = struct
 end
 
 module Layers = struct
-  let input : ?dtype:[ `Float32 | `Uint8 ] -> int array -> symbolicTensor Js.t =
-   fun ?(dtype = `Float32) shape ->
+  let input : ?dtype:[ `Float32 | `Uint8 ] -> ?name:string -> int array -> symbolicTensor Js.t =
+   fun ?(dtype = `Float32) ?name shape ->
     let open Js.Unsafe in
     let params =
       object%js (self)
         val shape = Js.array shape
 
         val dtype = Js.string (match dtype with `Float32 -> "float32" | `Uint8 -> "uint8")
+
+        val name =
+          match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
       end
     in
     fun_call global##.tf##.input [| params |> inject |]
 
-  let conv2d : ?weights:float32_nd * float32_nd -> _ -> bool -> _ -> int -> conv2d Js.t =
-   fun ?weights kernel_size padding stride out_filters ->
+  let conv2d :
+      ?weights:float32_nd * float32_nd -> ?name:string -> _ -> bool -> _ -> int -> conv2d Js.t =
+   fun ?weights ?name kernel_size padding stride out_filters ->
     let padding = match padding with true -> "same" | false -> "valid" in
     let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
     let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
@@ -208,12 +214,15 @@ module Layers = struct
         val padding = Js.string padding
 
         val weights = weights
+
+        val name =
+          match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
       end
     in
     let open Js.Unsafe in
     fun_call global##.tf##.layers##.conv2d [| inject params |]
 
-  let max_pool2d kernel_size stride : layer Js.t =
+  let max_pool2d ?name kernel_size stride : layer Js.t =
     let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
     let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
     let params =
@@ -221,20 +230,31 @@ module Layers = struct
         val poolSize = Js.array [| kx; ky |]
 
         val strides = Js.array [| sx; sy |]
+
+        val name =
+          match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
       end
     in
     let open Js.Unsafe in
     fun_call global##.tf##.layers##.maxPooling2d [| inject params |]
 
-  let relu () : layer Js.t =
+  let relu ?name () : layer Js.t =
     let open Js.Unsafe in
-    let params = object%js (self) end in
+    let params =
+      object%js (self)
+        val name =
+          match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
+      end
+    in
     fun_call global##.tf##.layers##.reLU [| inject params |]
 
-  let softmax ?(axis = 3) () : layer Js.t =
+  let softmax ?(axis = 3) ?name () : layer Js.t =
     let params =
       object%js (self)
         val axis = axis
+
+        val name =
+          match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
       end
     in
     let open Js.Unsafe in

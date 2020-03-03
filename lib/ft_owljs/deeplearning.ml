@@ -7,6 +7,8 @@ module Firebug = Js_of_ocaml.Firebug
 module Ndarray = Owl_base_dense_ndarray_generic
 module Graph = Owl_neural_generic.Make_Embedded (Owl_base_dense_ndarray.S)
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+module StringMap = Map.Make (String)
+module StringSet = Set.Make (String)
 
 type float32_nd = (float, Bigarray.float32_elt) Ndarray.t
 
@@ -110,10 +112,13 @@ let str t =
   t |> Js.to_string
 
 module Tfjs = struct
+
+  type optimization_map = (float -> Tfjs_api.tensor Js.t -> unit) StringMap.t
+
   type ('a, 'b) accu = {
     input : Tfjs_api.symbolicTensor Js.t option;
     network : Tfjs_api.symbolicTensor Js.t option;
-    optimizations : (float -> 'a -> 'b -> unit) list;
+    optimizations : optimization_map;
   }
 
   type tflayer = Tfjs_api.layer Js.t
@@ -140,47 +145,28 @@ module Tfjs = struct
     | Relu -> relu ()
     | Softmax2d { axis } -> softmax ~axis ()
 
-  let optimizations_of_layer : layer -> tflayer -> 'a list =
+  let optimizations_of_layer : layer -> tflayer -> optimization_map =
    fun layer tflayer ->
     match (layer, Tfjs_api.Layers.classify tflayer) with
     | Conv2d { optimizer = SGD; _ }, `Conv2d tflayer ->
-        let o = Tfjs_api.sgd 1e-4 in
-        let apply_grads lr grads variables =
-          let kname = Js.to_string tflayer##.kernel##.name in
-          let bname = Js.to_string tflayer##.bias##.name in
-          let kgrad = Tfjs_api.Named_tensor_map.find kname grads in
-          let bgrad = Tfjs_api.Named_tensor_map.find bname grads in
-          let kweights = tflayer##.kernel##.val_ in
-          let bweights = tflayer##.bias##.val_ in
-          (* let kweights = Tfjs_api.Named_tensor_map.find kname variables in *)
-          (* let bweights = Tfjs_api.Named_tensor_map.find bname variables in *)
-
-          (* Printf.printf "----- Updating weights of %s\n%!" bname; *)
-          (* Printf.printf "bias grad   : %s\n%!" (str bgrad); *)
-          (* Printf.printf "bias weights: %s\n%!" (str tflayer##.bias##.val_); *)
-          (* Printf.printf "bias weights: %s\n%!" (str bweights); *)
-
-          ignore (o, kgrad, bgrad, lr, kweights, bweights, variables);
-
-          let bweights' =
-            bgrad
+        let apply_grads which lr grad =
+          let weights = match which with | `Kernel -> tflayer##.kernel##.val_ | `Bias -> tflayer##.bias##.val_ in
+          let weights' =
+            grad
             |> Tfjs_api.Ops.mul (Tfjs_api.scalar (~-.lr))
-            |> Tfjs_api.Ops.add bweights
+            |> Tfjs_api.Ops.add weights
           in
-          bweights##assign bweights';
-
-          let kweights' =
-            kgrad
-            |> Tfjs_api.Ops.mul (Tfjs_api.scalar (~-.lr))
-            |> Tfjs_api.Ops.add kweights
-          in
-          kweights##assign kweights';
-
+          weights##assign weights';
         in
-        [ apply_grads ]
+        let kname = Printf.sprintf "%s/kernel" (Js.to_string tflayer##.name) in
+        let bname = Printf.sprintf "%s/bias" (Js.to_string tflayer##.name) in
+        StringMap.empty
+        |> StringMap.add kname (apply_grads `Kernel)
+        |> StringMap.add bname (apply_grads `Bias)
+
         (* | Conv2d { optimizer = Adam _; _ }, `Conv2d tflayer -> *)
         (* TODO: Implement adam *)
-    | _, _ -> []
+    | _, _ -> StringMap.empty
 
   let unpack : network -> 'a =
     (* TODO: Implement repacking *)
@@ -196,12 +182,12 @@ module Tfjs = struct
           {
             acc with
             network = Some (tflayer##apply tfnet);
-            optimizations = optimizations @ acc.optimizations;
+            optimizations = StringMap.union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith) optimizations acc.optimizations;
           }
       | _, _, _ -> failwith "unreachable"
     in
-    match fold_top_down aux { input = None; network = None; optimizations = [] } net with
-    | { input = Some input; network = Some network; optimizations } ->
+    match fold_top_down aux { input = None; network = None; optimizations = StringMap.empty; } net with
+    | { input = Some input; network = Some network; optimizations; _ } ->
         (input, network, optimizations)
     | _ -> failwith "unreachable"
 end
@@ -227,6 +213,13 @@ let main train_imgs train_labs test_imgs test_labs =
     |> softmax2d |> finalize |> Tfjs.unpack
   in
 
+  let optimizations = StringMap.union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith) optimizations optimizations' in
+  let opti_names =
+    StringMap.to_seq optimizations
+    |> Seq.map (fun (name, _) -> name)
+    |> StringSet.of_seq
+  in
+
   let y = Tfjs_api.chain encoder [ x' ] decoder in
   let m = Tfjs_api.model [ x ] [ y ] in
 
@@ -235,7 +228,7 @@ let main train_imgs train_labs test_imgs test_labs =
   in
 
   let rec aux = function
-    | 600 -> Lwt.return ()
+    | 60 -> Lwt.return ()
     | i ->
         Printf.eprintf
           "********************************************************************************\n%!";
@@ -263,14 +256,27 @@ let main train_imgs train_labs test_imgs test_labs =
         in
         ignore f;
 
+
         let _, grads = Tfjs_api.variable_grads f in
-        let variables = Tfjs_api.engine_registered_variables () in
+        let grad_names =
+          Tfjs_api.Named_tensor_map.to_seq grads
+          |> Seq.map (fun (name, _) -> name)
+          |> StringSet.of_seq
+        in
+
+        let no_grad = StringSet.diff opti_names grad_names in
+        let no_opti = StringSet.diff grad_names opti_names in
+        (match StringSet.choose_opt no_grad, StringSet.choose_opt no_opti with
+         | None, None -> ()
+         | Some name, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
+         | _, Some name -> Printf.sprintf "Missing at least the <%s> optimizer" name |> failwith);
 
         let lr = 1e-3 in
-        List.iter (fun optimization -> optimization lr grads variables) optimizations;
-        List.iter (fun optimization -> optimization lr grads variables) optimizations';
+        StringMap.iter (fun name optimization -> optimization lr (Tfjs_api.Named_tensor_map.find name grads)) optimizations;
 
         (* TODO: Garbage collection *)
+        (* TODO: Catch memory errors and such *)
+        (* TODO: CPU/GPU mode *)
         Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1)
   in
   aux 0 >>= fun _ ->

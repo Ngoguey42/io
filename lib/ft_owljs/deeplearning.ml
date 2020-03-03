@@ -51,24 +51,24 @@ type network =
   | Input2d of { out_filters : int; dtype : [ `Float32 | `Uint8 ] }
   | Inner of (network * layer)
 
+let rec fold_bottom_up f x net =
+  match net with Inner (net', _) -> fold_bottom_up f (f x net) net' | Input2d _ -> f x net
+
+let rec fold_top_down f x net =
+  match net with Inner (net', _) -> f (fold_top_down f x net') net | Input2d _ -> f x net
+
 module Network_builder = struct
   type upstream = { filters : int; network : network }
 
   let input2d ?(dtype = `Float32) f = { filters = f; network = Input2d { out_filters = f; dtype } }
 
   let conv2d kernel_size padding stride out_filters initialization optimizer up =
-    (* TODO: Initializer *)
     let ((ky, kx) as kernel_size) =
       match kernel_size with `One k -> (k, k) | `Two (ky, kx) -> (ky, kx)
     in
     let kshape = [| ky; kx; up.filters; out_filters |] in
     let bshape = [| out_filters |] in
     let stride = match stride with `One s -> (s, s) | `Two (sy, sx) -> (sy, sx) in
-
-    (* let kernel_weights = Ndarray.ones Bigarray.Float32 kshape in *)
-    (* let bias_weights = Ndarray.ones Bigarray.Float32 bshape in *)
-
-    (* Neuron.Init.run : typ -> int array -> t -> t *)
     let kernel_weights = Ft_owlbase.Init.run initialization kshape in
     let bias_weights = Ft_owlbase.Init.run initialization bshape in
 
@@ -78,8 +78,7 @@ module Network_builder = struct
       | `Adam (beta_rgrad, beta_rgrad_sq) ->
           Adam
             {
-              beta_rgrad;
-              beta_rgrad_sq;
+              beta_rgrad; beta_rgrad_sq;
               step = 0;
               rgrad_kernel = Ndarray.zeros Bigarray.Float32 kshape;
               rgrad_sq_kernel = Ndarray.zeros Bigarray.Float32 kshape;
@@ -104,12 +103,6 @@ module Network_builder = struct
   let finalize { network; _ } = network
 end
 
-let rec fold_bottom_up f x net =
-  match net with Inner (net', _) -> fold_bottom_up f (f x net) net' | Input2d _ -> f x net
-
-let rec fold_top_down f x net =
-  match net with Inner (net', _) -> f (fold_top_down f x net') net | Input2d _ -> f x net
-
 let str t =
   let t = t##toString in
   let t = t##replace_string (Js.string "Tensor") (Js.string "") in
@@ -117,10 +110,10 @@ let str t =
   t |> Js.to_string
 
 module Tfjs = struct
-  type 'a accu = {
+  type ('a, 'b) accu = {
     input : Tfjs_api.symbolicTensor Js.t option;
     network : Tfjs_api.symbolicTensor Js.t option;
-    optimizations : (Tfjs_api.named_tensor_map Js.t -> unit) list;
+    optimizations : (float -> 'a -> 'b -> unit) list;
   }
 
   type tflayer = Tfjs_api.layer Js.t
@@ -152,25 +145,41 @@ module Tfjs = struct
     match (layer, Tfjs_api.Layers.classify tflayer) with
     | Conv2d { optimizer = SGD; _ }, `Conv2d tflayer ->
         let o = Tfjs_api.sgd 1e-4 in
-        let apply_grads (grads : Tfjs_api.named_tensor_map Js.t) =
-          let kname = tflayer##.kernel##.name in
-          let bname = tflayer##.bias##.name in
-          let kgrad : Tfjs_api.tensor Js.t = Js.Unsafe.get grads kname in
-          let bgrad : Tfjs_api.tensor Js.t = Js.Unsafe.get grads bname in
+        let apply_grads lr grads variables =
+          let kname = Js.to_string tflayer##.kernel##.name in
+          let bname = Js.to_string tflayer##.bias##.name in
+          let kgrad = Tfjs_api.Named_tensor_map.find kname grads in
+          let bgrad = Tfjs_api.Named_tensor_map.find bname grads in
+          let kweights = tflayer##.kernel##.val_ in
+          let bweights = tflayer##.bias##.val_ in
+          (* let kweights = Tfjs_api.Named_tensor_map.find kname variables in *)
+          (* let bweights = Tfjs_api.Named_tensor_map.find bname variables in *)
 
-          Printf.printf "----- Updating weights of %s\n%!" (Js.to_string bname);
-          Printf.printf "bias grad   : %s\n%!" (str bgrad);
-          Printf.printf "bias weights: %s\n%!" (str tflayer##.bias##.val_);
+          (* Printf.printf "----- Updating weights of %s\n%!" bname; *)
+          (* Printf.printf "bias grad   : %s\n%!" (str bgrad); *)
+          (* Printf.printf "bias weights: %s\n%!" (str tflayer##.bias##.val_); *)
+          (* Printf.printf "bias weights: %s\n%!" (str bweights); *)
 
-          ignore (o, kgrad, bgrad)
-          (* TODO: Fix grad *)
-          (* o##applyGradients_array (Js.array [| kgrad; bgrad |]) *)
+          ignore (o, kgrad, bgrad, lr, kweights, bweights, variables);
+
+          let bweights' =
+            bgrad
+            |> Tfjs_api.Ops.mul (Tfjs_api.scalar (~-.lr))
+            |> Tfjs_api.Ops.add bweights
+          in
+          bweights##assign bweights';
+
+          let kweights' =
+            kgrad
+            |> Tfjs_api.Ops.mul (Tfjs_api.scalar (~-.lr))
+            |> Tfjs_api.Ops.add kweights
+          in
+          kweights##assign kweights';
+
         in
         [ apply_grads ]
-        (* TODO: Implement adam *)
         (* | Conv2d { optimizer = Adam _; _ }, `Conv2d tflayer -> *)
-        (* ignore tflayer; *)
-        (* [Tfjs_api.sgd ()] *)
+        (* TODO: Implement adam *)
     | _, _ -> []
 
   let unpack : network -> 'a =
@@ -226,7 +235,7 @@ let main train_imgs train_labs test_imgs test_labs =
   in
 
   let rec aux = function
-    | 2 -> Lwt.return ()
+    | 600 -> Lwt.return ()
     | i ->
         Printf.eprintf
           "********************************************************************************\n%!";
@@ -252,13 +261,16 @@ let main train_imgs train_labs test_imgs test_labs =
               Printf.printf "Loss: %s\n%!" (str loss);
               loss)
         in
+        ignore f;
+
         let _, grads = Tfjs_api.variable_grads f in
+        let variables = Tfjs_api.engine_registered_variables () in
 
-        (* List.iter (fun optimization -> optimization grads) optimizations'; *)
-        (Tfjs_api.sgd 1e-4)##applyGradients_map grads;
-        (* List.iter (fun optimization -> optimization grads) optimizations; *)
-        List.iter (fun optimization -> optimization grads) optimizations';
+        let lr = 1e-3 in
+        List.iter (fun optimization -> optimization lr grads variables) optimizations;
+        List.iter (fun optimization -> optimization lr grads variables) optimizations';
 
+        (* TODO: Garbage collection *)
         Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1)
   in
   aux 0 >>= fun _ ->

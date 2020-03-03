@@ -37,12 +37,33 @@ class type variable =
   object
     inherit tensor
 
-    method name : Js.js_string Js.t Js.readonly_prop
-
-    method val_ : tensor Js.t Js.readonly_prop
+    method assign : tensor Js.t -> unit Js.meth
   end
 
-class type named_tensor_map = object end
+class type layer_variable =
+  object
+    method name : Js.js_string Js.t Js.readonly_prop
+
+    (* Tfjs documentation states that `.val` only contains the initial value of the variable.
+     * The optimizers inside tfjs all use tf.engine().registeredVariables to retrieve their
+     * variables, but it seems that using `layer.(bias|weight).val` works too.
+     *)
+    method val_ : variable Js.t Js.readonly_prop
+  end
+
+module Named_tensor_map = struct
+  class type ['a] js_t =
+    object
+      constraint 'a = #tensor Js.t
+    end
+
+  include Map.Make (String)
+
+  let of_js : 'a js_t Js.t -> 'a t =
+   fun map_js ->
+    Js.object_keys map_js |> Js.to_array |> Array.to_list
+    |> List.fold_left (fun map k -> add (Js.to_string k) (Js.Unsafe.get map_js k) map) empty
+end
 
 class type layer =
   object
@@ -57,16 +78,16 @@ class type conv2d =
   object
     inherit layer
 
-    method kernel : variable Js.t Js.readonly_prop
+    method kernel : layer_variable Js.t Js.readonly_prop
 
-    method bias : variable Js.t Js.readonly_prop
+    method bias : layer_variable Js.t Js.readonly_prop
   end
 
 class type optimizer =
   object
     method applyGradients_array : tensor Js.t Js.js_array Js.t -> unit Js.meth
 
-    method applyGradients_map : named_tensor_map Js.t -> unit Js.meth
+    method applyGradients_map : tensor Js.t Named_tensor_map.js_t Js.t -> unit Js.meth
   end
 
 class type adam =
@@ -79,7 +100,7 @@ class type model =
     inherit layer
 
     (* About the model##apply method:
-     * As of tfjs:1.5.2 the parameter cannot be a `model` instance because it causes an exception
+     * (On tfjs:1.5.2) the parameter cannot be a `model` instance because it causes an exception
      * about some fictional dtype mismatches.
      * i.e.: m1.apply(m0) // fails (should return a model?)
      *       m1.apply(m0.outputLayers[0]) // works (returns a symbolicTensor)
@@ -92,17 +113,15 @@ class type model =
     method predict : tensor Js.t -> tensor Js.t Js.meth
   end
 
-class type variable_grads_ret =
-  object
-    method value : tensor Js.t Js.readonly_prop
-
-    method grads : named_tensor_map Js.t Js.readonly_prop
-  end
-
 let tensor_of_ta : int array -> float32_ta -> tensor Js.t =
  fun shape ta ->
   let open Js.Unsafe in
   fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject |]
+
+let scalar : float -> tensor Js.t =
+ fun x ->
+  let open Js.Unsafe in
+  fun_call global##.tf##.scalar [| inject x |]
 
 let one_hot_of_ta : int -> uint8_ta -> tensor Js.t =
  fun width arr ->
@@ -116,39 +135,42 @@ module Ops = struct
   let ones : int array -> tensor Js.t =
    fun shape -> fun_call global##.tf##.ones [| shape |> Js.array |> inject |]
 
-  let clip_by_value : float -> float -> tensor Js.t -> tensor Js.t =
+  let clip_by_value : float -> float -> #tensor Js.t -> tensor Js.t =
    fun min max x -> fun_call global##.tf##.clipByValue [| inject x; inject min; inject max |]
 
   let neg : tensor Js.t -> tensor Js.t = fun x -> fun_call global##.tf##.neg [| inject x |]
 
-  let mul : tensor Js.t -> tensor Js.t -> tensor Js.t =
+  let mul : tensor Js.t -> #tensor Js.t -> tensor Js.t =
    fun x x' -> fun_call global##.tf##.mul [| inject x; inject x' |]
 
-  let log : tensor Js.t -> tensor Js.t = fun x -> fun_call global##.tf##.log [| inject x |]
+  let add : #tensor Js.t -> #tensor Js.t -> tensor Js.t =
+   fun x x' -> fun_call global##.tf##.add [| inject x; inject x' |]
 
-  let sum : ?axis:int -> bool -> tensor Js.t -> tensor Js.t =
+  let log : #tensor Js.t -> tensor Js.t = fun x -> fun_call global##.tf##.log [| inject x |]
+
+  let sum : ?axis:int -> bool -> #tensor Js.t -> tensor Js.t =
    fun ?axis keepdims x ->
     let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.sum [| inject x; inject axis; inject keepdims |]
 
-  let mean : ?axis:int -> bool -> tensor Js.t -> tensor Js.t =
+  let mean : ?axis:int -> bool -> #tensor Js.t -> tensor Js.t =
    fun ?axis keepdims x ->
     let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.mean [| inject x; inject axis; inject keepdims |]
 
-  let min : ?axis:int -> bool -> tensor Js.t -> tensor Js.t =
+  let min : ?axis:int -> bool -> #tensor Js.t -> tensor Js.t =
    fun ?axis keepdims x ->
     let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.min [| inject x; inject axis; inject keepdims |]
 
-  let max : ?axis:int -> bool -> tensor Js.t -> tensor Js.t =
+  let max : ?axis:int -> bool -> #tensor Js.t -> tensor Js.t =
    fun ?axis keepdims x ->
     let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.max [| inject x; inject axis; inject keepdims |]
 end
 
 module Layers = struct
-  let input : ?dtype:_ -> int array -> symbolicTensor Js.t =
+  let input : ?dtype:[ `Float32 | `Uint8 ] -> int array -> symbolicTensor Js.t =
    fun ?(dtype = `Float32) shape ->
     let open Js.Unsafe in
     let params =
@@ -160,7 +182,7 @@ module Layers = struct
     in
     fun_call global##.tf##.input [| params |> inject |]
 
-  let conv2d : ?weights:float32_nd * float32_nd -> _ -> _ -> _ -> _ -> conv2d Js.t =
+  let conv2d : ?weights:float32_nd * float32_nd -> _ -> bool -> _ -> int -> conv2d Js.t =
    fun ?weights kernel_size padding stride out_filters ->
     let padding = match padding with true -> "same" | false -> "valid" in
     let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
@@ -229,16 +251,10 @@ module Layers = struct
     | name -> failwith ("unknown class name:" ^ name)
 end
 
-let variable_grads : (unit -> tensor Js.t) Js.callback -> tensor Js.t * named_tensor_map Js.t =
- fun f ->
-  let open Js.Unsafe in
-  let ret : variable_grads_ret Js.t = fun_call global##.tf##.variableGrads [| inject f |] in
-  (ret##.value, ret##.grads)
-
 let categorical_crossentropy : float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
- fun epsilon pred truth ->
-  (* let b, h, w, c = pred##.shape in *)
-  pred
+ (* TODO: Move to a `Custom` (or `Helper`, or...) module? along with the custom optimizers *)
+ fun epsilon softmaxed_pred truth ->
+  softmaxed_pred
   |> Ops.clip_by_value epsilon (1. -. epsilon)
   |> Ops.log |> Ops.mul truth |> Ops.neg |> Ops.sum ~axis:(-1) true |> Ops.mean ~axis:0 true
 
@@ -282,54 +298,19 @@ let compile : model Js.t -> optimizer Js.t -> string -> unit =
   let open Js.Unsafe in
   meth_call m "compile" [| inject params |]
 
-let main train_imgs train_labs test_imgs test_labs =
-  let ( ||> ) : symbolicTensor Js.t -> < layer ; .. > Js.t -> symbolicTensor Js.t =
-   fun a b -> b##apply a
-  in
+let variable_grads :
+    (unit -> tensor Js.t) Js.callback -> tensor Js.t * tensor Js.t Named_tensor_map.t =
+ fun f ->
+  let open Js.Unsafe in
+  let ret = fun_call global##.tf##.variableGrads [| inject f |] in
+  (* What if multiple losses? would `value` be a tensor array ? *)
+  let value : tensor Js.t = ret##.value in
+  let grads : tensor Js.t Named_tensor_map.js_t Js.t = ret##.grads in
+  (value, Named_tensor_map.of_js grads)
 
-  Printf.eprintf "Coucou\n%!";
-  let weights = [| Ops.ones [| 4; 4; 1; 10 |]; Ops.ones [| 10 |] |] in
-
-  Printf.eprintf "a\n%!";
-  let x = Layers.input [| 28; 28; 1 |] in
-  Printf.eprintf "b\n%!";
-  let y =
-    x
-    ||> Layers.conv2d (`One 4) false (`One 2) 10
-    ||> Layers.relu ()
-    ||> Layers.conv2d (`One 3) false (`One 2) 10
-    ||> Layers.relu ()
-    ||> Layers.conv2d (`One 3) false (`One 1) 10
-    ||> Layers.relu ()
-    ||> Layers.conv2d (`One 3) false (`One 1) 10
-    ||> Layers.max_pool2d (`One 2) (`One 2)
-    ||> Layers.softmax ()
-  in
-  Printf.eprintf "c\n%!";
-  let m = model [ x ] [ y ] in
-  Firebug.console##log m;
-  let optim = adam 1e-3 0.9 0.999 1e-10 in
-  compile m optim "categoricalCrossentropy";
-
-  let slice a b arr =
-    Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
-  in
-  let j = Random.int 55000 in
-  let batch_size = 1 in
-  let imgs =
-    train_imgs
-    |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size)))
-    |> tensor_of_ta [| batch_size; 28; 28; 1 |]
-  in
-  let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) |> one_hot_of_ta 10 in
-  let labs = labs##reshape (Js.array [| batch_size; 1; 1; 10 |]) in
-  Firebug.console##log imgs##.shape;
-  Firebug.console##log labs##.shape;
-
-  (* let open Lwt.Infix in *)
-  let preds = m##predict imgs in
-  preds##print;
-
-  (* m##trainOnBatch imgs labs |> Ft_js.wrap_promise >>= fun _ -> *)
-  ignore (train_imgs, train_labs, test_imgs, test_labs, weights, x, y, m, optim, labs, imgs, preds);
-  Lwt.return ()
+let engine_registered_variables : unit -> variable Js.t Named_tensor_map.t =
+ fun () ->
+  let open Js.Unsafe in
+  let e = fun_call global##.tf##.engine [||] in
+  let map_js = get e "registeredVariables" in
+  Named_tensor_map.of_js map_js

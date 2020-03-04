@@ -1,16 +1,10 @@
-(* Tensorflow.js js_of_ocaml api *)
-
-module Dom_html = Js_of_ocaml.Dom_html
-module Dom = Js_of_ocaml.Dom
-module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
-module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
-module Firebug = Js_of_ocaml.Firebug
-module Ndarray = Owl_base_dense_ndarray_generic
-module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Typed_array = Js_of_ocaml.Typed_array
+module Firebug = Js_of_ocaml.Firebug
 
-(* TODO: Do not use Ndarray, but use Bigarray *)
+module Ndarray = Owl_base_dense_ndarray_generic
+
+(* TODO: Do not use Ndarray, but use Bigarray, and make this file only use Stdlib and Js_of_ocaml (except promises) *)
 
 type uint8_ta = Typed_array.uint8Array Js.t
 
@@ -40,9 +34,9 @@ class type tensor =
 
     method arraySync_float : float Js.js_array Js.t Js.meth
 
-    method arraySync_int_scalar : int Js.meth
+    method arraySync_intScalar : int Js.meth
 
-    method arraySync_float_scalar : float Js.meth
+    method arraySync_floatScalar : float Js.meth
   end
 
 class type variable =
@@ -132,56 +126,16 @@ class type memory =
     method numTensors : int Js.readonly_prop
   end
 
-let tensor_of_ta : int array -> float32_ta -> tensor Js.t =
- fun shape ta ->
-  let open Js.Unsafe in
-  fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject |]
-
-(* let scalar : float -> tensor Js.t = *)
-(*  fun x -> *)
-(*   let open Js.Unsafe in *)
-(*   fun_call global##.tf##.scalar [| inject x |] *)
-
-let one_hot_of_ta : int -> uint8_ta -> tensor Js.t =
- fun width arr ->
-  let open Js.Unsafe in
-  let arr = fun_call global##.tf##.tensor1d [| inject arr; "int32" |> Js.string |> inject |] in
-  fun_call global##.tf##.oneHot [| inject arr; inject width |]
-
-let variable :
-    ?trainable:bool ->
-    ?name:string ->
-    ?dtype:[ `Float32 | `Uint8 | `Int32 ] ->
-    tensor Js.t ->
-    variable Js.t =
- fun ?(trainable = false) ?name ?(dtype = `Float32) arr ->
-  let open Js.Unsafe in
-  let name =
-    match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
-  in
-  let dtype =
-    Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32" | `Uint8 -> "uint8")
-  in
-  fun_call global##.tf##.variable [| inject arr; inject trainable; inject name; inject dtype |]
-
-let float : float -> tensor Js.t =
- fun x ->
-  let open Js.Unsafe in
-  fun_call global##.tf##.scalar [| inject x; "float32" |> Js.string |> inject |]
-
-let int : int -> tensor Js.t =
- fun x ->
-  let open Js.Unsafe in
-  fun_call global##.tf##.scalar [| inject x; "int32" |> Js.string |> inject |]
-
 module Ops = struct
   open Js.Unsafe
 
   let ones : int array -> tensor Js.t =
    fun shape -> fun_call global##.tf##.ones [| shape |> Js.array |> inject |]
 
-  let reshape : int array -> tensor Js.t -> tensor Js.t =
+  let reshape : int array -> #tensor Js.t -> tensor Js.t =
    fun shape x -> fun_call global##.tf##.reshape [| inject x; shape |> Js.array |> inject |]
+
+  let flatten : #tensor Js.t -> tensor Js.t = fun x -> reshape [| -1 |] x
 
   let clip_by_value : float -> float -> #tensor Js.t -> tensor Js.t =
    fun min max x -> fun_call global##.tf##.clipByValue [| inject x; inject min; inject max |]
@@ -237,6 +191,61 @@ module Ops = struct
     let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.max [| inject x; inject axis; inject keepdims |]
 end
+
+let tensor_of_ta : int array -> float32_ta -> tensor Js.t =
+ fun shape ta ->
+  let open Js.Unsafe in
+  fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject |]
+
+let ta_of_tensor : #tensor Js.t -> float32_ta =
+  fun arr ->
+  arr
+  |> Ops.flatten
+  |> (fun arr -> arr##arraySync_float)
+  |> (fun arr -> new%js Typed_array.float32Array_fromArray arr)
+
+let tensor_of_bigarray : (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.t =
+  fun arr ->
+  tensor_of_ta (Bigarray.Genarray.dims arr) (Conv.Reinterpret.Float32.ta_of_nd arr)
+
+let bigarray_of_tensor : #tensor Js.t -> (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t =
+  fun arr ->
+  arr
+  |> ta_of_tensor
+  |> Conv.Reinterpret.Float32.nd_of_ta
+  |> (fun arr -> Bigarray.reshape arr (Ndarray.shape arr))
+
+let one_hot_of_ta : int -> uint8_ta -> tensor Js.t =
+ fun width arr ->
+  let open Js.Unsafe in
+  let arr = fun_call global##.tf##.tensor1d [| inject arr; "int32" |> Js.string |> inject |] in
+  fun_call global##.tf##.oneHot [| inject arr; inject width |]
+
+let variable :
+    ?trainable:bool ->
+    ?name:string ->
+    ?dtype:[ `Float32 | `Uint8 | `Int32 ] ->
+    tensor Js.t ->
+    variable Js.t =
+ fun ?(trainable = false) ?name ?(dtype = `Float32) arr ->
+  let open Js.Unsafe in
+  let name =
+    match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
+  in
+  let dtype =
+    Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32" | `Uint8 -> "uint8")
+  in
+  fun_call global##.tf##.variable [| inject arr; inject trainable; inject name; inject dtype |]
+
+let float : float -> tensor Js.t =
+ fun x ->
+  let open Js.Unsafe in
+  fun_call global##.tf##.scalar [| inject x; "float32" |> Js.string |> inject |]
+
+let int : int -> tensor Js.t =
+ fun x ->
+  let open Js.Unsafe in
+  fun_call global##.tf##.scalar [| inject x; "int32" |> Js.string |> inject |]
 
 module Layers = struct
   let input : ?dtype:[ `Float32 | `Uint8 ] -> ?name:string -> int array -> symbolicTensor Js.t =
@@ -385,7 +394,7 @@ let create_adam_updater : float -> float -> float -> int -> float32_nd -> float3
         |> mul (float lr)
         |> neg |> add weights )
 
-    method get_step = step##arraySync_int_scalar
+    method get_step = step
 
     method get_rgrad = rgrad
 

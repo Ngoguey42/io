@@ -94,7 +94,7 @@ let main () =
         let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_owljs.Conv.list_of_ta in
         let xs =
           imgs |> Ft_owljs.Conv.Cast.Ta.float32_of_uint8
-          |> Ft_owljs.Conv.Reinterpret.Float32.nd_of_ta
+          |> Ft_owljs.Conv.Reinterpret.Float32.ba_of_ta
           |> (fun x -> Ndarray.reshape x [| batch_size; 28; 28; 1 |])
           |> Algodiff.pack_arr
         in
@@ -107,7 +107,7 @@ let main () =
         let labs = test_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_owljs.Conv.list_of_ta in
         let xs =
           imgs |> Ft_owljs.Conv.Cast.Ta.float32_of_uint8
-          |> Ft_owljs.Conv.Reinterpret.Float32.nd_of_ta
+          |> Ft_owljs.Conv.Reinterpret.Float32.ba_of_ta
           |> (fun x -> Ndarray.reshape x [| batch_size; 28; 28; 1 |])
           |> Algodiff.pack_arr
         in

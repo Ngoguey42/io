@@ -213,12 +213,12 @@ let tensor_of_ta : int array -> ('a, 'b) Typed_array.typedArray -> tensor Js.t =
   let open Js.Unsafe in
   fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject |]
 
-let tensor_of_bigarray : ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.t =
- fun arr -> tensor_of_ta (Bigarray.Genarray.dims arr) (Conv.Reinterpret.Float32.ta_of_nd arr)
+let tensor_of_ba : ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.t =
+ fun arr -> tensor_of_ta (Bigarray.Genarray.dims arr) (Conv.Reinterpret.Float32.ta_of_ba arr)
 
-let bigarray_of_tensor_float : #tensor Js.t -> float32_ba =
+let ba_of_tensor_float : #tensor Js.t -> float32_ba =
  fun arr ->
-  arr##dataSync_float |> Conv.Reinterpret.Float32.nd_of_ta |> fun arr ->
+  arr##dataSync_float |> Conv.Reinterpret.Float32.ba_of_ta |> fun arr ->
   Bigarray.reshape arr (Bigarray.Genarray.dims arr)
 
 let one_hot_of_ta : int -> uint8_ta -> tensor Js.t =
@@ -315,9 +315,9 @@ module Layers = struct (* ******************************************************
       | None -> Js.Opt.empty
       | Some (kernel, bias) ->
           let shape = Bigarray.Genarray.dims kernel in
-          let kernel = kernel |> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
+          let kernel = kernel |> Conv.Reinterpret.Float32.ta_of_ba |> tensor_of_ta shape in
           let shape = Bigarray.Genarray.dims bias in
-          let bias = bias |> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
+          let bias = bias |> Conv.Reinterpret.Float32.ta_of_ba |> tensor_of_ta shape in
           [| kernel; bias |] |> Js.array |> Js.Opt.return
     in
     let params =
@@ -423,12 +423,12 @@ let create_adam_updater : float -> float -> float -> int -> float32_ba -> float3
 
   let step = step |> int |> variable ~dtype:`Int32 in
   let rgrad =
-    rgrad |> Conv.Reinterpret.Float32.ta_of_nd
+    rgrad |> Conv.Reinterpret.Float32.ta_of_ba
     |> tensor_of_ta (Bigarray.Genarray.dims rgrad)
     |> variable ~trainable:false
   in
   let rgrad_sq =
-    rgrad_sq |> Conv.Reinterpret.Float32.ta_of_nd
+    rgrad_sq |> Conv.Reinterpret.Float32.ta_of_ba
     |> tensor_of_ta (Bigarray.Genarray.dims rgrad_sq)
     |> variable ~trainable:false
   in

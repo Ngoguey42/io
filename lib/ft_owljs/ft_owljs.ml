@@ -8,7 +8,6 @@ module Ndarray = Owl_base_dense_ndarray_generic
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Typed_array = Js_of_ocaml.Typed_array
 
-module Tfjs_api = Tfjs_api
 module Conv = Conv
 module Deeplearning = Deeplearning
 
@@ -131,11 +130,11 @@ module Mnist = struct
 
   let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
     let img =
-      img |> Conv.Reinterpret.Uint8.nd_of_ta
+      img |> Conv.Reinterpret.Uint8.ba_of_ta
       |> (fun x -> Ndarray.reshape x [| 28; 28; 1 |])
       |> (fun x -> Ndarray.repeat x [| 1; 1; 3 |])
       |> Ndarray.pad ~v:(char_of_int 255) [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
-      |> Conv.Reinterpret.Uint8.ta_of_nd
+      |> Conv.Reinterpret.Uint8.ta_of_ba
     in
     canvas##.width := 28;
     canvas##.height := 28;

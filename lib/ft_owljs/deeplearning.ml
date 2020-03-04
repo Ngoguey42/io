@@ -9,12 +9,12 @@ module Graph = Owl_neural_generic.Make_Embedded (Owl_base_dense_ndarray.S)
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Typed_array = Js_of_ocaml.Typed_array
 
-type float32_nd = (float, Bigarray.float32_elt) Ndarray.t
+type float32_ba = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
-type int32_nd = (int, Bigarray.int32_elt) Ndarray.t
+type int32_ba = (int, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
 (* TODO: Move what can be moved to ft_owlbase and ft_js
-   rename to network/neural_network ? `type network`->`type t`? `Network_builder` -> `Builder` ?
+ * rename to network/neural_network ? `type network`->`type t`? `Network_builder` -> `Builder` ?
 *)
 
 type adam_content = {
@@ -24,13 +24,13 @@ type adam_content = {
   (* Number of updates performed *)
   step : int;
   (* Running gradient of kernel *)
-  rgrad_kernel : float32_nd;
+  rgrad_kernel : float32_ba;
   (* Running gradient squared of kernel *)
-  rgrad_sq_kernel : float32_nd;
+  rgrad_sq_kernel : float32_ba;
   (* Running gradient of bias *)
-  rgrad_bias : float32_nd;
+  rgrad_bias : float32_ba;
   (* Running gradient squared of bias *)
-  rgrad_sq_bias : float32_nd;
+  rgrad_sq_bias : float32_ba;
 }
 
 type conv_optimizer = [ `Adam of adam_content | `SGD ]
@@ -40,8 +40,8 @@ type conv_content = {
   stride : int * int;
   padding : bool;
   out_filters : int;
-  kernel_weights : float32_nd;
-  bias_weights : float32_nd;
+  kernel_weights : float32_ba;
+  bias_weights : float32_ba;
   optimizer : conv_optimizer;
 }
 
@@ -204,10 +204,10 @@ module Tfjs = struct
     let optimizations = [ (kname, kupdate); (bname, bupdate) ] |> List.to_seq |> OptiMap.of_seq in
     let pack () =
       let step = kupdater#get_step##arraySync_intScalar in
-      let rgrad_kernel = Tfjs_api.bigarray_of_tensor_float kupdater#get_rgrad in
-      let rgrad_sq_kernel = Tfjs_api.bigarray_of_tensor_float kupdater#get_rgrad_sq in
-      let rgrad_bias = Tfjs_api.bigarray_of_tensor_float bupdater#get_rgrad in
-      let rgrad_sq_bias = Tfjs_api.bigarray_of_tensor_float bupdater#get_rgrad_sq in
+      let rgrad_kernel = Tfjs_api.ba_of_tensor_float kupdater#get_rgrad in
+      let rgrad_sq_kernel = Tfjs_api.ba_of_tensor_float kupdater#get_rgrad_sq in
+      let rgrad_bias = Tfjs_api.ba_of_tensor_float bupdater#get_rgrad in
+      let rgrad_sq_bias = Tfjs_api.ba_of_tensor_float bupdater#get_rgrad_sq in
       `Adam { conf with step; rgrad_kernel; rgrad_sq_kernel; rgrad_bias; rgrad_sq_bias }
     in
     (optimizations, pack)
@@ -226,8 +226,8 @@ module Tfjs = struct
     let tflayer = L.conv2d ~weights (`Two (ky, kx)) padding (`Two (sy, sx)) out_filters in
     let optimizations, pack_optimizations = unpack_optimizations tflayer conf.optimizer in
     let pack () =
-      let kernel_weights = Tfjs_api.bigarray_of_tensor_float tflayer##.kernel##.val_ in
-      let bias_weights = Tfjs_api.bigarray_of_tensor_float tflayer##.bias##.val_ in
+      let kernel_weights = Tfjs_api.ba_of_tensor_float tflayer##.kernel##.val_ in
+      let bias_weights = Tfjs_api.ba_of_tensor_float tflayer##.bias##.val_ in
       `Conv2d { conf with kernel_weights; bias_weights; optimizer = pack_optimizations () }
     in
     ((tflayer :> tflayer), optimizations, pack)
@@ -379,7 +379,7 @@ let main' train_imgs train_labs test_imgs test_labs =
 
     let time' = (new%js Js.date_now)##valueOf /. 1000. in
     Printf.printf "Step %5d done, loss:%9.6f, took:%.3fsec\n%!" i
-      (Bigarray.Genarray.get (Tfjs_api.bigarray_of_tensor_float loss) [| 0 |])
+      (Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float loss) [| 0 |])
       (time' -. time);
     ignore (time, time', i, loss)
   in

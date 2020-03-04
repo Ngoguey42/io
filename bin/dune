@@ -10,11 +10,11 @@
                 ../vendored/sha256.min.js
                 ../vendored/sha1.min.js
 ;                ../vendored/tf.js
-                ../lib/ft_owljs/stubs.js
+                ../lib/ft_js/stubs.js
                 ))
 
  ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
  ; picked otherwise and makes js crash.
- (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base digestif.ocaml ft ft_js ft_owlbase ft_owljs)
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base digestif.ocaml ft ft_js ft_owlbase ft_owljs ft_cnnjs)
  (preprocess (pps js_of_ocaml-ppx tyxml-ppx))
  )

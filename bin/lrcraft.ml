@@ -51,7 +51,7 @@ let main () =
   Ft_owljs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
-  Ft_owljs.Deeplearning.main train_imgs train_labs test_imgs test_labs >>= fun _ ->
+  Ft_cnnjs.Nn_tfjs.main train_imgs train_labs test_imgs test_labs >>= fun _ ->
   (* Ft_owljs.Tf.main train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
   (* Js.Unsafe.fun_call Js.Unsafe.global##.ft_tf_test_ [| *)
   (*                      train_imgs|> Js.Unsafe.inject;  train_labs|> Js.Unsafe.inject;  test_imgs|> Js.Unsafe.inject;  test_labs|> Js.Unsafe.inject; *)
@@ -91,10 +91,10 @@ let main () =
         let batch_size = 5 in
         (* let batch_size = 600 in *)
         let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
-        let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_owljs.Conv.list_of_ta in
+        let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_js.Conv.list_of_ta in
         let xs =
-          imgs |> Ft_owljs.Conv.Cast.Ta.float32_of_uint8
-          |> Ft_owljs.Conv.Reinterpret.Float32.ba_of_ta
+          imgs |> Ft_js.Conv.Ta.float32_of_uint8
+          |> Ft_js.Conv.Float32.ba_of_ta
           |> (fun x -> Ndarray.reshape x [| batch_size; 28; 28; 1 |])
           |> Algodiff.pack_arr
         in
@@ -104,10 +104,10 @@ let main () =
         let j = 0 in
         let batch_size = 3 in
         let imgs = test_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
-        let labs = test_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_owljs.Conv.list_of_ta in
+        let labs = test_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_js.Conv.list_of_ta in
         let xs =
-          imgs |> Ft_owljs.Conv.Cast.Ta.float32_of_uint8
-          |> Ft_owljs.Conv.Reinterpret.Float32.ba_of_ta
+          imgs |> Ft_js.Conv.Ta.float32_of_uint8
+          |> Ft_js.Conv.Float32.ba_of_ta
           |> (fun x -> Ndarray.reshape x [| batch_size; 28; 28; 1 |])
           |> Algodiff.pack_arr
         in

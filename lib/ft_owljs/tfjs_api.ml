@@ -376,12 +376,12 @@ let create_adam_updater : float -> float -> float -> int -> float32_nd -> float3
     method update (weights: variable Js.t) lr (grad: tensor Js.t) =
       let open Ops in
       step##assign (step + int 1);
-      let correction = float 1. - (beta1 ** step) in
-      let correction_sq = float 1. - (beta2 ** step) in
+      let correction1 = float 1. - (beta1 ** step) in
+      let correction2 = float 1. - (beta2 ** step) in
       rgrad##assign ((rgrad * beta1) + (grad * beta1'));
       rgrad_sq##assign ((rgrad_sq * beta2) + (grad * grad * beta2'));
       weights##assign
-        (rgrad / correction / (sqrt (rgrad_sq / correction_sq) + epsilon)
+        (rgrad / correction1 / (sqrt (rgrad_sq / correction2) + epsilon)
         |> mul (float lr)
         |> neg |> add weights )
 

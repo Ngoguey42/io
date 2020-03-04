@@ -28,9 +28,9 @@ module Typed_array = Js_of_ocaml.Typed_array
 (*   Irmin.Info.v ~date ~author msg *)
 
 (* TypedArray *)
-type uint8_ta = Typed_array.uint8Array Js.t
+type uint8_ta = (int, [ `Uint8 ]) Typed_array.typedArray
 
-type float32_ta = Typed_array.float32Array Js.t
+type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray
 
 type arrayBuffer = Typed_array.arrayBuffer Js.t
 

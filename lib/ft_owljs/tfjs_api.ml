@@ -1,16 +1,25 @@
+(* Js_of_ocaml bindings for the tensorflow.js library. It is not exhaustive.
+ * It also contains helpers to avoid using tensorflows' losses, optimizers and
+ * training loops. Gradients can be retrieved using the `variable_grads` function.
+ * It also provides conversions from tensors to and from bigarrays and typed_arrays
+ *)
 module Js = Js_of_ocaml.Js
 module Typed_array = Js_of_ocaml.Typed_array
 module Firebug = Js_of_ocaml.Firebug
 
-module Ndarray = Owl_base_dense_ndarray_generic
+(* Types  *************************************************************************************** *)
 
-(* TODO: Do not use Ndarray, but use Bigarray, and make this file only use Stdlib and Js_of_ocaml (except promises) *)
+type uint8_ta = (int, [ `Uint8 ]) Typed_array.typedArray
 
-type uint8_ta = Typed_array.uint8Array Js.t
+type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray
 
-type float32_ta = Typed_array.float32Array Js.t
+type int32_ta = (int, [ `Int32 ]) Typed_array.typedArray
 
-type float32_nd = (float, Bigarray.float32_elt) Ndarray.t
+type float32_ba = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
+
+type int32_ba = (int, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Genarray.t
+
+type backend = [ `Webgl | `Cpu | `Wasm ]
 
 class type symbolicTensor = object end
 
@@ -20,8 +29,6 @@ class type tensor =
 
     method size : int Js.readonly_prop
 
-    method data : float32_ta Ft_js.promise Js.t Js.meth
-
     method asType : Js.js_string Js.t Js.meth
 
     method print : unit Js.meth
@@ -29,6 +36,14 @@ class type tensor =
     method reshape : int Js.js_array Js.t -> tensor Js.t Js.meth
 
     method toString : Js.js_string Js.t Js.meth
+
+    method data_float : float32_ta Ft_js.promise Js.t Js.meth
+
+    method data_int : int32_ta Ft_js.promise Js.t Js.meth
+
+    method dataSync_float : float32_ta Js.meth
+
+    method dataSync_int : int32_ta Js.meth
 
     method arraySync_int : int Js.js_array Js.t Js.meth
 
@@ -126,7 +141,7 @@ class type memory =
     method numTensors : int Js.readonly_prop
   end
 
-module Ops = struct
+module Ops = struct (* ************************************************************************** *)
   open Js.Unsafe
 
   let ones : int array -> tensor Js.t =
@@ -192,28 +207,19 @@ module Ops = struct
     fun_call global##.tf##.max [| inject x; inject axis; inject keepdims |]
 end
 
-let tensor_of_ta : int array -> float32_ta -> tensor Js.t =
+(* Constructors ********************************************************************************* *)
+let tensor_of_ta : int array -> ('a, 'b) Typed_array.typedArray -> tensor Js.t =
  fun shape ta ->
   let open Js.Unsafe in
   fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject |]
 
-let ta_of_tensor : #tensor Js.t -> float32_ta =
-  fun arr ->
-  arr
-  |> Ops.flatten
-  |> (fun arr -> arr##arraySync_float)
-  |> (fun arr -> new%js Typed_array.float32Array_fromArray arr)
+let tensor_of_bigarray : ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.t =
+ fun arr -> tensor_of_ta (Bigarray.Genarray.dims arr) (Conv.Reinterpret.Float32.ta_of_nd arr)
 
-let tensor_of_bigarray : (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.t =
-  fun arr ->
-  tensor_of_ta (Bigarray.Genarray.dims arr) (Conv.Reinterpret.Float32.ta_of_nd arr)
-
-let bigarray_of_tensor : #tensor Js.t -> (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t =
-  fun arr ->
-  arr
-  |> ta_of_tensor
-  |> Conv.Reinterpret.Float32.nd_of_ta
-  |> (fun arr -> Bigarray.reshape arr (Ndarray.shape arr))
+let bigarray_of_tensor_float : #tensor Js.t -> float32_ba =
+ fun arr ->
+  arr##dataSync_float |> Conv.Reinterpret.Float32.nd_of_ta |> fun arr ->
+  Bigarray.reshape arr (Bigarray.Genarray.dims arr)
 
 let one_hot_of_ta : int -> uint8_ta -> tensor Js.t =
  fun width arr ->
@@ -247,15 +253,50 @@ let int : int -> tensor Js.t =
   let open Js.Unsafe in
   fun_call global##.tf##.scalar [| inject x; "int32" |> Js.string |> inject |]
 
-module Layers = struct
-  let input : ?dtype:[ `Float32 | `Uint8 ] -> ?name:string -> int array -> symbolicTensor Js.t =
+(* Tensorflow model and optimizers  ************************************************************* *)
+let model : symbolicTensor Js.t list -> symbolicTensor Js.t list -> model Js.t =
+ fun inputs outputs ->
+  let params =
+    object%js (self)
+      val inputs = inputs |> Array.of_list |> Js.array
+
+      val outputs = outputs |> Array.of_list |> Js.array
+    end
+  in
+  let open Js.Unsafe in
+  fun_call global##.tf##.model [| inject params |]
+
+let adam : float -> float -> float -> float -> adam Js.t =
+ fun lr beta1 beta2 epsilon ->
+  let open Js.Unsafe in
+  fun_call global##.tf##.train##.adam [| inject lr; inject beta1; inject beta2; inject epsilon |]
+
+let sgd : float -> optimizer Js.t =
+ fun lr ->
+  let open Js.Unsafe in
+  fun_call global##.tf##.train##.sgd [| inject lr |]
+
+let compile : model Js.t -> optimizer Js.t -> string -> unit =
+ fun m optim loss ->
+  let params =
+    object%js (self)
+      val optimizer = optim
+
+      val loss = Js.string loss
+    end
+  in
+  let open Js.Unsafe in
+  meth_call m "compile" [| inject params |]
+
+module Layers = struct (* *********************************************************************** *)
+  let input : ?dtype:[ `Float32 | `Int32 ] -> ?name:string -> int array -> symbolicTensor Js.t =
    fun ?(dtype = `Float32) ?name shape ->
     let open Js.Unsafe in
     let params =
       object%js (self)
         val shape = Js.array shape
 
-        val dtype = Js.string (match dtype with `Float32 -> "float32" | `Uint8 -> "uint8")
+        val dtype = Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32")
 
         val name =
           match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
@@ -264,7 +305,7 @@ module Layers = struct
     fun_call global##.tf##.input [| params |> inject |]
 
   let conv2d :
-      ?weights:float32_nd * float32_nd -> ?name:string -> _ -> bool -> _ -> int -> conv2d Js.t =
+      ?weights:float32_ba * float32_ba -> ?name:string -> _ -> bool -> _ -> int -> conv2d Js.t =
    fun ?weights ?name kernel_size padding stride out_filters ->
     let padding = match padding with true -> "same" | false -> "valid" in
     let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
@@ -273,9 +314,9 @@ module Layers = struct
       match weights with
       | None -> Js.Opt.empty
       | Some (kernel, bias) ->
-          let shape = Ndarray.shape kernel in
+          let shape = Bigarray.Genarray.dims kernel in
           let kernel = kernel |> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
-          let shape = Ndarray.shape bias in
+          let shape = Bigarray.Genarray.dims bias in
           let bias = bias |> Conv.Reinterpret.Float32.ta_of_nd |> tensor_of_ta shape in
           [| kernel; bias |] |> Js.array |> Js.Opt.return
     in
@@ -345,10 +386,21 @@ module Layers = struct
     | "Conv2D" -> `Conv2d (Js.Unsafe.coerce l :> conv2d Js.t)
     | "Sequential" | "Model" -> `Model (Js.Unsafe.coerce l :> model Js.t)
     | name -> failwith ("unknown class name:" ^ name)
+
+  let chain :
+        symbolicTensor Js.t -> symbolicTensor Js.t list -> symbolicTensor Js.t -> symbolicTensor Js.t =
+    fun a b_inputs b ->
+    let b = model b_inputs [ b ] in
+    b##apply a
+
 end
 
+(* Hard coded losses / optimizers  ************************************************************** *)
+(* The two `updaters` recieve the `weights` at `update` time instead of instanciation time because
+ * tensorflow does not instanciate the `weights` object as soon as the `layer` is instanciated.
+ * But as soon as they are instanciated, they do not change.
+ *)
 let categorical_crossentropy : float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
- (* TODO: Move to a `Custom` (or `Helper`, or...) module? along with the custom optimizers *)
  fun epsilon softmaxed_pred truth ->
   softmaxed_pred
   |> Ops.clip_by_value epsilon (1. -. epsilon)
@@ -361,7 +413,7 @@ let sgd_updater =
       weights##assign (grad |> mul (float lr) |> neg |> add weights)
   end
 
-let create_adam_updater : float -> float -> float -> int -> float32_nd -> float32_nd -> _ =
+let create_adam_updater : float -> float -> float -> int -> float32_ba -> float32_ba -> _ =
  fun epsilon beta1 beta2 step rgrad rgrad_sq ->
   let beta1 = beta1 |> float in
   let beta2 = beta2 |> float in
@@ -372,17 +424,17 @@ let create_adam_updater : float -> float -> float -> int -> float32_nd -> float3
   let step = step |> int |> variable ~dtype:`Int32 in
   let rgrad =
     rgrad |> Conv.Reinterpret.Float32.ta_of_nd
-    |> tensor_of_ta (Ndarray.shape rgrad)
+    |> tensor_of_ta (Bigarray.Genarray.dims rgrad)
     |> variable ~trainable:false
   in
   let rgrad_sq =
     rgrad_sq |> Conv.Reinterpret.Float32.ta_of_nd
-    |> tensor_of_ta (Ndarray.shape rgrad_sq)
+    |> tensor_of_ta (Bigarray.Genarray.dims rgrad_sq)
     |> variable ~trainable:false
   in
 
   object
-    method update (weights: variable Js.t) lr (grad: tensor Js.t) =
+    method update (weights : variable Js.t) lr (grad : tensor Js.t) =
       let open Ops in
       step##assign (step + int 1);
       let correction1 = float 1. - (beta1 ** step) in
@@ -390,7 +442,7 @@ let create_adam_updater : float -> float -> float -> int -> float32_nd -> float3
       rgrad##assign ((rgrad * beta1) + (grad * beta1'));
       rgrad_sq##assign ((rgrad_sq * beta2) + (grad * grad * beta2'));
       weights##assign
-        (rgrad / correction1 / (sqrt (rgrad_sq / correction2) + epsilon)
+        ( rgrad / correction1 / (sqrt (rgrad_sq / correction2) + epsilon)
         |> mul (float lr)
         |> neg |> add weights )
 
@@ -401,48 +453,8 @@ let create_adam_updater : float -> float -> float -> int -> float32_nd -> float3
     method get_rgrad_sq = rgrad_sq
   end
 
-let model : symbolicTensor Js.t list -> symbolicTensor Js.t list -> model Js.t =
- fun inputs outputs ->
-  let params =
-    object%js (self)
-      val inputs = inputs |> Array.of_list |> Js.array
-
-      val outputs = outputs |> Array.of_list |> Js.array
-    end
-  in
-  let open Js.Unsafe in
-  fun_call global##.tf##.model [| inject params |]
-
-let chain :
-    symbolicTensor Js.t -> symbolicTensor Js.t list -> symbolicTensor Js.t -> symbolicTensor Js.t =
- fun a b_inputs b ->
-  let b = model b_inputs [ b ] in
-  b##apply a
-
-let adam : float -> float -> float -> float -> adam Js.t =
- fun lr beta1 beta2 epsilon ->
-  let open Js.Unsafe in
-  fun_call global##.tf##.train##.adam [| inject lr; inject beta1; inject beta2; inject epsilon |]
-
-let sgd : float -> optimizer Js.t =
- fun lr ->
-  let open Js.Unsafe in
-  fun_call global##.tf##.train##.sgd [| inject lr |]
-
-let compile : model Js.t -> optimizer Js.t -> string -> unit =
- fun m optim loss ->
-  let params =
-    object%js (self)
-      val optimizer = optim
-
-      val loss = Js.string loss
-    end
-  in
-  let open Js.Unsafe in
-  meth_call m "compile" [| inject params |]
-
-let variable_grads :
-    (unit -> tensor Js.t) -> tensor Js.t * tensor Js.t Named_tensor_map.t =
+(* MISC. **************************************************************************************** *)
+let variable_grads : (unit -> tensor Js.t) -> tensor Js.t * tensor Js.t Named_tensor_map.t =
  fun f ->
   let open Js.Unsafe in
   let ret = fun_call global##.tf##.variableGrads [| f |> Js.wrap_callback |> inject |] in
@@ -458,63 +470,66 @@ let engine_registered_variables : unit -> variable Js.t Named_tensor_map.t =
   let map_js = get e "registeredVariables" in
   Named_tensor_map.of_js map_js
 
-let setup_backend b =
+(* Backend manipulations ************************************************************************ *)
+let setup_backend : backend -> unit Lwt.t =
+ fun b ->
   (* WASM backend is not mature yet (some bug and lack of implemented functions)
    * https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/
    * https://github.com/tensorflow/tfjs/tree/master/tfjs-backend-wasm *)
   let open Js.Unsafe in
   let open Lwt.Infix in
-  let b = Js.string (match b with
-    | `Webgl -> "webgl"
-    | `Cpu -> "cpu"
-    | `Wasm -> "wasm")
-  in
+  let b = Js.string (match b with `Webgl -> "webgl" | `Cpu -> "cpu" | `Wasm -> "wasm") in
   fun_call global##.tf##.setBackend [| b |> inject |] |> Ft_js.wrap_promise >>= fun _ ->
-  fun_call global##.tf##.ready [| |] |> Ft_js.wrap_promise
+  fun_call global##.tf##.ready [||] |> Ft_js.wrap_promise
 
-let memory : unit -> memory = fun () ->
+let memory : unit -> memory =
+ fun () ->
   let open Js.Unsafe in
-  fun_call global##.tf##.memory [|  |]
+  fun_call global##.tf##.memory [||]
 
-let disposeVariables : unit -> unit = fun () ->
+let disposeVariables : unit -> unit =
+ fun () ->
   (* Dereference the `variables` inside the engine.
    * Always use it. And use in conjunction with a `tensor` dereferencing scheme below. *)
   let open Js.Unsafe in
-  fun_call global##.tf##.disposeVariables [|  |]
+  fun_call global##.tf##.disposeVariables [||]
 
-let engine_reset : unit -> unit = fun () ->
+let engine_reset : unit -> unit =
+ fun () ->
   (* Seems to be the only reliable way to fully get rid of all the `tensor` memory leaks, when no
    * scoping was used. But it should not be called too often because the webgl initialization
    * takes ~3 seconds *)
   let open Js.Unsafe in
-  let e = fun_call global##.tf##.engine [|  |] in
-  meth_call e "reset" [| |] |> ignore
+  let e = fun_call global##.tf##.engine [||] in
+  meth_call e "reset" [||] |> ignore
 
-let engine_start_scope : unit -> unit = fun () ->
+let engine_start_scope : unit -> unit =
+ fun () ->
   (* Start a tensor garbage collection scope *)
   let open Js.Unsafe in
-  let e = fun_call global##.tf##.engine [|  |] in
-  meth_call e "startScope" [| |] |> ignore
+  let e = fun_call global##.tf##.engine [||] in
+  meth_call e "startScope" [||] |> ignore
 
-let engine_end_scope : unit -> unit = fun () ->
+let engine_end_scope : unit -> unit =
+ fun () ->
   (* End a tensor garbage collection scope, dereferencing all `tensors` referenced since the
    * matching `engine_start_scope` *)
   let open Js.Unsafe in
-  let e = fun_call global##.tf##.engine [|  |] in
-  meth_call e "endScope" [| |] |> ignore
+  let e = fun_call global##.tf##.engine [||] in
+  meth_call e "endScope" [||] |> ignore
 
 let tidy : (unit -> unit) -> unit =
-  fun f ->
+ fun f ->
   (* Wrap a synchronous computation in order to dispose the `tensors` referenced inside the engine.
    *)
   let open Js.Unsafe in
   fun_call global##.tf##.tidy [| f |> Js.wrap_callback |> inject |]
 
 let tidy_lwt : (unit -> 'a Lwt.t) -> 'a Lwt.t =
-  fun f ->
+ fun f ->
   (* Wrap an asynchronous computation in order to dispose the `tensors` referenced inside the
      engine.
-   *)
+  *)
   let f () =
     engine_start_scope ();
     f ()

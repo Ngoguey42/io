@@ -42,10 +42,13 @@ let owl_train_pass nn optim xs labs =
   let optim, updates = Ft_neural.Adam.apply optim lr grads in
   let weights = Owl_utils.aarr_map2 (fun w u -> Algodiff.Maths.(w + u)) weights updates in
   Graph.update nn weights;
-  optim, y
+  (optim, y)
 
-module Tf_cpu = Ft_cnnjs.Mnist_tfjs.Make_backend (struct let v = `Cpu end)
-module Tf_webgl = Ft_cnnjs.Mnist_tfjs.Make_backend (struct let v = `Webgl end)
+let[@ocamlformat "disable"] get_backend : string -> (module Ft_cnnjs.Mnist.TRAINER) = function
+  | "tfjs-webgl" -> (module Ft_cnnjs.Mnist_tfjs.Make_backend (struct let v = `Webgl end))
+  | "tfjs-cpu" -> (module Ft_cnnjs.Mnist_tfjs.Make_backend (struct let v = `Cpu end))
+  (* | "owl-cpu" -> (module Ft_cnnjs.Mnist_owl) *)
+  | _ -> failwith "unknown backend"
 
 let main () =
   let open Lwt.Infix in
@@ -56,24 +59,34 @@ let main () =
 
   let open Ft_cnnjs.Nn.Builder in
   let optimizer = `Adam (0.9, 0.999, 1e-10) in
-  let encoders = [
+  let encoders =
+    [
       input2d 1
       |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer
       |> relu
       |> conv2d (`One 3) false (`One 2) 10 `Tanh optimizer
       |> relu
       |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
-      |> relu |> finalize
+      |> relu |> finalize;
+      input2d 1
+      |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer
+      |> relu
+      |> conv2d (`One 3) false (`One 2) 10 `Tanh optimizer
+      |> relu
+      |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
+      |> relu |> finalize;
     ]
   in
   let decoder =
-    input2d 10
+    input2d 20
     |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
     |> maxpool2d (`One 2) (`One 2)
     |> softmax |> finalize
   in
+  let module Backend = (val get_backend "tf-cpu") in
 
   let get_data _ =
+    (* TODO: Real random  *)
     let slice a b arr =
       Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
     in
@@ -81,19 +94,22 @@ let main () =
     let batch_size = 100 in
     let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
     let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) in
-    imgs, labs
+    (imgs, labs)
   in
+  let get_lr _ = 1e-3 in
 
-  print_endline (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
-  print_endline (Ft_cnnjs.Nn.String.of_network decoder);
+  print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
 
-  Tf_cpu.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr:(fun _ -> 1e-3) ~get_data ~encoders ~decoder >>= fun (encoders, decoder) ->
-  print_endline (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
-  print_endline (Ft_cnnjs.Nn.String.of_network decoder);
+  (* print_string (Ft_cnnjs.Nn.String.of_network decoder); *)
+  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr ~get_data ~encoders ~decoder
+  >>= fun (encoders, decoder) ->
+  print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
 
-  Tf_cpu.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr:(fun _ -> 1e-3) ~get_data ~encoders ~decoder >>= fun (encoders, decoder) ->
-  print_endline (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
-  print_endline (Ft_cnnjs.Nn.String.of_network decoder);
+  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr ~get_data ~encoders ~decoder
+  >>= fun (encoders, decoder) ->
+  print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
+
+  ignore decoder;
 
   (* Ft_cnnjs.Mnist_tfjs.main train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
   (* Ft_owljs.Tf.main train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
@@ -101,7 +117,6 @@ let main () =
   (*                      train_imgs|> Js.Unsafe.inject;  train_labs|> Js.Unsafe.inject;  test_imgs|> Js.Unsafe.inject;  test_labs|> Js.Unsafe.inject; *)
   (*                    |] *)
   (* |> Ft_js.wrap_promise >>= fun _ -> *)
-
   Printf.eprintf "Done\n%!";
   if 42 == 42 then assert false;
 
@@ -112,12 +127,15 @@ let main () =
   let open Ft_neural.Network_builder in
   let nn =
     input2d 28 28 1
-    |> conv2d (`One 4) false (`One 2) 10 |> relu
-    |> conv2d (`One 3) false (`One 2) 10 |> relu
-    |> conv2d (`One 3) false (`One 1) 10 |> relu
+    |> conv2d (`One 4) false (`One 2) 10
+    |> relu
+    |> conv2d (`One 3) false (`One 2) 10
+    |> relu
     |> conv2d (`One 3) false (`One 1) 10
-
-    |> max_pool2d (`One 2) (`One 2) |> softmax2d |> get_network
+    |> relu
+    |> conv2d (`One 3) false (`One 1) 10
+    |> max_pool2d (`One 2) (`One 2)
+    |> softmax2d |> get_network
   in
   Graph.init nn;
   (* let optim = () in *)
@@ -127,52 +145,48 @@ let main () =
     | 1 -> Lwt.return optim
     (* | 1000 -> Lwt.return optim *)
     | i ->
+        Printf.printf "> %d\n%!" i;
+        let time = (new%js Js.date_now)##valueOf /. 1000. in
 
-       Printf.printf "> %d\n%!" i;
-       let time = (new%js Js.date_now)##valueOf /. 1000. in
+        let j = Random.int 55000 in
+        let batch_size = 5 in
+        (* let batch_size = 600 in *)
+        let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
+        let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_js.Conv.list_of_ta in
+        let xs =
+          imgs |> Ft_js.Conv.Ta.float32_of_uint8 |> Ft_js.Conv.Float32.ba_of_ta
+          |> (fun x -> Ndarray.reshape x [| batch_size; 28; 28; 1 |])
+          |> Algodiff.pack_arr
+        in
+        let optim, ys = owl_train_pass nn optim xs labs in
+        ignore ys;
 
-       let j = Random.int 55000 in
-       let batch_size = 5 in
-       (* let batch_size = 600 in *)
-       let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
-       let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_js.Conv.list_of_ta in
-       let xs =
-         imgs |> Ft_js.Conv.Ta.float32_of_uint8
-         |> Ft_js.Conv.Float32.ba_of_ta
-         |> (fun x -> Ndarray.reshape x [| batch_size; 28; 28; 1 |])
-         |> Algodiff.pack_arr
-       in
-       let optim, ys = owl_train_pass nn optim xs labs in
-       ignore ys;
+        let j = 0 in
+        let batch_size = 3 in
+        let imgs = test_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
+        let labs = test_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_js.Conv.list_of_ta in
+        let xs =
+          imgs |> Ft_js.Conv.Ta.float32_of_uint8 |> Ft_js.Conv.Float32.ba_of_ta
+          |> (fun x -> Ndarray.reshape x [| batch_size; 28; 28; 1 |])
+          |> Algodiff.pack_arr
+        in
+        let ys = Graph.run xs nn in
 
-       let j = 0 in
-       let batch_size = 3 in
-       let imgs = test_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
-       let labs = test_labs |> slice (8 + j) (8 + (j + batch_size)) |> Ft_js.Conv.list_of_ta in
-       let xs =
-         imgs |> Ft_js.Conv.Ta.float32_of_uint8
-         |> Ft_js.Conv.Float32.ba_of_ta
-         |> (fun x -> Ndarray.reshape x [| batch_size; 28; 28; 1 |])
-         |> Algodiff.pack_arr
-       in
-       let ys = Graph.run xs nn in
+        for j = 0 to batch_size - 1 do
+          if i >= 4 then
+            Ft_js.select body ".mnist-pred" Dom_html.CoerceTo.div |> Dom.removeChild body;
+          let lab = List.nth labs j in
+          let img = imgs |> slice (28 * 28 * j) (28 * 28 * (j + 1)) in
+          let y = Ndarray.get_slice [ [ j; j ] ] (Algodiff.unpack_arr ys) |> Algodiff.pack_arr in
+          Ft_cnnjs.Mnist.html_pred_overview img lab (Ft_neural.to_flat_list y)
+          |> Dom.appendChild body
+        done;
 
-       for j = 0 to batch_size - 1 do
-         if i >= 4 then
-           Ft_js.select body ".mnist-pred" Dom_html.CoerceTo.div |> Dom.removeChild body;
-         let lab = List.nth labs j in
-         let img = imgs |> slice (28 * 28 * j) ((28 * 28) * (j + 1)) in
-         let y = Ndarray.get_slice [ [ j; j ] ] (Algodiff.unpack_arr ys) |> Algodiff.pack_arr in
-         Ft_cnnjs.Mnist.html_pred_overview img lab (Ft_neural.to_flat_list y) |> Dom.appendChild body;
-       done;
-       (* Dom_html.createBr Dom_html.window##.document |> Dom.appendChild body; *)
+        (* Dom_html.createBr Dom_html.window##.document |> Dom.appendChild body; *)
+        let time' = (new%js Js.date_now)##valueOf /. 1000. in
+        Printf.printf "> %d %fsec\n%!" i (time' -. time);
 
-       let time' = (new%js Js.date_now)##valueOf /. 1000. in
-       Printf.printf "> %d %fsec\n%!" i (time' -. time);
-
-       Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun _ -> aux optim (i + 1)
+        Js_of_ocaml_lwt.Lwt_js.sleep 0.1 >>= fun _ -> aux optim (i + 1)
   in
 
-  aux optim 0 >>= fun _ ->
-
-  Lwt.return ()
+  aux optim 0 >>= fun _ -> Lwt.return ()

@@ -13,8 +13,7 @@ module OptiMap = struct
   let union_exn =
     union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith)
 
-  let union_list_exn l =
-    List.fold_left union_exn empty l
+  let union_list_exn l = List.fold_left union_exn empty l
 
   let key_disjunction m m' =
     let keys = to_seq m |> Seq.map (fun (key, _) -> key) |> StringSet.of_seq in

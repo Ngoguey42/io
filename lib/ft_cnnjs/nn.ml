@@ -60,17 +60,17 @@ module String = struct
         let mean_val arr = Ndarray.sum' arr /. float_of_int (Ndarray.numel arr) in
         let ky, kx = c.kernel_size in
         let sy, sx = c.stride in
-        Printf.sprintf "Conv2d k:%dx%d s:%dx%d <%d> k:%+.3e b:%+.3e (%s)/(%s)" ky kx sy sx
+        Printf.sprintf "Conv2d k:%dx%d s:%dx%d <%d> k:%+.3e b:%+.3e (%s)/(%s)\n" ky kx sy sx
           c.out_filters (mean_val c.kernel_weights) (mean_val c.bias_weights)
           (of_optimizer c.kernel_optimizer) (of_optimizer c.bias_optimizer)
-    | `Maxpool2d _ -> "Maxpool2d"
-    | `Relu -> "Relu"
-    | `Softmax _ -> "Softmax"
+    | `Maxpool2d _ -> "Maxpool2d\n"
+    | `Relu -> "Relu\n"
+    | `Softmax _ -> "Softmax\n"
 
   let rec of_network = function
     | Input2d { out_filters; dtype } ->
-        Printf.sprintf "| Input2d <%d> %s" out_filters (of_dtype dtype)
-    | Inner (upstream, layer) -> Printf.sprintf "%s\n> %s" (of_network upstream) (of_layer layer)
+        Printf.sprintf "| Input2d <%d> %s\n" out_filters (of_dtype dtype)
+    | Inner (upstream, layer) -> Printf.sprintf "%s> %s" (of_network upstream) (of_layer layer)
 end
 
 let rec fold_bottom_up f x net =

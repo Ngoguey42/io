@@ -5,6 +5,7 @@ module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
 module Ndarray = Owl_base_dense_ndarray_generic
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+module Typed_array = Js_of_ocaml.Typed_array
 
 let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
 
@@ -131,3 +132,18 @@ let html_pred_overview img lab pred =
   in
   Ft_js.select elt "canvas" Dom_html.CoerceTo.canvas |> put_digit_to_canvas img;
   elt
+
+module type TRAINER = sig
+  val train :
+    ?verbose:bool ->
+    ?progress:(int -> unit) ->
+    batch_count:int ->
+    get_lr:(int -> float) ->
+    get_data:
+      (int ->
+      (float, [ `Float32 ]) Typed_array.typedArray Js.t
+      * (int, [ `Uint8 ]) Typed_array.typedArray Js.t) ->
+    encoders:Nn.t list ->
+    decoder:Nn.t ->
+    (Nn.t list * Nn.t) Lwt.t
+end

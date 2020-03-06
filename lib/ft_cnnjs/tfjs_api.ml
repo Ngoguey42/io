@@ -141,7 +141,8 @@ class type memory =
     method numTensors : int Js.readonly_prop
   end
 
-module Ops = struct (* ************************************************************************** *)
+(* ********************************************************************************************** *)
+module Ops = struct
   open Js.Unsafe
 
   let ones : int array -> tensor Js.t =
@@ -228,19 +229,14 @@ let one_hot_of_ta : int -> uint8_ta -> tensor Js.t =
   fun_call global##.tf##.oneHot [| inject arr; inject width |]
 
 let variable :
-    ?trainable:bool ->
-    ?name:string ->
-    ?dtype:[ `Float32 | `Uint8 | `Int32 ] ->
-    tensor Js.t ->
-    variable Js.t =
+    ?trainable:bool -> ?name:string -> ?dtype:[ `Float32 | `Int32 ] -> tensor Js.t -> variable Js.t
+    =
  fun ?(trainable = false) ?name ?(dtype = `Float32) arr ->
   let open Js.Unsafe in
   let name =
     match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
   in
-  let dtype =
-    Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32" | `Uint8 -> "uint8")
-  in
+  let dtype = Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32") in
   fun_call global##.tf##.variable [| inject arr; inject trainable; inject name; inject dtype |]
 
 let float : float -> tensor Js.t =
@@ -288,7 +284,8 @@ let compile : model Js.t -> optimizer Js.t -> string -> unit =
   let open Js.Unsafe in
   meth_call m "compile" [| inject params |]
 
-module Layers = struct (* *********************************************************************** *)
+(* ********************************************************************************************** *)
+module Layers = struct
   let input : ?dtype:[ `Float32 | `Int32 ] -> ?name:string -> int array -> symbolicTensor Js.t =
    fun ?(dtype = `Float32) ?name shape ->
     let open Js.Unsafe in
@@ -388,11 +385,11 @@ module Layers = struct (* ******************************************************
     | name -> failwith ("unknown class name:" ^ name)
 
   let chain :
-        symbolicTensor Js.t -> symbolicTensor Js.t list -> symbolicTensor Js.t -> symbolicTensor Js.t =
-    fun a b_inputs b ->
+      symbolicTensor Js.t -> symbolicTensor Js.t list -> symbolicTensor Js.t -> symbolicTensor Js.t
+      =
+   fun a b_inputs b ->
     let b = model b_inputs [ b ] in
     b##apply a
-
 end
 
 (* Hard coded losses / optimizers  ************************************************************** *)

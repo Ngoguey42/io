@@ -37,13 +37,13 @@ class type tensor =
 
     method toString : Js.js_string Js.t Js.meth
 
-    method data_float : float32_ta Ft_js.promise Js.t Js.meth
+    method data_float : float32_ta Js.t Ft_js.promise Js.t Js.meth
 
-    method data_int : int32_ta Ft_js.promise Js.t Js.meth
+    method data_int : int32_ta Js.t Ft_js.promise Js.t Js.meth
 
-    method dataSync_float : float32_ta Js.meth
+    method dataSync_float : float32_ta Js.t Js.meth
 
-    method dataSync_int : int32_ta Js.meth
+    method dataSync_int : int32_ta Js.t Js.meth
 
     method arraySync_int : int Js.js_array Js.t Js.meth
 
@@ -91,6 +91,8 @@ class type layer =
     method getWeights : tensor Js.t Js.js_array Js.t Js.meth
 
     method apply : symbolicTensor Js.t -> symbolicTensor Js.t Js.meth
+
+    method apply_array : symbolicTensor Js.t Js.js_array Js.t -> symbolicTensor Js.t Js.meth
 
     method getClassName : Js.js_string Js.t Js.meth
 
@@ -209,7 +211,7 @@ module Ops = struct
 end
 
 (* Constructors ********************************************************************************* *)
-let tensor_of_ta : int array -> ('a, 'b) Typed_array.typedArray -> tensor Js.t =
+let tensor_of_ta : int array -> ('a, 'b) Typed_array.typedArray Js.t -> tensor Js.t =
  fun shape ta ->
   let open Js.Unsafe in
   fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject |]
@@ -218,11 +220,11 @@ let tensor_of_ba : ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.
  fun arr -> tensor_of_ta (Bigarray.Genarray.dims arr) (Ft_js.Conv.Float32.ta_of_ba arr)
 
 let ba_of_tensor_float : #tensor Js.t -> float32_ba =
- fun arr ->
-  arr##dataSync_float |> Ft_js.Conv.Float32.ba_of_ta |> fun arr ->
-  Bigarray.reshape arr (Bigarray.Genarray.dims arr)
+ fun t ->
+  t##dataSync_float |> Ft_js.Conv.Float32.ba_of_ta |> fun arr ->
+  Bigarray.reshape arr (Js.to_array t##.shape)
 
-let one_hot_of_ta : int -> uint8_ta -> tensor Js.t =
+let one_hot_of_ta : int -> uint8_ta Js.t -> tensor Js.t =
  fun width arr ->
   let open Js.Unsafe in
   let arr = fun_call global##.tf##.tensor1d [| inject arr; "int32" |> Js.string |> inject |] in
@@ -373,6 +375,18 @@ module Layers = struct
     in
     let open Js.Unsafe in
     fun_call global##.tf##.layers##.softmax [| inject params |]
+
+  let concatenate ?(axis = 3) ?name () : layer Js.t =
+    let params =
+      object%js (self)
+        val axis = axis
+
+        val name =
+          match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
+      end
+    in
+    let open Js.Unsafe in
+    fun_call global##.tf##.layers##.concatenate [| inject params |]
 
   let classify : layer Js.t -> [> ] =
    fun l ->

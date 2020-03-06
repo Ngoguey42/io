@@ -13,6 +13,9 @@ module OptiMap = struct
   let union_exn =
     union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith)
 
+  let union_list_exn l =
+    List.fold_left union_exn empty l
+
   let key_disjunction m m' =
     let keys = to_seq m |> Seq.map (fun (key, _) -> key) |> StringSet.of_seq in
     let keys' = to_seq m' |> Seq.map (fun (key, _) -> key) |> StringSet.of_seq in
@@ -162,119 +165,3 @@ let unpack : int -> int -> Nn.t -> tfnode * tfnode * optimization_map * (unit ->
       let pack () = match pack () with None -> failwith "unreachable" | Some network -> network in
       (input, network, optimizations, pack)
   | _ -> failwith "unreachable"
-
-module Make_Tfjs_backend (Backend : sig
-  val v : Tfjs_api.backend
-end) =
-struct
-  (* TODO: Generic Train/eval functions, what parameters?
-   * Move inside MNIST?
-   * let train : ~verbose:bool -> ~progress:_ -> ~h:int -> ~w:int -> ~lr:(int -> float)
-   *          -> ~datagen:_ (defines batch_size and image count)
-   *          -> ~encoders:network list -> ~decoder:network
-   *          -> network list * network
-   * let predict : ~verbose:bool -> ~progress:_ -> ~h:int -> ~w:int ->
-   *          -> ~datagen:_ (defines batch_size and image count)
-   *          -> ~encoders:network list -> ~decoder:network
-   *          -> Ndarray.t Iter.t (image iterator)
-   * let eval : ~verbose:bool -> ~progress:_ -> ~h:int -> ~w:int ->
-   *          -> ~datagen:_ (defines batch_size and image count)
-   *          -> ~encoders:network list -> ~decoder:network
-   *          -> Ndarray.t (confusion_matrix)
-   *)
-
-  let train () = Tfjs_api.setup_backend Backend.v
-end
-
-let main' train_imgs train_labs test_imgs test_labs =
-  let open Builder in
-  let open Lwt.Infix in
-  Tfjs_api.setup_backend `Webgl >>= fun _ ->
-  let optimizer = `Adam (0.9, 0.999, 1e-10) in
-  let nn =
-    input2d 1
-    |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer
-    |> relu
-    |> conv2d (`One 3) false (`One 2) 10 `Tanh optimizer
-    |> relu
-    |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
-    |> relu |> finalize
-  in
-  let x, encoder, optimizations, pack = unpack 28 28 nn in
-  let x', decoder, optimizations', pack' =
-    input2d 10
-    |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
-    |> maxpool2d (`One 2) (`One 2)
-    |> softmax |> finalize |> unpack 28 28
-  in
-
-  print_endline (String.of_network nn);
-
-  let optimizations = OptiMap.union_exn optimizations optimizations' in
-
-  let y = Tfjs_api.Layers.chain encoder [ x' ] decoder in
-  let m = Tfjs_api.model [ x ] [ y ] in
-
-  (* No need to compile the model *)
-  let slice a b arr =
-    Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
-  in
-
-  let train_on_batch i =
-    let time = (new%js Js.date_now)##valueOf /. 1000. in
-
-    let j = Random.int 50000 in
-    let batch_size = 10000 in
-    let imgs =
-      train_imgs
-      |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size)))
-      |> Tfjs_api.tensor_of_ta [| batch_size; 28; 28; 1 |]
-    in
-    let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) |> Tfjs_api.one_hot_of_ta 10 in
-    let labs = labs##reshape (Js.array [| batch_size; 1; 1; 10 |]) in
-    let f () =
-      (* The tfjs models use `execute` both inside `predict` and `train` functions,
-       * with a `training: bool` parameter.
-       * this means that the graph is always allocated and kept in memory, even if
-       * no backward will follow. *)
-      let pred = m##predict imgs in
-      let loss = Tfjs_api.categorical_crossentropy 1e-10 pred labs in
-      let loss = Tfjs_api.Ops.sum false loss in
-      loss
-    in
-    let loss, grads = Tfjs_api.variable_grads f in
-    ( match OptiMap.key_disjunction optimizations grads with
-    | [], [] -> ()
-    | name :: _, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
-    | _, name :: _ -> Printf.sprintf "Missing at least the <%s> optimizer" name |> failwith );
-
-    let lr = 1e-3 in
-    OptiMap.iter
-      (fun name optimization -> optimization lr (Tfjs_api.Named_tensor_map.find name grads))
-      optimizations;
-
-    let time' = (new%js Js.date_now)##valueOf /. 1000. in
-    Printf.printf "Step %5d done, loss:%9.6f, took:%.3fsec\n%!" i
-      (Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float loss) [| 0 |])
-      (time' -. time);
-    ignore (time, time', i, loss)
-  in
-  let rec aux = function
-    | 20 -> Lwt.return ()
-    | i ->
-        Tfjs_api.tidy (fun () -> train_on_batch i);
-        Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1)
-  in
-  aux 0 >>= fun _ ->
-  print_endline (String.of_network (pack ()));
-  ignore (train_imgs, train_labs, test_imgs, test_labs);
-  ignore (pack, pack');
-  Lwt.return ()
-
-let main train_imgs train_labs test_imgs test_labs =
-  let open Lwt.Infix in
-  Tfjs_api.tidy_lwt (fun () -> main' train_imgs train_labs test_imgs test_labs) >>= fun () ->
-  Tfjs_api.disposeVariables ();
-  Firebug.console##log (Tfjs_api.memory ());
-
-  Lwt.return ()

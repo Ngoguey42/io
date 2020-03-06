@@ -46,9 +46,9 @@ let owl_train_pass nn optim xs labs =
 
 let main () =
   let open Lwt.Infix in
-  Dom.appendChild body @@ Ft_owljs.Mnist.status_div ();
+  Dom.appendChild body @@ Ft_cnnjs.Mnist.status_div ();
 
-  Ft_owljs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
+  Ft_cnnjs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
   Ft_cnnjs.Nn_tfjs.main train_imgs train_labs test_imgs test_labs >>= fun _ ->
@@ -119,7 +119,7 @@ let main () =
           let lab = List.nth labs j in
           let img = imgs |> slice (28 * 28 * j) ((28 * 28) * (j + 1)) in
           let y = Ndarray.get_slice [ [ j; j ] ] (Algodiff.unpack_arr ys) |> Algodiff.pack_arr in
-          Ft_owljs.Mnist.html_pred_overview img lab (Ft_neural.to_flat_list y) |> Dom.appendChild body;
+          Ft_cnnjs.Mnist.html_pred_overview img lab (Ft_neural.to_flat_list y) |> Dom.appendChild body;
         done;
         (* Dom_html.createBr Dom_html.window##.document |> Dom.appendChild body; *)
 

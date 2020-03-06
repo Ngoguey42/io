@@ -44,12 +44,6 @@ let owl_train_pass nn optim xs labs =
   Graph.update nn weights;
   (optim, y)
 
-let[@ocamlformat "disable"] get_backend : string -> (module Ft_cnnjs.Mnist.TRAINER) = function
-  | "tfjs-webgl" -> (module Ft_cnnjs.Mnist_tfjs.Make_backend (struct let v = `Webgl end))
-  | "tfjs-cpu" -> (module Ft_cnnjs.Mnist_tfjs.Make_backend (struct let v = `Cpu end))
-  (* | "owl-cpu" -> (module Ft_cnnjs.Mnist_owl) *)
-  | _ -> failwith "unknown backend"
-
 let main () =
   let open Lwt.Infix in
   Dom.appendChild body @@ Ft_cnnjs.Mnist.status_div ();
@@ -83,7 +77,7 @@ let main () =
     |> maxpool2d (`One 2) (`One 2)
     |> softmax |> finalize
   in
-  let module Backend = (val get_backend "tf-cpu") in
+  let module Backend = (val Ft_cnnjs.get_backend "tf-cpu") in
 
   let get_data _ =
     (* TODO: Real random  *)

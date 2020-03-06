@@ -132,18 +132,3 @@ let html_pred_overview img lab pred =
   in
   Ft_js.select elt "canvas" Dom_html.CoerceTo.canvas |> put_digit_to_canvas img;
   elt
-
-module type TRAINER = sig
-  val train :
-    ?verbose:bool ->
-    ?progress:(int -> unit) ->
-    batch_count:int ->
-    get_lr:(int -> float) ->
-    get_data:
-      (int ->
-      (float, [ `Float32 ]) Typed_array.typedArray Js.t
-      * (int, [ `Uint8 ]) Typed_array.typedArray Js.t) ->
-    encoders:Nn.t list ->
-    decoder:Nn.t ->
-    (Nn.t list * Nn.t) Lwt.t
-end

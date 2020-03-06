@@ -6,7 +6,7 @@ module Typed_array = Js_of_ocaml.Typed_array
 
 module Make_backend (Backend : sig
   val v : Tfjs_api.backend
-end) : Mnist.TRAINER = struct
+end) = struct
   (* TODO: Generic eval functions
    * let predict : ~verbose:bool -> ~progress:_ -> ~h:int -> ~w:int ->
    *          -> ~datagen:_ (defines batch_size and image count)
@@ -52,7 +52,6 @@ end) : Mnist.TRAINER = struct
     let train_on_batch i =
       let time = (new%js Js.date_now)##valueOf /. 1000. in
 
-      progress i;
       let lr = get_lr i in
       let x, y = get_data i in
       let batch_size = y##.length in
@@ -80,6 +79,7 @@ end) : Mnist.TRAINER = struct
         (fun name optimization -> optimization lr (Tfjs_api.Named_tensor_map.find name grads))
         optimizations;
 
+      progress i;
       if verbose then
         let time' = (new%js Js.date_now)##valueOf /. 1000. in
         Printf.printf "Step %5d done, loss:%9.6f, took:%.3fsec\n%!" i

@@ -25,13 +25,12 @@ let _create_status_div () =
   let rec aux = function
     | [] -> []
     | entry :: tl ->
-       let n = filename_of_entry entry in
-       [%html "<tr><th>" [txt n] "</th><th class=" [n] ">unknown</th></tr>"]
-       :: aux tl
+        let n = filename_of_entry entry in
+        [%html "<tr><th>" [ txt n ] "</th><th class=" [ n ] ">unknown</th></tr>"] :: aux tl
   in
-  table ~a:[a_class ["mnist-status"]]
-        ~thead:[%html "<thead><tr><th colspan='2'>MNIST dataset status</th></tr></thead>"]
-        (aux entries)
+  table
+    ~a:[ a_class [ "mnist-status" ] ]
+    ~thead:[%html "<thead><tr><th colspan='2'>MNIST dataset status</th></tr></thead>"] (aux entries)
 
 let _status_div = lazy (Tyxml_js.To_dom.of_element @@ _create_status_div ())
 
@@ -41,9 +40,6 @@ let _entry_status_div entry =
   let status_div = status_div () in
   let n = filename_of_entry entry in
   Ft_js.select status_div ("." ^ n) Dom_html.CoerceTo.th
-
-(* let elt = status_div##querySelector (Js.string ("#" ^ n)) in *)
-(* Js.coerce_opt elt Dom_html.CoerceTo.th (fun _ -> assert false) *)
 
 let _update_entry_status entry new_msg =
   (* Printf.eprintf "> _update_entry_status %s -> %s\n%!" (filename_of_entry entry) new_msg; *)
@@ -60,21 +56,21 @@ let _entry_data_of_idb entry store =
     Ft_js.Idb.get store n >>= function
     | Some arr -> arr |> Lwt.return
     | None ->
-       let progress i j =
-         let f = float_of_int i /. float_of_int j *. 100. in
-         Printf.sprintf "Downloading... (%.0f%%)" f |> _update_entry_status entry
-       in
+        let progress i j =
+          let f = float_of_int i /. float_of_int j *. 100. in
+          Printf.sprintf "Downloading... (%.0f%%)" f |> _update_entry_status entry
+        in
 
-       _update_entry_status entry "Downloading... (0%)";
-       Lwt_js.sleep 0.1 >>= fun () ->
-       Ft_js.array_of_url ~progress (url_of_entry entry) >>= fun arr ->
-       _update_entry_status entry "Unzipping...";
-       Lwt_js.sleep 0.1 >>= fun () ->
-       let arr = Ft_js.decompress_array arr in
+        _update_entry_status entry "Downloading... (0%)";
+        Lwt_js.sleep 0.1 >>= fun () ->
+        Ft_js.array_of_url ~progress (url_of_entry entry) >>= fun arr ->
+        _update_entry_status entry "Unzipping...";
+        Lwt_js.sleep 0.1 >>= fun () ->
+        let arr = Ft_js.decompress_array arr in
 
-       _update_entry_status entry "Storing...";
-       Lwt_js.sleep 0.1 >>= fun () ->
-       Ft_js.Idb.set store n arr >>= fun _ -> Lwt.return arr
+        _update_entry_status entry "Storing...";
+        Lwt_js.sleep 0.1 >>= fun () ->
+        Ft_js.Idb.set store n arr >>= fun _ -> Lwt.return arr
   in
   arr >>= fun _ ->
   _update_entry_status entry "&#10003;";
@@ -117,7 +113,6 @@ let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
   canvas##.style##.width := Js.string "100%";
   let ctx = canvas##getContext Dom_html._2d_ in
   let idata = ctx##getImageData 0. 0. 28. 28. in
-  (* Firebug.console##log idata##.data; *)
   Js.Unsafe.meth_call idata##.data "set" [| Js.Unsafe.inject img |] |> ignore;
   ctx##putImageData idata 0. 0.
 
@@ -127,7 +122,8 @@ let html_pred_overview img lab pred =
   let aux i x =
     let bg = "background: " ^ Ft.Color.(Firegrass.get x |> to_hex_string) in
     let cls = [ (if i == lab then "good-one" else "") ] in
-    [%html "<div style='" bg "' class='" cls "'>" [txt "%d" i] "<br/>" [txt' "%.0f%%" (x *. 100.)]"</div>"]
+    let content = [ txt "%d" i; Html.br (); txt' "%.0f%%" (x *. 100.) ] in
+    [%html "<div style='" bg "' class='" cls "'>" content "</div>"]
   in
   let elt =
     [%html "<div class='mnist-pred'><div><canvas></canvas></div>" (List.mapi aux pred) "</div>"]

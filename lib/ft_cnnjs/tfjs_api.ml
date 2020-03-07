@@ -231,7 +231,7 @@ let one_hot_of_ta : int -> uint8_ta Js.t -> tensor Js.t =
   fun_call global##.tf##.oneHot [| inject arr; inject width |]
 
 let variable :
-    ?trainable:bool -> ?name:string -> ?dtype:[ `Float32 | `Int32 ] -> tensor Js.t -> variable Js.t
+    ?trainable:bool -> ?name:string -> ?dtype:[< `Float32 | `Int32 ] -> tensor Js.t -> variable Js.t
     =
  fun ?(trainable = false) ?name ?(dtype = `Float32) arr ->
   let open Js.Unsafe in
@@ -288,7 +288,7 @@ let compile : model Js.t -> optimizer Js.t -> string -> unit =
 
 (* ********************************************************************************************** *)
 module Layers = struct
-  let input : ?dtype:[ `Float32 | `Int32 ] -> ?name:string -> int array -> symbolicTensor Js.t =
+  let input : ?dtype:[< `Float32 | `Int32 ] -> ?name:string -> int array -> symbolicTensor Js.t =
    fun ?(dtype = `Float32) ?name shape ->
     let open Js.Unsafe in
     let params =

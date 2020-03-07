@@ -67,7 +67,8 @@ module Make_neural (Graph : GRAPH) = struct
       in
       { upstream with node }
 
-    let input2d x y f = { node = Graph.input [| x; y; f |]; filters = f; _ph = 42 }
+    let input2d x y f =
+      { node = Graph.input [| x; y; f |]; filters = f; _ph = 42 }
 
     let get_network { node; _ } = Graph.get_network node
   end

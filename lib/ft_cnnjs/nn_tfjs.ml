@@ -149,7 +149,7 @@ let unpack : int -> int -> Nn.t -> tfnode * tfnode * optimization_map * (unit ->
         let pack () =
           match acc.pack () with
           | None -> failwith "unreachable"
-          | Some upstream -> Some (Node11 (new node11 upstream (pack ())))
+          | Some upstream -> Some (node11 upstream (pack ()))
         in
         {
           acc with

@@ -1,7 +1,8 @@
 (* Neural network definition
- * Supported features
+ * Supported features:
  * [X] layer11: Layer that map 1 input to 1 output
- * [ ] layer_n1: Layer that map n input to 1 output, with n > 0 determined at network creation
+ * [ ] layern1: Layer that map n input to 1 output, with n > 0 determined at network creation
+ * [ ] one layer used several time on several nodes
 
  * A network is a variant over node types
  * A node is an object (In order to use `Stdlib.Oo.id` for traversal)
@@ -49,52 +50,57 @@ type concat_content = { axis : int }
 
 type add_content = { axis : int }
 
-(* `type layer01` could be a constant tensor, optionnally trainable, or a noise generator *)
+(* `type layer01` could be:
+ * a trainable tensor
+ * a non-trainable tensor
+ * a noise generator
+ * ? a placeholder for an input ?
+*)
 
 type layer11 =
   [ `Conv2d of conv_content | `Maxpool2d of maxpool2d_content | `Relu | `Softmax of softmax_content ]
 
-type layern1 =
-  [ `Concatenate of concat_content | `Add of add_content ]
+type layern1 = [ `Concatenate of concat_content | `Add of add_content ]
 
 type layer = [
   | layer11
   (* | layern1 *)
   ]
 
-class node01 (out_filters: int) (dtype: [ `Float32 ]) =
-  object
-    method out_filters = out_filters
-    method dtype = dtype
-  end
+class type node01 = object
+  method out_filters : int
+  method dtype : [ `Float32 ]
+end
 
-class ['network] node11 (upstream: 'network) (layer: layer11) =
-  object
-    method upstream = upstream
-    method layer = layer
-  end
+class type ['network] node11 = object
+  method upstream : 'network
+  method layer : layer11
+end
 
 type t = Node01 of node01
        | Node11 of t node11
 
-(* type t = Node01 of { out_filters : int; dtype : [ `Float32 ] } *)
-(*        | node11 of (t * layer11) *)
+let node01 out_filters dtype =
+  Node01 (object
+      method out_filters = out_filters
+      method dtype = dtype
+    end)
 
-       (* | Inner_n1 of (t list * int * layern1) *)
+let node11 upstream layer =
+  Node11 (object
+      method upstream = upstream
+      method layer = layer
+    end)
 
 let rec fold_bottom_up f x net =
   match net with
   | Node11 content -> fold_bottom_up f (f x net) content#upstream
   | Node01 _ -> f x net
-  (* | Node11 (net', _) -> fold_bottom_up f (f x net) net' *)
-  (* | Node01 _ -> f x net *)
 
 let rec fold_top_down f x net =
   match net with
   | Node11 content -> f (fold_top_down f x content#upstream) net
   | Node01 _ -> f x net
-  (* | node11 (net', _) -> f (fold_top_down f x net') net *)
-  (* | Node01 _ -> f x net *)
 
 let create_optimizer optimizer shape =
   match optimizer with
@@ -107,7 +113,7 @@ let create_optimizer optimizer shape =
 module Builder = struct
   type upstream = { filters : int; network : t }
 
-  let node01 ?(dtype = `Float32) f = { filters = f; network = Node01 (new node01 f dtype) }
+  let input2d ?(dtype = `Float32) f = { filters = f; network = node01 f dtype }
 
   let conv2d kernel_size padding stride out_filters initialization optimizer up =
     let ((ky, kx) as kernel_size) =
@@ -134,16 +140,16 @@ module Builder = struct
           bias_optimizer;
         }
     in
-    { filters = out_filters; network = Node11 (new node11 up.network layer) }
+    { filters = out_filters; network = node11 up.network layer }
 
-  let relu up = { up with network = Node11 (new node11 up.network `Relu) }
+  let relu up = { up with network = node11 up.network `Relu }
 
-  let softmax ?(axis = 3) up = { up with network = Node11 (new node11 up.network (`Softmax { axis })) }
+  let softmax ?(axis = 3) up = { up with network = node11 up.network (`Softmax { axis }) }
 
   let maxpool2d kernel_size stride up =
     let kernel_size = match kernel_size with `One k -> (k, k) | `Two (ky, kx) -> (ky, kx) in
     let stride = match stride with `One s -> (s, s) | `Two (sy, sx) -> (sy, sx) in
-    { up with network = Node11 (new node11 up.network (`Maxpool2d { kernel_size; stride })) }
+    { up with network = node11 up.network (`Maxpool2d { kernel_size; stride }) }
 
   (* let concatenate ?(axis = 3) up_list = *)
   (*   let count, filters = match List.length up_list, axis with *)

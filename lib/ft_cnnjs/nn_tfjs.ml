@@ -93,7 +93,7 @@ let unpack_optimizations :
   (OptiMap.union_exn kopti bopti, kpack, bpack)
 
 (* Layers unpacking *************************************************************************** *)
-let unpack_conv2d : Nn.conv_content -> tflayer * optimization_map * (unit -> Nn.layer_11) =
+let unpack_conv2d : Nn.conv_content -> tflayer * optimization_map * (unit -> Nn.layer11) =
  fun conf ->
   let { kernel_size; stride; padding; out_filters; kernel_weights; bias_weights; _ } = conf in
   let (ky, kx), (sy, sx) = (kernel_size, stride) in
@@ -114,13 +114,13 @@ let unpack_conv2d : Nn.conv_content -> tflayer * optimization_map * (unit -> Nn.
   in
   ((tflayer :> tflayer), optimizations, pack)
 
-let unpack_maxpool2d : Nn.maxpool2d_content -> tflayer * optimization_map * (unit -> Nn.layer_11) =
+let unpack_maxpool2d : Nn.maxpool2d_content -> tflayer * optimization_map * (unit -> Nn.layer11) =
  fun conf ->
   let { kernel_size = ky, kx; stride = sy, sx } = conf in
   let tflayer = L.max_pool2d (`Two (ky, kx)) (`Two (sy, sx)) in
   (tflayer, OptiMap.empty, fun () -> `Maxpool2d conf)
 
-let unpack_layer : Nn.layer_11 -> tflayer * optimization_map * (unit -> Nn.layer_11) = function
+let unpack_layer : Nn.layer11 -> tflayer * optimization_map * (unit -> Nn.layer11) = function
   | `Conv2d conf -> unpack_conv2d conf
   | `Maxpool2d conf -> unpack_maxpool2d conf
   | `Relu -> (L.relu (), OptiMap.empty, fun () -> `Relu)
@@ -138,18 +138,18 @@ let unpack : int -> int -> Nn.t -> tfnode * tfnode * optimization_map * (unit ->
  fun h w net ->
   let aux acc net =
     match (acc.input, acc.network, net) with
-    | None, None, Input2d { out_filters; dtype } ->
-        let x = L.input ~dtype [| h; w; out_filters |] in
+    | None, None, Node01 content ->
+        let x = L.input ~dtype:content#dtype [| h; w; content#out_filters |] in
         let pack () =
           match acc.pack () with Some _ -> failwith "unreachable" | None -> Some net
         in
         { acc with input = Some x; network = Some x; pack }
-    | Some _, Some tfnet, Inner_11 (_, layer) ->
-        let tflayer, optimizations, pack = unpack_layer layer in
+    | Some _, Some tfnet, Node11 content ->
+        let tflayer, optimizations, pack = unpack_layer content#layer in
         let pack () =
           match acc.pack () with
           | None -> failwith "unreachable"
-          | Some upstream -> Some (Inner_11 (upstream, pack ()))
+          | Some upstream -> Some (Node11 (new node11 upstream (pack ())))
         in
         {
           acc with

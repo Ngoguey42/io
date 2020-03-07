@@ -1,7 +1,12 @@
 (* Neural network definition
  * Supported features
- * [X] layer_11: Layer that map 1 input to 1 output
+ * [X] layer11: Layer that map 1 input to 1 output
  * [ ] layer_n1: Layer that map n input to 1 output, with n > 0 determined at network creation
+
+ * A network is a variant over node types
+ * A node is an object (In order to use `Stdlib.Oo.id` for traversal)
+ * A layer is a polymorphic variant (optionally containing a record)
+
  *)
 
 module Firebug = Js_of_ocaml.Firebug
@@ -44,29 +49,52 @@ type concat_content = { axis : int }
 
 type add_content = { axis : int }
 
-type layer_11 =
+(* `type layer01` could be a constant tensor, optionnally trainable, or a noise generator *)
+
+type layer11 =
   [ `Conv2d of conv_content | `Maxpool2d of maxpool2d_content | `Relu | `Softmax of softmax_content ]
 
-type layer_n1 =
+type layern1 =
   [ `Concatenate of concat_content | `Add of add_content ]
 
 type layer = [
-  | layer_11
-  (* | layer_n1 *)
+  | layer11
+  (* | layern1 *)
   ]
 
-type t = Input2d of { out_filters : int; dtype : [ `Float32 ] }
-       | Inner_11 of (t * layer_11)
-       (* | Inner_n1 of (t list * int * layer_n1) *)
+class node01 (out_filters: int) (dtype: [ `Float32 ]) =
+  object
+    method out_filters = out_filters
+    method dtype = dtype
+  end
+
+class ['network] node11 (upstream: 'network) (layer: layer11) =
+  object
+    method upstream = upstream
+    method layer = layer
+  end
+
+type t = Node01 of node01
+       | Node11 of t node11
+
+(* type t = Node01 of { out_filters : int; dtype : [ `Float32 ] } *)
+(*        | node11 of (t * layer11) *)
+
+       (* | Inner_n1 of (t list * int * layern1) *)
 
 let rec fold_bottom_up f x net =
   match net with
-  | Inner_11 (net', _) -> fold_bottom_up f (f x net) net'
-  (* | Inner_n1 (nets, _, _) -> fold_bottom_up f (f x net) net' *)
-  | Input2d _ -> f x net
+  | Node11 content -> fold_bottom_up f (f x net) content#upstream
+  | Node01 _ -> f x net
+  (* | Node11 (net', _) -> fold_bottom_up f (f x net) net' *)
+  (* | Node01 _ -> f x net *)
 
 let rec fold_top_down f x net =
-  match net with Inner_11 (net', _) -> f (fold_top_down f x net') net | Input2d _ -> f x net
+  match net with
+  | Node11 content -> f (fold_top_down f x content#upstream) net
+  | Node01 _ -> f x net
+  (* | node11 (net', _) -> f (fold_top_down f x net') net *)
+  (* | Node01 _ -> f x net *)
 
 let create_optimizer optimizer shape =
   match optimizer with
@@ -79,7 +107,7 @@ let create_optimizer optimizer shape =
 module Builder = struct
   type upstream = { filters : int; network : t }
 
-  let input2d ?(dtype = `Float32) f = { filters = f; network = Input2d { out_filters = f; dtype } }
+  let node01 ?(dtype = `Float32) f = { filters = f; network = Node01 (new node01 f dtype) }
 
   let conv2d kernel_size padding stride out_filters initialization optimizer up =
     let ((ky, kx) as kernel_size) =
@@ -93,8 +121,7 @@ module Builder = struct
     let bias_weights = Ft_owlbase.Init.run initialization bshape in
     let kernel_optimizer = create_optimizer optimizer kshape in
     let bias_optimizer = create_optimizer optimizer bshape in
-
-    let network =
+    let layer =
       `Conv2d
         {
           kernel_size;
@@ -107,16 +134,16 @@ module Builder = struct
           bias_optimizer;
         }
     in
-    { filters = out_filters; network = Inner_11 (up.network, network) }
+    { filters = out_filters; network = Node11 (new node11 up.network layer) }
 
-  let relu up = { up with network = Inner_11 (up.network, `Relu) }
+  let relu up = { up with network = Node11 (new node11 up.network `Relu) }
 
-  let softmax ?(axis = 3) up = { up with network = Inner_11 (up.network, `Softmax { axis }) }
+  let softmax ?(axis = 3) up = { up with network = Node11 (new node11 up.network (`Softmax { axis })) }
 
   let maxpool2d kernel_size stride up =
     let kernel_size = match kernel_size with `One k -> (k, k) | `Two (ky, kx) -> (ky, kx) in
     let stride = match stride with `One s -> (s, s) | `Two (sy, sx) -> (sy, sx) in
-    { up with network = Inner_11 (up.network, `Maxpool2d { kernel_size; stride }) }
+    { up with network = Node11 (new node11 up.network (`Maxpool2d { kernel_size; stride })) }
 
   (* let concatenate ?(axis = 3) up_list = *)
   (*   let count, filters = match List.length up_list, axis with *)
@@ -180,10 +207,10 @@ module String = struct
     (* | `Add _ -> "Add\n" *)
 
   let rec of_network = function
-    | Input2d { out_filters; dtype } ->
-        Printf.sprintf "| Input2d <%d> %s\n" out_filters (of_dtype dtype)
-    | Inner_11 (upstream, layer) ->
-       Printf.sprintf "%s> %s" (of_network upstream) (of_layer layer)
+    | Node01 content ->
+        Printf.sprintf "| Node01 <%d> %s\n" content#out_filters (of_dtype content#dtype)
+    | Node11 content ->
+       Printf.sprintf "%s> %s" (of_network content#upstream) (of_layer content#layer)
     (* | Inner_n1 (upstreams, count, layer) -> *)
     (*    Printf.sprintf "%s> %s (%d hidden branches)" (of_network (List.hd upstream)) *)
     (*                   (of_layer layer) (count - 1) *)

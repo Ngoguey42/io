@@ -120,10 +120,17 @@ let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
 let html_pred_overview img lab pred =
   let txt = Format.kasprintf Html.txt in
   let txt' = Format.kasprintf Html.txt in
+  let (_, maxi, _) =
+    List.fold_left
+      (fun (i, i', v') v -> if v > v' then (i + 1, i, v) else (i + 1, i', v')) (0, 0, 0.) pred
+  in
   let aux i x =
     let bg = "background: " ^ Ft.Color.(Firegrass.get x |> to_hex_string) in
-    let cls = [ (if i == lab then "good-one" else "") ] in
+    let cls = [] in
+    let cls = if i == lab then "good-one"::cls else cls in
+    let cls = if i == maxi then "highest-one"::cls else "not-highest-one"::cls in
     let content = [ txt "%d" i; Html.br (); txt' "%.0f%%" (x *. 100.) ] in
+    (* let content = if i == maxi then [Html.b content] else content in *)
     [%html "<div style='" bg "' class='" cls "'>" content "</div>"]
   in
   let elt =

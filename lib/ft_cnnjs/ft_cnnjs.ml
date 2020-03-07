@@ -21,8 +21,7 @@ module type TRAINER = sig
     (Nn.t list * Nn.t) Lwt.t
 end
 
-let[@ocamlformat "disable"] get_backend : string -> (module TRAINER) = function
-  | "tfjs-webgl" -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end))
-  | "tfjs-cpu" -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
-  (* | "owl-cpu" -> (module Mnist_owl) *)
-  | _ -> failwith "unknown backend"
+let[@ocamlformat "disable"] get_backend : _ -> (module TRAINER) = function
+  | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end))
+  | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
+  (* | `Owl_cpu -> (module Mnist_owl) *)

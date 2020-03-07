@@ -18,7 +18,7 @@
     width: 40px;
     height: 40px;
     text-align: center;
-    color: white;
+    color: black;
     font-size: small;
     overflow: hidden;
     display: inline-block;
@@ -26,5 +26,7 @@
     vertical-align: middle;
     line-height: 20px;
 }
-.mnist-pred .good-one { outline: 2px solid black; }
+.mnist-pred .good-one { outline: 2px solid black;  }
+.mnist-pred .highest-one { font-weight: bold; }
+.mnist-pred .not-highest-one { font-style: italic; }
 /* ************************************************************************** */

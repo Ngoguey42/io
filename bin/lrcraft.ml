@@ -27,29 +27,39 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   let optimizer = `Adam (0.9, 0.999, 1e-10) in
   let encoders, decoder =
     let open Ft_cnnjs.Nn.Builder in
+    Printf.eprintf "Building encoder(s)...\n%!";
     let encoders = [
         input2d 1
         |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer
         |> relu
         |> conv2d (`One 3) false (`One 2) 10 `Tanh optimizer
-        |> relu
-        |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
+        |> fork (fun up -> [
+            up
+            |> relu
+            |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
+          ; up
+            |> relu
+            |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
+        ])
+        |> add
         |> relu |> finalize;
-        input2d 1
-        |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer
-        |> relu
-        |> conv2d (`One 3) false (`One 2) 10 `Tanh optimizer
-        |> relu
-        |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
-        |> relu |> finalize;
+        (* input2d 1 *)
+        (* |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer *)
+        (* |> relu *)
+        (* |> conv2d (`One 3) false (`One 2) 10 `Tanh optimizer *)
+        (* |> relu *)
+        (* |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer *)
+        (* |> relu |> finalize; *)
       ]
     in
+    Printf.eprintf "Building decoder...\n%!";
     let decoder =
-      input2d 20
+      input2d (10 * List.length encoders)
       |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
       |> maxpool2d (`One 2) (`One 2)
       |> softmax |> finalize
     in
+    Printf.eprintf "...done building\n%!";
     encoders, decoder
   in
   let module Backend = (val Ft_cnnjs.get_backend `Tfjs_cpu) in
@@ -60,7 +70,7 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
       Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
     in
     let j = Random.int 50000 in
-    let batch_size = 100 in
+    let batch_size = 5 in
     let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
     let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) in
     (imgs, labs)
@@ -70,13 +80,13 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
 
   (* print_string (Ft_cnnjs.Nn.String.of_network decoder); *)
-  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr ~get_data ~encoders ~decoder
+  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:1 ~get_lr ~get_data ~encoders ~decoder
   >>= fun (encoders, decoder) ->
   print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
 
-  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr ~get_data ~encoders ~decoder
-  >>= fun (encoders, decoder) ->
-  print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
+  (* Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr ~get_data ~encoders ~decoder *)
+  (* >>= fun (encoders, decoder) -> *)
+  (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
 
   ignore decoder;
   Lwt.return ()
@@ -198,8 +208,8 @@ let main () =
   Ft_cnnjs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
-  (* _main_nn train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
-  _main_owld train_imgs train_labs test_imgs test_labs >>= fun _ ->
+  _main_nn train_imgs train_labs test_imgs test_labs >>= fun _ ->
+  (* _main_owld train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
 
   (* Ft_cnnjs.Mnist_tfjs.main train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
   (* Ft_owljs.Tf.main train_imgs train_labs test_imgs test_labs >>= fun _ -> *)

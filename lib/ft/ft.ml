@@ -12,10 +12,6 @@ module List = struct
     (String.sub s 0 idx, String.sub s idx (len - idx))
 
   let split3 l = List.fold_right (fun (a, b, c) (la, lb, lc) -> a::la, b::lb, c::lc) l ([], [], [])
-    (* let rec aux0 = function [] -> [] | (v, _, _)::tail -> v::aux0 tail in *)
-    (* let rec aux1 = function [] -> [] | (_, v, _)::tail -> v::aux1 tail in *)
-    (* let rec aux2 = function [] -> [] | (_, _, v)::tail -> v::aux2 tail in *)
-    (* aux0 l, aux1 l, aux2 l *)
   let _ = assert ( (split3 [(0, 2, 4); (1, 3, 5)]) = ([0; 1], [2; 3], [4; 5]))
 
   let rec chunk size = function

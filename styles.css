@@ -1,5 +1,35 @@
+.textdiv {
+    width: 800px;
+    margin: 0 auto;
+    /* background: #EBEBEB; */
+    background: #F7F7F7;
+    padding: 5px 20px 5px 20px;
+    line-height: 1.4;
+
+    border-color: #000000;
+    /* border-color: #CBCBCB; */
+    border-style: solid;
+    border-width: 1px;
+    /* border-width: medium; */
+    border-radius: 5px;
+}
+code {
+    border-radius: 3px;
+    background: white;
+    /* background: #CBCBCB; */
+    /* background: black; */
+    /* color: white; */
+    padding: 1px 6px 2px 6px;
+    /* border-color: white; */
+    /* border-color: #BBBBBB; */
+    border-style: solid;
+    border-width: 1px;
+}
+h1, h2 { border-bottom: 1px solid black; }
+h2, h3 { padding-left: 9px; }
+h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 /* ************************************************************************** */
-.mnist-status { border: 1px solid black; border-radius: 3px; }
+.mnist-status { border: 1px solid black; border-radius: 3px; font-family: "Fira Sans", sans-serif; }
 .mnist-status > thead > tr { background: #EBEBEB; }
 .mnist-status > tr { height: 25px; }
 .mnist-status > tr > th:nth-child(1) { text-align: right; }
@@ -14,6 +44,7 @@
     margin: 1px;
 }
 .mnist-pred > div {
+    font-family: "Fira Sans", sans-serif;
     text-shadow: -1px -1px 0 .000, 1px -1px 0 .000, -1px 1px 0 .000, 1px 1px 0 .000;
     width: 40px;
     height: 40px;

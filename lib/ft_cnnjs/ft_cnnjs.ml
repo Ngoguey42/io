@@ -22,6 +22,7 @@ module type TRAINER = sig
 end
 
 let[@ocamlformat "disable"] get_backend : _ -> (module TRAINER) = function
-  | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end))
-  | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
+  | _ -> failwith "nope"
+  (* | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end)) *)
+  (* | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end)) *)
   (* | `Owl_cpu -> (module Mnist_owl) *)

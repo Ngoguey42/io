@@ -3,17 +3,7 @@ module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 let create_content () =
   [%html
     {|
-    <div style="
-       width: 800px;
-       margin: 0 auto;
-       border-radius: 10px;
-       background: #EBEBEB;
-       padding: 10px;
-       line-height: 1.4;
-       border-color: #CBCBCB;
-       border-style: solid;
-       border-width: medium;
-    ">
+    <div class="textdiv">
       <h1>Making-of</h1>
 
 
@@ -96,13 +86,6 @@ let create_content () =
       <br/>
       <a href="https://github.com/ngoguey42">www.github.com/ngoguey42</a>,
       <br/>
-      <cite style="
-         border-radius: 5px;
-         background: #CBCBCB;
-         padding: 1px 10px;
-         border-color: #BBBBBB;
-         border-style: solid;
-         border-width: 1px;
-      ">echo "rf.24.tneduts@yeugogn" | rev</cite>.
+      <code>echo "rf.24.tneduts@yeugogn" | rev</code>.
     </div>
   |}]

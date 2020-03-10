@@ -388,6 +388,18 @@ module Layers = struct
     let open Js.Unsafe in
     fun_call global##.tf##.layers##.concatenate [| inject params |]
 
+  let add ?(axis = 3) ?name () : layer Js.t =
+    let params =
+      object%js (self)
+        val axis = axis
+
+        val name =
+          match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
+      end
+    in
+    let open Js.Unsafe in
+    fun_call global##.tf##.layers##.add [| inject params |]
+
   let classify : layer Js.t -> [> ] =
    fun l ->
     match Js.to_string l##getClassName with

@@ -10,6 +10,7 @@ type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray Js.t
 type uint8_ta = (int, [ `Uint8 ]) Typed_array.typedArray Js.t
 
 module type TRAINER = sig
+  (* TODO: freeze some networks *)
   val train :
     ?verbose:bool ->
     ?progress:(int -> unit) ->

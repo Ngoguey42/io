@@ -200,4 +200,5 @@ module Init = struct
     | `GlorotUniform -> uniform kind ~a:(float_to_elt (-.r1)) ~b:(float_to_elt r1) s
     | `GlorotNormal -> gaussian kind ~sigma:(float_to_elt r2) s
     | `LecunNormal -> gaussian kind ~sigma:(float_to_elt r0) s
+    | `Constant k -> Ndarray.create kind s k
 end

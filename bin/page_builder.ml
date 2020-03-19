@@ -13,10 +13,10 @@ let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x)
 
 let header =
   [%html
-    "<div style='text-align:center;margin-bottom: 25px;'>"
+    "<div id='header'>"
       "<a href='index.html'>&#127968; Homepage</a> | "
-      "<a href='lrcraft-game.html'>&#x1f3ae; Learning Rate Craft</a> | "
-      "<a href='about.html'>&#128196; Making-of</a>" "</div>"]
+      "<a href='lrcraft-game.html'>&#x1f3ae; Learning Rate Craft (wip)</a> | "
+      "<a href='about.html'>&#128196; Making-of (wip)</a>" "</div>"]
 
 let _ =
   let open Lwt.Infix in

@@ -4,9 +4,13 @@
  * [.] Layers that map n input to 1 output (with n > 0 determined at network creation)
  * [X] Builder keeps track of the channel dimension and fails as soon as two layers are being
  *       combined without compatibility.
- * [ ] One convolution can be reused several times on several nodes
- * [ ] Builder keeps track of all the dimension sizes and fails as soon as two layers are being
- *        combined with an incompatible shape.
+ * [.] One convolution can be reused several times on several nodes
+ * [ ] Builder keeps track of the partial dimension sizes equations and fails as soon as two layers
+         are being combined with an incompatible shape. e.g. `add [ x; maxpool2d (2, 2) (2, 2) x ]`
+ * [.] Integer nodes in the network
+ * [.] Layers's output shape can either be partial (batch size and spatial sizes unknown), or exact
+ *       the parameter of a convolution kernel
+ * [ ] Can define weights constraints (such as l2 or spectral)
  *
  * A network is a variant over node types
  * A node is an object (In order to use `Stdlib.Oo.id` for traversal)

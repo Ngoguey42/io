@@ -1,29 +1,29 @@
+#header {
+    font-family: "Fira Sans", sans-serif;
+    text-align:center;
+    margin-bottom: 25px;
+}
 .textdiv {
     width: 800px;
     margin: 0 auto;
-    /* background: #EBEBEB; */
     background: #F7F7F7;
     padding: 5px 20px 5px 20px;
     line-height: 1.4;
-
     border-color: #000000;
-    /* border-color: #CBCBCB; */
     border-style: solid;
-    border-width: 1px;
-    /* border-width: medium; */
+    border-width: 0px;
     border-radius: 5px;
+
+}
+body {
+    background: #FCFCFC;
 }
 code {
     border-radius: 3px;
-    background: white;
-    /* background: #CBCBCB; */
-    /* background: black; */
-    /* color: white; */
+    background: #FCFCFC;
     padding: 1px 6px 2px 6px;
-    /* border-color: white; */
-    /* border-color: #BBBBBB; */
     border-style: solid;
-    border-width: 1px;
+    border-width: 0px;
 }
 h1, h2 { border-bottom: 1px solid black; }
 h2, h3 { padding-left: 9px; }

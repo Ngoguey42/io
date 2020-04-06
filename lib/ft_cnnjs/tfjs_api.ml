@@ -29,7 +29,7 @@ class type tensor =
 
     method size : int Js.readonly_prop
 
-    method asType : Js.js_string Js.t Js.meth
+    method asType : Js.js_string Js.t -> tensor Js.t Js.meth
 
     method print : unit Js.meth
 
@@ -208,6 +208,39 @@ module Ops = struct
    fun ?axis keepdims x ->
     let axis = match axis with None -> Js.Opt.empty | Some axis -> Js.Opt.return axis in
     fun_call global##.tf##.max [| inject x; inject axis; inject keepdims |]
+
+  let relu : #tensor Js.t -> tensor Js.t = fun x -> fun_call global##.tf##.relu [| inject x |]
+
+  let conv2d :
+      ?s:int * int ->
+      ?d:int * int ->
+      ?b:[< `Valid | `Same ] ->
+      #tensor Js.t -> #tensor Js.t -> #tensor Js.t =
+    fun ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode x kernel ->
+    let boundary_mode = match boundary_mode with
+      | None -> "same"
+      | Some `Same -> "same"
+      | Some `Valid -> "valid"
+    in
+    let boundary_mode = Js.string boundary_mode in
+    let stride = Js.array [| fst stride; snd stride |] in
+    let dilation = Js.array [| fst dilation; snd dilation |] in
+    fun_call global##.tf##.conv2d [|
+               inject x; inject kernel;
+               inject stride;
+               inject boundary_mode;
+               "NHWC" |> Js.string |> inject;
+               inject dilation;
+             |]
+
+  let concat :
+        int ->
+        #tensor Js.t list ->
+        tensor Js.t = fun axis tensors ->
+    let tensors = tensors |> Array.of_list |> Js.array in
+    fun_call global##.tf##.concat [| inject tensors; inject axis |]
+
+
 end
 
 (* Constructors ********************************************************************************* *)
@@ -388,11 +421,9 @@ module Layers = struct
     let open Js.Unsafe in
     fun_call global##.tf##.layers##.concatenate [| inject params |]
 
-  let add ?(axis = 3) ?name () : layer Js.t =
+  let add ?name () : layer Js.t =
     let params =
       object%js (self)
-        val axis = axis
-
         val name =
           match name with None -> Js.Opt.empty | Some name -> name |> Js.string |> Js.Opt.return
       end

@@ -355,6 +355,11 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_dtype : [ `Float32 ]
     ; stateful : bool
     ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> parameter32
+    ; replicate :
+        ?id:Id.t ->
+        float32_tensor ->
+        [ `Sgd | `Adam of float * float * float * int * float32_tensor * float32_tensor ] ->
+        parameter32
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -608,6 +613,12 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
   end)
 
   module Set = Set.Make (struct
+    type t = network
+
+    let compare = compare
+  end)
+
+  module Map = Map.Make (struct
     type t = network
 
     let compare = compare
@@ -1173,6 +1184,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
             if List.length upstreams <> 0 then invalid_arg "parameter32#copy takes 0 upstreams";
             if reinit then instanciate None (Some id) rng
             else instanciate (Some (tensor, optim)) (Some id) rng
+
+          method replicate ?(id = self#id) tensor optim =
+            instanciate (Some (tensor, optim)) (Some id) None
 
           method id = id
 

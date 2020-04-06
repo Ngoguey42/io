@@ -17,13 +17,13 @@ module type TRAINER = sig
     batch_count:int ->
     get_lr:(int -> float) ->
     get_data:(int -> float32_ta * uint8_ta) ->
-    encoders:Nn.t list ->
-    decoder:Nn.t ->
-    (Nn.t list * Nn.t) Lwt.t
+    encoders:Fnn.network list ->
+    decoder:Fnn.network ->
+    (Fnn.network list * Fnn.network) Lwt.t
 end
 
 let[@ocamlformat "disable"] get_backend : _ -> (module TRAINER) = function
-  | _ -> failwith "nope"
-  (* | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end)) *)
-  (* | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end)) *)
+  (* | _ -> failwith "nope" *)
+  | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end))
+  | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
   (* | `Owl_cpu -> (module Mnist_owl) *)

@@ -2,6 +2,6 @@
  (public_name ft_cnnjs)
  (name ft_cnnjs)
 
- (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml ft owl-base ft_js ft_owlbase irmin-indexeddb)
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml ft owl-base ft_js ft_owlbase irmin-indexeddb fnn pshape)
  (preprocess (pps tyxml-ppx js_of_ocaml-ppx lwt_ppx))
  )

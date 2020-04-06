@@ -1,53 +1,76 @@
-(* module Js = Js_of_ocaml.Js *)
-(* module Firebug = Js_of_ocaml.Firebug *)
-(* module Ndarray = Owl_base_dense_ndarray_generic *)
-(* module Lwt_js = Js_of_ocaml_lwt.Lwt_js *)
-(* module Typed_array = Js_of_ocaml.Typed_array *)
-(* module L = Tfjs_api.Layers *)
-(* open Nn (\* Opening for the records refinitions *\) *)
+module Js = Js_of_ocaml.Js
+module Firebug = Js_of_ocaml.Firebug
+module Ndarray = Owl_base_dense_ndarray_generic
+module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+module Typed_array = Js_of_ocaml.Typed_array
+module L = Tfjs_api.Layers
 
-(* module OptiMap = struct *)
-(*   include Map.Make (Stdlib.String) *)
-(*   module StringSet = Set.Make (Stdlib.String) *)
+type tftensor = Tfjs_api.tensor Js.t
 
-(*   let union_exn = *)
-(*     union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith) *)
+type optimization = float -> tftensor -> unit
 
-(*   let union_silent = *)
-(*     union (fun _ a _ -> Some a) *)
+module OptiMap = struct
+  include Map.Make (Stdlib.String)
+  module StringSet = Set.Make (Stdlib.String)
 
-(*   let union_list_exn l = List.fold_left union_exn empty l *)
+  let union_exn : optimization t ->optimization t ->optimization t =
+    union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith)
 
-(*   let union_list_silent l = List.fold_left union_silent empty l *)
+  let union_silent =
+    union (fun _ a _ -> Some a)
 
-(*   let key_disjunction m m' = *)
-(*     let keys = to_seq m |> Seq.map (fun (key, _) -> key) |> StringSet.of_seq in *)
-(*     let keys' = to_seq m' |> Seq.map (fun (key, _) -> key) |> StringSet.of_seq in *)
-(*     ( StringSet.diff keys keys' |> StringSet.elements, *)
-(*       StringSet.diff keys' keys |> StringSet.elements ) *)
-(* end *)
+  let union_list_exn l = List.fold_left union_exn empty l
 
-(* type optimization = float -> Tfjs_api.tensor Js.t -> unit *)
+  let union_list_silent l = List.fold_left union_silent empty l
 
-(* type optimization_map = optimization OptiMap.t *)
+  let key_disjunction m m' =
+    let keys = to_seq m |> Seq.map (fun (key, _) -> key) |> StringSet.of_seq in
+    let keys' = to_seq m' |> Seq.map (fun (key, _) -> key) |> StringSet.of_seq in
+    ( StringSet.diff keys keys' |> StringSet.elements,
+      StringSet.diff keys' keys |> StringSet.elements )
+end
 
-(* type tflayer = Tfjs_api.layer Js.t *)
+type optimization_map = optimization OptiMap.t
 
-(* type tfconv2d = Tfjs_api.conv2d Js.t *)
+type tflayer = Tfjs_api.layer Js.t
 
-(* type tfnode = Tfjs_api.symbolicTensor Js.t *)
+type tfconv2d = Tfjs_api.conv2d Js.t
 
-(* type ('a, 'b) accumulator = { *)
-(*   input : tfnode option; *)
-(*   network : tfnode option; *)
-(*   optimizations : optimization_map; *)
-(*   pack : unit -> Nn.t option; *)
-(* } *)
+type tfnode = Tfjs_api.symbolicTensor Js.t
+
+module Tfnode_set = Set.Make (struct
+    type t = tfnode
+
+    let compare = compare
+  end)
+
+type accumulator = {
+  (* upstream : tfnode; *)
+  forward : tftensor Fnn.Map.t -> tftensor;
+  optimizations : optimization_map;
+  pack : unit -> Fnn.network;
+}
 
 (* let empty_accumulator = *)
-(*   { input = None; network = None; optimizations = OptiMap.empty; pack = (fun () -> None) } *)
+  (* { inputs = Tfnode_set.empty; upstream = None; optimizations = OptiMap.empty; pack = (fun () -> None) } *)
 
-(* (\* Optimizer unpacking ************************************************************************ *\) *)
+let channel_last_axes = [`N; `S1; `S0; `C]
+
+let tfdtype_of_dtype = function
+  | `Float32 -> `Float32
+  | `Int32 -> `Int32
+  | `Uint8 -> `Int32
+  | `Float64 -> failwith "float64 is unsupported in tfjs"
+  | `Int64 -> failwith "int64 is unsupported in tfjs"
+
+(* let tfaxis_of_axis = function *)
+(*   | `N -> 0 *)
+(*   | `S1 -> 1 *)
+(*   | `S0 -> 2 *)
+(*   | `C -> 3 *)
+(*   | _ -> failwith "bad axis" *)
+
+(* Optimizer unpacking ************************************************************************ *)
 (* let unpack_sgd : *)
 (*     string -> (unit -> Tfjs_api.variable Js.t) -> optimization_map * (unit -> Nn.optimizer) = *)
 (*  fun name get_weights -> *)
@@ -76,7 +99,25 @@
 (*   in *)
 (*   (optimization, pack) *)
 
-(* let unpack_optimizations : *)
+let _unpack_optimizer optim var =
+  match optim with
+  | `Sgd ->
+     let update lr grad = Tfjs_api.sgd_updater#update var lr grad in
+     let pack () = `Sgd in
+     (update, pack)
+  | `Adam (epsilon, beta1, beta2, step, rgrad, rgrad_sq) ->
+     let updater =
+       Tfjs_api.create_adam_updater epsilon beta1 beta2 step rgrad rgrad_sq
+     in
+     let update lr grad = updater#update var lr grad in
+     let pack () =
+       let step = updater#get_step##arraySync_intScalar in
+       let rgrad = Tfjs_api.ba_of_tensor_float updater#get_rgrad in
+       let rgrad_sq = Tfjs_api.ba_of_tensor_float updater#get_rgrad_sq in
+       `Adam (epsilon, beta1, beta2, step, rgrad, rgrad_sq)
+     in
+     (update, pack)
+
 (*     tfconv2d -> *)
 (*     Nn.conv_content -> *)
 (*     optimization_map * (unit -> Nn.optimizer) * (unit -> Nn.optimizer) = *)
@@ -143,16 +184,125 @@
 (*                        (\* |> (fun (a, b, c) -> a, b, (c :> (unit -> Nn.layer))) *\) *)
 
 (* (\* Network unpacking ************************************************************************** *\) *)
-(* let unpack : int -> int -> Nn.t -> tfnode * tfnode * optimization_map * (unit -> Nn.t) = *)
-(*  (\* Transform a `network` to everything that is needed to perform a training of that network *)
-(*   * using tensorflow.js: *)
-(*   * 1. An input symbolic tensor *)
-(*   * 2. An output symbolic tensor *)
-(*   * 3. A map of callbacks that each update a weight tensor given its gradient *)
-(*   * 4. A thunk to be called to pack everything back to a `network` when done with training *)
-(*   *\) *)
-(*  fun h w net -> *)
-(*   let aux acc net = *)
+
+let _unpack_node01 (net: Fnn.node01) =
+  match net#classify_layer with
+  | `Input _ ->
+     (* TODO: Assert shape is total *)
+     let net = (net :> Fnn.network) in
+     let forward inputs =
+       let tensor = Fnn.Map.find net inputs in
+       (* TODO: Assert shape matches tensor shape *)
+       tensor
+     in
+     let pack () = net in
+     { optimizations = OptiMap.empty; forward; pack }
+  | `Parameter32 net ->
+     let var =
+       Tfjs_api.tensor_of_ba net#tensor
+       |> Tfjs_api.variable ~name:(string_of_int (Oo.id net)) ~trainable:true
+     in
+     (* Printf.printf "variable:\n%!"; *)
+     (* Firebug.console##log var; *)
+
+     let forward _ = (var :> Tfjs_api.tensor Js.t) in
+     let update, opti_pack = _unpack_optimizer net#optimizer var in
+     let pack () =
+       let tensor = Tfjs_api.ba_of_tensor_float var in
+       let optimizer = opti_pack () in
+       (net#replicate ~id:net#id tensor optimizer :> Fnn.network)
+     in
+     { optimizations = OptiMap.singleton (string_of_int (Oo.id net)) update; forward; pack }
+
+let _unpack_layer11 (net: Fnn.node11) up_forward =
+  match net#classify_layer with
+  | `Relu _ ->
+     let forward inputs = Tfjs_api.Ops.relu (up_forward inputs) in
+     forward, net#copy
+  | _ -> failwith ("soon 11:" ^ net#to_string)
+
+let _unpack_layer21 (net: Fnn.node21) up0_forward up1_forward =
+  match net#classify_layer with
+  | `Conv2d net ->
+     let b = match net#boundary_mode with
+       | `Same -> `Same
+       | `Valid -> `Valid
+       | `Assert_fit -> `Valid
+       | `Pad_fit -> failwith "not implemented"
+     in
+     let d = net#dilation in
+     let s = net#stride in
+     let forward inputs =
+       Tfjs_api.Ops.conv2d ~b ~d ~s (up1_forward inputs) (up0_forward inputs)
+     in
+     forward, net#copy
+  | _ -> failwith "soon 21"
+
+let _unpack_node follow (net : Fnn.network) =
+  match net#classify_node, List.map follow net#upstreams with
+  | `Node01 net, [] -> _unpack_node01 net
+  | `Node11 net, [ up_acc ] ->
+     let forward, pack = _unpack_layer11 net up_acc.forward in
+     let pack () = (pack [ up_acc.pack () ] :> Fnn.network) in
+     {
+       up_acc with
+       forward;
+       pack;
+     }
+  | `Node21 net, [ up0_acc; up1_acc ] ->
+     let forward, pack = _unpack_layer21 net up0_acc.forward up1_acc.forward in
+     let pack () = (pack [ up0_acc.pack (); up1_acc.pack () ] :> Fnn.network) in
+     let optimizations = OptiMap.union_silent up0_acc.optimizations up1_acc.optimizations in
+     {
+       forward;
+       optimizations;
+       pack;
+     }
+  | _ -> failwith "soon node"
+  (* | `Node *)
+
+
+  (* | `Sum net, up_accs -> *)
+  (*    let up_tfnodes = *)
+  (*      List.map (fun up_acc -> up_acc.upstream) up_accs *)
+  (*      |> List.map Option.get *)
+  (*      |> Array.of_list *)
+  (*      |> Js.array *)
+  (*    in *)
+  (*    let inputs = *)
+  (*      List.map (fun up_acc -> up_acc.inputs) up_accs *)
+  (*      |> List.fold_left Tfnode_set.union Tfnode_set.empty *)
+  (*    in *)
+  (*    let optimizations = *)
+  (*      List.map (fun up_acc -> up_acc.optimizations) up_accs *)
+  (*      |> OptiMap.union_list_silent *)
+  (*    in *)
+  (*    let pack () = *)
+  (*      let upstreams = *)
+  (*        List.map (fun up_acc -> up_acc.pack ()) up_accs *)
+  (*        |> List.map Option.get *)
+  (*      in *)
+  (*      Some (net#copy upstreams :> Fnn.network) *)
+  (*    in *)
+  (*    { inputs; upstream = Some ((L.add ())##apply_array up_tfnodes); pack; optimizations } *)
+  (* | _, _ -> failwith "soon" *)
+
+let unpack : Fnn.network -> (tftensor Fnn.Map.t -> tftensor) * optimization_map * (unit -> Fnn.network) =
+ (* Transform a `network` to everything that is needed to perform a training of that network
+  * using tensorflow.js:
+  * 1. A callable for the forward pass
+  * 2. A map of callbacks that each update a weight tensor given its gradient
+  * 3. A thunk to be called to pack everything back to a `network` when done with training
+  *)
+  fun net ->
+  let { forward; optimizations; pack } = Fnn.memoized_walk _unpack_node net in
+  forward, optimizations, pack
+
+     (* let pack () = match pack () with None -> failwith "unreachable" | Some network -> network in *)
+     (* let input = inputs |> Tfnode_set.to_seq |> List.of_seq |> List.hd in *)
+     (* (input, network, optimizations, pack) *)
+
+  (*   let aux acc net = *)
 (*     match acc, net with *)
 (*     | [], Node01 content -> *)
 (*     (\* match (acc.input, acc.network, net) with *\) *)
@@ -207,8 +357,3 @@
 
 (*     | _, _ -> failwith "unreachable" *)
 (*   in *)
-(*   match Nn.fold_top_down aux net with *)
-(*   | { input = Some input; network = Some network; optimizations; pack; _ } -> *)
-(*       let pack () = match pack () with None -> failwith "unreachable" | Some network -> network in *)
-(*       (input, network, optimizations, pack) *)
-(*   | _ -> failwith "unreachable" *)

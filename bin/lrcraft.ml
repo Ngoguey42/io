@@ -24,45 +24,54 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
   let open Lwt.Infix in
-  let optimizer = `Adam (0.9, 0.999, 1e-10) in
+  let o = `Adam (0.9, 0.999, 1e-10) in
   let encoders, decoder =
-    let open Ft_cnnjs.Nn.Builder in
+    let open Fnn.Builder in
+    let open Pshape.Size in
     Printf.eprintf "Building encoder(s)...\n%!";
     let encoders = [
-        input2d 1
-        |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer
+        input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+        |> conv2d (`Full 10) (16, 16) ~s:(4, 4) ~b:`Assert_fit ~o
+        (* |> bias *)
         |> relu
-        |> conv2d (`One 3) false (`One 2) 10 `Tanh optimizer
-        |> fork (fun up -> [
-            up
-            |> relu
-            |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
-          ; up
-            |> relu
-            |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
-        ])
-        |> add
-        |> relu |> finalize;
-        (* input2d 1 *)
-        (* |> conv2d (`One 4) false (`One 2) 10 `Tanh optimizer *)
-        (* |> relu *)
-        (* |> conv2d (`One 3) false (`One 2) 10 `Tanh optimizer *)
-        (* |> relu *)
-        (* |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer *)
-        (* |> relu |> finalize; *)
+        |> Fnn.downcast
       ]
     in
     Printf.eprintf "Building decoder...\n%!";
+
     let decoder =
-      input2d (10 * List.length encoders)
-      |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer
-      |> maxpool2d (`One 2) (`One 2)
-      |> softmax |> finalize
+      let c =
+        List.map (fun net -> Pshape.get net#out_shape `C) encoders
+        |> List.fold_left add (K 0)
+      in
+      input (Pshape.sym4d_partial ~n:U ~c ~s0:(K 4) ~s1:(K 4)) `Float32
+      |> conv2d (`Full 10) (4, 4) ~b:`Assert_fit ~o
+
+      (* Classify and flatten using a 1x1 conv and a max-pool 4x4 *)
+      (* |> conv2d (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> maxpool2d (4, 4) |> reorder_axes [`C, `C; `S0, `C; `S1, `C] *)
+
+      (* Classify and flatten using flatten and fully-connected *)
+      (* |> reorder_axes [`C, `C; `S0, `C; `S1, `C] |> dense [`C, 10] |> bias *)
+
+      (* |> softmax `C *)
+      |> Fnn.downcast
     in
+
+
+    (* let decoder = *)
+    (*   input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 4) ~s1:(K 4)) `Float32 *)
+
+    (*   input2d (10 * List.length encoders) *)
+    (*   |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer *)
+    (*   |> maxpool2d (`One 2) (`One 2) *)
+    (*   |> softmax |> finalize *)
+    (* in *)
     Printf.eprintf "...done building\n%!";
     encoders, decoder
   in
-  let module Backend = (val Ft_cnnjs.get_backend `Tfjs_cpu) in
+
+  let module Backend = (val Ft_cnnjs.get_backend `Tfjs_webgl) in
+  (* let module Backend = (val Ft_cnnjs.get_backend `Tfjs_cpu) in *)
 
   let get_data _ =
     (* TODO: Real random  *)
@@ -70,24 +79,25 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
       Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
     in
     let j = Random.int 50000 in
-    let batch_size = 5 in
+    let batch_size = 5000 in
     let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
     let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) in
     (imgs, labs)
   in
   let get_lr _ = 1e-3 in
 
-  print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
+  (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
 
   (* print_string (Ft_cnnjs.Nn.String.of_network decoder); *)
-  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:1 ~get_lr ~get_data ~encoders ~decoder
+  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:1000 ~get_lr ~get_data ~encoders ~decoder
   >>= fun (encoders, decoder) ->
-  print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders));
+  (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
 
   (* Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr ~get_data ~encoders ~decoder *)
   (* >>= fun (encoders, decoder) -> *)
   (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
 
+  ignore encoders;
   ignore decoder;
   Lwt.return ()
 

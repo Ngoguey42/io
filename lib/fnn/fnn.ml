@@ -315,7 +315,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Maxpool2d of maxpool2d
     | `Conv2d of conv2d
     | `Padding2d of padding2d
-    | `Reorder_axes of reorder_axes
+    | `Transpose of transpose
     | `Parameter32 of parameter32 ]
 
   and classified_layer01 = [ `Input of input | `Parameter32 of parameter32 ]
@@ -327,7 +327,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Normalisation of normalisation
     | `Maxpool2d of maxpool2d
     | `Padding2d of padding2d
-    | `Reorder_axes of reorder_axes ]
+    | `Transpose of transpose ]
 
   and classified_layern1 = [ `Sum of sum | `Prod of prod | `Concatenate of concatenate ]
 
@@ -469,14 +469,14 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; is_instance_norm : bool
     ; is_group_norm : bool >
 
-  and reorder_axes =
+  and transpose =
     < upstreams : network list
-    ; classify_node : [ `Node11 of reorder_axes ]
-    ; classify_layer : [ `Reorder_axes of reorder_axes ]
+    ; classify_node : [ `Node11 of transpose ]
+    ; classify_layer : [ `Transpose of transpose ]
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> reorder_axes
+    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> transpose
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -594,7 +594,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | Astype : astype layer_type
     | Normalisation : normalisation layer_type
     | Tensordot : tensordot layer_type
-    | Reorder_axes : reorder_axes layer_type
+    | Transpose : transpose layer_type
     | Maxpool2d : maxpool2d layer_type
     | Conv2d : conv2d layer_type
     | Padding2d : padding2d layer_type
@@ -637,7 +637,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Astype node -> (node :> network)
     | `Normalisation node -> (node :> network)
     | `Tensordot node -> (node :> network)
-    | `Reorder_axes node -> (node :> network)
+    | `Transpose node -> (node :> network)
     | `Maxpool2d node -> (node :> network)
     | `Conv2d node -> (node :> network)
     | `Padding2d node -> (node :> network)
@@ -655,7 +655,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Astype node -> (node : astype :> network)
     | `Normalisation node -> (node : normalisation :> network)
     | `Tensordot node -> (node : tensordot :> network)
-    | `Reorder_axes node -> (node : reorder_axes :> network)
+    | `Transpose node -> (node : transpose :> network)
     | `Maxpool2d node -> (node : maxpool2d :> network)
     | `Conv2d node -> (node : conv2d :> network)
     | `Padding2d node -> (node : padding2d :> network)
@@ -717,7 +717,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | Astype, `Astype node -> Hashtbl.add tbl node true
         | Normalisation, `Normalisation node -> Hashtbl.add tbl node true
         | Tensordot, `Tensordot node -> Hashtbl.add tbl node true
-        | Reorder_axes, `Reorder_axes node -> Hashtbl.add tbl node true
+        | Transpose, `Transpose node -> Hashtbl.add tbl node true
         | Maxpool2d, `Maxpool2d node -> Hashtbl.add tbl node true
         | Conv2d, `Conv2d node -> Hashtbl.add tbl node true
         | Padding2d, `Padding2d node -> Hashtbl.add tbl node true
@@ -914,8 +914,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       _ any ->
       normalisation
 
-    val reorder_axes :
-      ([< Pshape.Axis.t ] * [< Pshape.Axis.t ]) list -> ?id:Id.t -> _ any -> reorder_axes
+    val transpose :
+      ?ndim:int -> ?mapping:([< Pshape.Axis.t ] * [< Pshape.Axis.t ]) list -> ?id:Id.t -> _ any -> transpose
 
     val maxpool2d :
       ?b:[< boundary_mode ] -> ?s:int * int -> int * int -> ?id:Id.t -> _ any -> maxpool2d
@@ -1003,7 +1003,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       {[
       Builder.sum
         [ Builder.parameter(32|64) [| axis0_size; ... |] init optimizer
-          |> Builder.reorder [ axis0_mapping; ... ]
+          |> Builder.transpose [ axis0_mapping; ... ]
         ; upstream ]
       ]} *)
 
@@ -1020,7 +1020,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       {[
       Builder.prod
         [ Builder.parameter(32|64) [| axis0_size; ... |] init optimizer
-          |> Builder.reorder [ axis0_mapping; ... ]
+          |> Builder.transpose [ axis0_mapping; ... ]
         ; upstream ]
       ]} *)
 
@@ -1558,18 +1558,27 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       in
       fun ?id ?rng upstream -> instanciate None id rng (downcast upstream)
 
-    let reorder_axes mapping =
-      let mapping = List.map (fun (a, b) -> ((a :> Pshape.Axis.t), (b :> Pshape.Axis.t))) mapping in
+    let transpose ?ndim ?mapping =
       let rec instanciate id upstream =
+        let mapping = match mapping with
+          | Some mapping -> List.map (fun (a, b) -> ((a :> Pshape.Axis.t), (b :> Pshape.Axis.t))) mapping
+          | None ->
+             let axes = Pshape.axes upstream#out_shape in
+             List.combine axes (List.rev axes)
+        in
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype = upstream#out_dtype in
-        let shape = Pshape.reorder mapping upstream#out_shape in
-        object (self : reorder_axes)
+        let shape =
+          match ndim with
+          | Some ndim -> Pshape.transpose ~ndim ~mapping upstream#out_shape
+          | None -> Pshape.transpose ~mapping upstream#out_shape
+        in
+        object (self : transpose)
           method upstreams = [ upstream ]
 
           method classify_node = `Node11 self
 
-          method classify_layer = `Reorder_axes self
+          method classify_layer = `Transpose self
 
           method out_shape = shape
 
@@ -1580,14 +1589,14 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
             match upstreams with
             | [ up ] -> instanciate (Some id) up
-            | _ -> invalid_arg "reorder_axes#copy takes 1 upstream"
+            | _ -> invalid_arg "transpose#copy takes 1 upstream"
 
           method id = id
 
-          method layer_name = "reorder_axes"
+          method layer_name = "transpose"
 
           method to_string =
-            Printf.sprintf "<reorder_axes %s -> %s>"
+            Printf.sprintf "<transpose %s -> %s>"
               (Pshape.to_string upstream#out_shape)
               (Pshape.to_string shape)
 
@@ -2151,7 +2160,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       | `Float32, (#Init.float32_init as init) -> parameter32 ~rng dimensions init optimizer
       | `Float64, #Init.float64_init -> failwith "not implemented"
       | _, _ -> invalid_arg "In bias: init is incompatible with upstream's dtype" )
-      |> reorder_axes mapping |> downcast
+      |> transpose ~mapping |> downcast
       |> fun w -> sum ~id [ upstream; w ]
 
     let scale ?id ?axes ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
@@ -2186,7 +2195,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       | `Float32, (#Init.float32_init as init) -> parameter32 ~rng dimensions init optimizer
       | `Float64, #Init.float64_init -> failwith "not implemented"
       | _, _ -> invalid_arg "In scale: init is incompatible with upstream's dtype" )
-      |> reorder_axes mapping |> downcast
+      |> transpose ~mapping |> downcast
       |> fun w -> prod ~id [ upstream; w ]
 
     let batch_norm ?id ?(rng = State.get_state ()) ?(affine = true) ?stats upstream =

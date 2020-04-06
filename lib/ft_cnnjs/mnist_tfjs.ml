@@ -22,8 +22,6 @@ end) = struct
 
   type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray
 
-  (* let _instanciate_network batch_size encoders decoder = *)
-
   let _train verbose progress batch_count get_lr get_data encoders decoder =
     let open Lwt.Infix in
 
@@ -66,33 +64,18 @@ end) = struct
         (* The tfjs models use `execute` both inside `predict` and `train` functions,
          * with a `training: bool` parameter. Using `predict` for training seems ok.
          *)
-        (* TODO: Why int tensors everywhere? *)
-        (* Printf.printf "Forward!\n%!"; *)
-        (* Firebug.console##log x; *)
         let x = Fnn.Map.singleton node0 x in
         let y' =
           List.map (fun fw -> fw x) forward_encoders
           |> Tfjs_api.Ops.concat 3
         in
-        (* Firebug.console##log y'; *)
         let y' = Fnn.Map.singleton node0_decoder y' in
         let y' = forward_decoder y' in
-        (* Firebug.console##log y'; *)
         let loss = Tfjs_api.categorical_crossentropy 1e-10 y' y in
         let loss = Tfjs_api.Ops.sum false loss in
-        (* Firebug.console##log loss; *)
         loss
       in
       let loss, grads = Tfjs_api.variable_grads f in
-
-      (* Printf.eprintf "Grads:\n%!"; *)
-      (* Seq.iter ( *)
-      (*     fun (s, t) -> *)
-      (*     Printf.printf "%s\n%!" s; *)
-      (*     Firebug.console##log t *)
-      (*   ) (Tfjs_api.Named_tensor_map.to_seq grads); *)
-
-      ignore (loss, grads);
       ( match Nn_tfjs.OptiMap.key_disjunction optimizations grads with
       | [], [] -> ()
       | name :: _, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
@@ -105,7 +88,7 @@ end) = struct
       progress i;
       if verbose then
         let time' = (new%js Js.date_now)##valueOf /. 1000. in
-        Printf.printf "Step %5d done, loss:%9.6f, took:%.3fsec\n%!" i
+        Printf.printf "Step %5d done, lr:%6.1e, loss:%9.6f, took:%.3fsec\n%!" i lr
           (Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float loss) [||])
           (time' -. time);
       ()

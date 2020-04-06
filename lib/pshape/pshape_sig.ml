@@ -213,9 +213,9 @@ module type PSHAPE = sig
   val desymbolize :
     [< Axis.symbolic ] list -> ('len, 'sz, [< Axis.symbolic ]) t -> ('len, 'sz, [ `Idx of int ]) t
 
-  val reorder :
+  val transpose :
     ?ndim:int ->
-    (([< Axis.t ] as 'ax0) * [< Axis.t ]) list ->
+    ?mapping:(([< Axis.t ] as 'ax0) * [< Axis.t ]) list ->
     (_, _, 'ax0) t ->
     (Length.tag, Size.tag, Axis.t) t
 

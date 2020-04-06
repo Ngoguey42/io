@@ -860,35 +860,46 @@ module Pshape :
      product of all the input sizes. An error will be thrown if one of the flattend axis is missing
      from `mapping`.
 
-     If mapping is an empty list and `ndim` is omited, `reorder` is the identity function.
+     If `mapping` is omited, it defaults to the input shape's axes in reverse order, hense the
+     name of this function.
+
+     If `mapping` is an empty list and `ndim` is omited, `transpose` is the identity function.
+
+     Example 0: Transposing an abs2d shape
+     {| transpose
+       (abs2d_total (Size.K 5) (Size.K 3)) |}
+     Produces the shape (3, 5)
 
      Example 1: A 7x9 image from abs2d to sym4d
-     {| reorder
+     {| transpose
        [ `Idx 1, `S0   (* Width *)
        ; `Idx 0, `S1 ] (* Height *)
        (abs2d_total (Size.K 7) (Size.K 9)) |}
      Produces the shape {n=1, c=1, s0=9, s1=7}
 
      Example 2: Inserting two new dimensions at the end of an absolute shape
-     {| reorder ~ndim:4 [] (abs2d_partial (Size.U) (Size.K 5)) |}
+     {| transpose ~ndim:4 [] (abs2d_partial (Size.U) (Size.K 5)) |}
      Produces the shape (_, 5, 1, 1)
 
      Example 3: Flatten `C, `S0 and `S1 together in the `channel last` order.
-     {| reorder
+     {| transpose
        [ `S1, `C
        ; `S0, `C
        ; `C, `C ]
        (sym4d_partial ~n:(Size.U) ~c:(Size.K 2) ~s0:(Size.K 3) ~s1:(Size.K 5)) |}
      Produces the shape {n=_, c=30}
   *)
-  let reorder :
-      ?ndim:int -> ('ax0 * [< Axis.t ]) list -> (_, 'sz, 'ax0) t -> (Length.tag, Size.tag, Axis.t) t
+  let transpose :
+      ?ndim:int -> ?mapping:('ax0 * [< Axis.t ]) list -> (_, 'sz, 'ax0) t -> (Length.tag, Size.tag, Axis.t) t
       =
-   fun ?ndim:len mapping shape ->
+   fun ?ndim:len ?mapping shape ->
     (* Cast *)
-    let mapping = List.map (fun (a, b) -> (a, (b :> Axis.t))) mapping in
     let shape = shape |> to_partial in
     let shape_axes = axes shape in
+    let mapping = match mapping with
+      | Some mapping -> List.map (fun (a, b) -> (a, (b :> Axis.t))) mapping
+      | None -> List.combine shape_axes (List.rev shape_axes :> Axis.t list)
+    in
 
     (* List and check axes *)
     let src_axes = List.map fst mapping in
@@ -906,16 +917,16 @@ module Pshape :
     in
     if is_sym_dst = is_abs_dst then
       invalid_arg
-        "In reorder: Invalid axes in mapping. Can't decide if output is symbolic or partial";
+        "In transpose: Invalid axes in mapping. Can't decide if output is symbolic or partial";
     List.iter
       (fun ax ->
         if not (List.mem ax shape_axes) then
-          "In reorder: Axis " ^ Axis.to_string ax ^ "doesn't exist in input shape" |> invalid_arg)
+          "In transpose: Axis " ^ Axis.to_string ax ^ "doesn't exist in input shape" |> invalid_arg)
       src_axes;
     List.iter
       (fun ax ->
         if List.mem (ax :> Axis.t) dst_axes then
-          "In reorder: Input axis " ^ Axis.to_string ax
+          "In transpose: Input axis " ^ Axis.to_string ax
           ^ " can't be flattened with other axes because it is missing from mapping"
           |> invalid_arg)
       missing_src_axes;
@@ -931,7 +942,7 @@ module Pshape :
       | None -> min_len
       | Some len ->
           if min_len > len then
-            Printf.sprintf "In reorder: An output axis doesn't fit inside ndim:%d" len
+            Printf.sprintf "In transpose: An output axis doesn't fit inside ndim:%d" len
             |> invalid_arg;
           len
     in
@@ -1049,7 +1060,10 @@ module Pshape :
     let size_of_nth_dim shape i =
       let ax = List.nth axs i in
       if not (Axis.compatible_with_ndim ax (ndim shape)) then
-        invalid_arg "Incompatible axis passed to symbolize";
+        Printf.sprintf "axis %s passed to desymbolize is incompatible with input shape %s"
+                       (Axis.to_string ax)
+                       (to_string shape)
+        |> invalid_arg;
       get shape ax
     in
     match shape with

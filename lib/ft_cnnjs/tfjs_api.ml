@@ -153,6 +153,15 @@ module Ops = struct
   let reshape : int array -> #tensor Js.t -> tensor Js.t =
    fun shape x -> fun_call global##.tf##.reshape [| inject x; shape |> Js.array |> inject |]
 
+  let expand_dims : int -> #tensor Js.t -> tensor Js.t =
+   fun axis x -> fun_call global##.tf##.expandDims [| inject x; inject axis |]
+
+  let transpose : ?perm:int list -> #tensor Js.t -> tensor Js.t =
+    fun ?perm x ->
+    match perm with
+    | None -> fun_call global##.tf##.transpose [| inject x |]
+    | Some perm -> fun_call global##.tf##.transpose [| inject x; perm |> Array.of_list |> Js.array |> inject |]
+
   let flatten : #tensor Js.t -> tensor Js.t = fun x -> reshape [| -1 |] x
 
   let clip_by_value : float -> float -> #tensor Js.t -> tensor Js.t =
@@ -339,9 +348,9 @@ module Layers = struct
   let conv2d :
       ?weights:float32_ba * float32_ba -> ?name:string -> _ -> bool -> _ -> int -> conv2d Js.t =
    fun ?weights ?name kernel_size padding stride out_filters ->
+    let ky, kx = kernel_size in
+    let sy, sx = stride in
     let padding = match padding with true -> "same" | false -> "valid" in
-    let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
-    let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
     let weights =
       match weights with
       | None -> Js.Opt.empty
@@ -372,8 +381,8 @@ module Layers = struct
     fun_call global##.tf##.layers##.conv2d [| inject params |]
 
   let max_pool2d ?name kernel_size stride : layer Js.t =
-    let kx, ky = match kernel_size with `One kx -> (kx, kx) | `Two (kx, ky) -> (kx, ky) in
-    let sx, sy = match stride with `One sx -> (sx, sx) | `Two (sx, sy) -> (sx, sy) in
+    let ky, kx = kernel_size in
+    let sy, sx = stride in
     let params =
       object%js (self)
         val poolSize = Js.array [| kx; ky |]

@@ -31,8 +31,9 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
     Printf.eprintf "Building encoder(s)...\n%!";
     let encoders = [
         input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-        |> conv2d (`Full 10) (16, 16) ~s:(4, 4) ~b:`Assert_fit ~o
-        (* |> bias *)
+        |> conv2d (`Full 1) (16, 16) ~s:(4, 4) ~b:`Assert_fit ~o
+        |> bias
+        (* |> transpose *)
         |> relu
         |> Fnn.downcast
       ]
@@ -45,7 +46,8 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
         |> List.fold_left add (K 0)
       in
       input (Pshape.sym4d_partial ~n:U ~c ~s0:(K 4) ~s1:(K 4)) `Float32
-      |> conv2d (`Full 10) (4, 4) ~b:`Assert_fit ~o
+
+      |> conv2d (`Full 10) (4, 4) ~b:`Assert_fit ~o |> bias
 
       (* Classify and flatten using a 1x1 conv and a max-pool 4x4 *)
       (* |> conv2d (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> maxpool2d (4, 4) |> reorder_axes [`C, `C; `S0, `C; `S1, `C] *)
@@ -79,7 +81,7 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
       Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
     in
     let j = Random.int 50000 in
-    let batch_size = 5000 in
+    let batch_size = 10000 in
     let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
     let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) in
     (imgs, labs)
@@ -89,7 +91,7 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
 
   (* print_string (Ft_cnnjs.Nn.String.of_network decoder); *)
-  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:1000 ~get_lr ~get_data ~encoders ~decoder
+  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:10000 ~get_lr ~get_data ~encoders ~decoder
   >>= fun (encoders, decoder) ->
   (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
 

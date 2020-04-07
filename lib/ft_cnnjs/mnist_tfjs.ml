@@ -98,7 +98,8 @@ end) = struct
       if i >= batch_count then Lwt.return ()
       else (
         Tfjs_api.tidy (fun () -> train_on_batch i);
-        Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1) )
+        Lwt_js.sleep 0.01 >>= fun () -> aux (i + 1) )
+        (* Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1) ) *)
     in
 
     aux 0 >>= fun _ -> Lwt.return (List.map (fun f -> f ()) pack_encoders, pack_decoder ())

@@ -135,6 +135,7 @@ The Pshape (Polymorphic shape) library provides that abstraction.
 ---
 
 # Possible improvements:
+- rename all `replicate` methods to `update/amend/upgrade/something else`, rename all `copy` methods/function to `replicate`
 - parameter32 takes a shape (and init too)
 - change relu and softmax layer to activation with algorithm = [ `Relu; `Softmax of Pshape.Axis.t ]
 - reshape (and test reshape/dense at end of network) idea: ([axis list] * Size.t) list. k->k, (u+k)->u, u->u, (k->u auto infer to ->k), NO(u->k)

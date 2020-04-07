@@ -70,11 +70,12 @@ let tfdtype_of_dtype = function
   | `Float64 -> failwith "float64 is unsupported in tfjs"
   | `Int64 -> failwith "int64 is unsupported in tfjs"
 
-let _validate_output_tensor node tensor =
-  let node = Fnn.downcast node in
+let _validate_output_tensor net tensor =
+  (* TODO: Assert dtype of output tensors *)
+  let net = Fnn.downcast net in
   let tensor = (tensor :> Tfjs_api.tensor Js.t) in
 
-  let out_shape = node#out_shape in
+  let out_shape = net#out_shape in
   let out_shape =
     if Pshape.is_symbolic out_shape then
       out_shape
@@ -83,7 +84,7 @@ let _validate_output_tensor node tensor =
       |> Pshape.to_any
     else out_shape
   in
-  let node_dims =
+  let net_dims =
     out_shape
     |> Pshape.to_list
     |> List.map snd
@@ -96,19 +97,19 @@ let _validate_output_tensor node tensor =
     | Pshape.Size.K j, i when i = j -> false
     | _, _ -> true
   in
-  if List.combine node_dims tensor_dims |> List.exists sizes_invalid then
-    Printf.sprintf "Output tensor of node %s has shape (%s) but was expected to have shape %s=(%s)"
-                   (node#to_string)
+  if List.combine net_dims tensor_dims |> List.exists sizes_invalid then
+    Printf.sprintf "Output tensor of net %s has shape (%s) but was expected to have shape %s=(%s)"
+                   (net#to_string)
                    (List.map string_of_int tensor_dims |> String.concat ", ")
-                   (Pshape.to_string node#out_shape)
-                   (List.map Pshape.Size.to_string node_dims |> String.concat ", ")
+                   (Pshape.to_string net#out_shape)
+                   (List.map Pshape.Size.to_string net_dims |> String.concat ", ")
     |> failwith;
   tensor
 
-let _derive_configuration_of_transpose_layer (node: Fnn.transpose) =
-  let mapping = node#mapping in
-  let shape0 = (node#upstream#out_shape) in
-  let shape1 = (node#out_shape) in
+let _derive_configuration_of_transpose_layer (net: Fnn.transpose) =
+  let mapping = net#mapping in
+  let shape0 = (net#upstream#out_shape) in
+  let shape1 = (net#out_shape) in
   let ndim0 = Pshape.ndim shape0 in
   let ndim1 = Pshape.ndim shape1 in
   let is_sym0 = Pshape.is_symbolic shape0 in
@@ -119,13 +120,13 @@ let _derive_configuration_of_transpose_layer (node: Fnn.transpose) =
   let axes1 = if is_sym1 then (channel_last_axes ndim1 :> Pshape.Axis.t list)
               else (Pshape.Axis.absolute_axes_of_ndim ndim1 :> Pshape.Axis.t list)
   in
-  let mapping =       Pshape.Axis.transpose         ~mapping axes0 axes1   in
+  let mapping = Pshape.Axis.transpose ~mapping axes0 axes1 in
   let index_of_axis0 ax =
     List.mapi (fun i ax' -> (i, ax')) axes0
     |> List.find (fun (_, ax') -> ax = ax')
     |> fst
   in
-  let tftranspose_axes =    List.concat mapping |> List.map index_of_axis0  in
+  let tftranspose_axes = List.concat mapping |> List.map index_of_axis0 in
 
   let dims1_of_dims0 dims =
     List.map (fun axs0 ->
@@ -205,8 +206,8 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
        |> _validate_output_tensor net
      in
      forward, (net :> Fnn.network)#copy
-  | `Transpose node ->
-     let tftranspose_axes, dims1_of_dims0 = _derive_configuration_of_transpose_layer node in
+  | `Transpose net ->
+     let tftranspose_axes, dims1_of_dims0 = _derive_configuration_of_transpose_layer net in
      let forward inputs =
        let x = up_forward inputs in
        let tfreshape_shape =
@@ -234,6 +235,7 @@ let _unpack_layer21 (net: Fnn.node21) up0_forward up1_forward =
      let s = net#stride in
      let forward inputs =
        Tfjs_api.Ops.conv2d ~b ~d ~s (up1_forward inputs) (up0_forward inputs)
+       |> _validate_output_tensor net
      in
      forward, net#copy
   | _ -> failwith ("Layer not implemented: " ^ net#to_string)
@@ -283,20 +285,12 @@ let _unpack_node follow (net : Fnn.network) =
   | `Node11 net, [ up_acc ] ->
      let forward, pack = _unpack_layer11 net up_acc.forward in
      let pack () = (pack [ up_acc.pack () ] :> Fnn.network) in
-     {
-       up_acc with
-       forward;
-       pack;
-     }
+     { up_acc with forward; pack }
   | `Node21 net, [ up0_acc; up1_acc ] ->
      let forward, pack = _unpack_layer21 net up0_acc.forward up1_acc.forward in
      let pack () = (pack [ up0_acc.pack (); up1_acc.pack () ] :> Fnn.network) in
      let optimizations = OptiMap.union_silent up0_acc.optimizations up1_acc.optimizations in
-     {
-       forward;
-       optimizations;
-       pack;
-     }
+     { forward; optimizations; pack }
   | `Noden1 net, up_accs ->
      let up_forwards = List.map (fun acc -> acc.forward) up_accs in
      let up_packs = List.map (fun acc -> acc.pack) up_accs in
@@ -307,11 +301,7 @@ let _unpack_node follow (net : Fnn.network) =
        List.map (fun pack -> pack ()) up_packs
        |> pack
      in
-     {
-       forward;
-       optimizations;
-       pack;
-     }
+     { forward; optimizations; pack }
   | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
 
 let unpack : Fnn.network -> (tftensor Fnn.Map.t -> tftensor) * optimization_map * (unit -> Fnn.network) =

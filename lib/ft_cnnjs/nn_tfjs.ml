@@ -187,7 +187,22 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
   match net#classify_layer with
   | `Relu _ ->
      let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
-     forward, net#copy
+     forward, (net :> Fnn.network)#copy
+  | `Maxpool2d net ->
+     let b = match net#boundary_mode with
+       | `Same -> `Same
+       | `Valid -> `Valid
+       | `Assert_fit -> `Valid
+       | `Pad_fit -> failwith "not implemented"
+     in
+     let kernel_size = net#kernel_size in
+     let s = net#stride in
+     let forward inputs =
+       up_forward inputs
+       |> Tfjs_api.Ops.maxpool ~s ~b kernel_size
+       |> _validate_output_tensor net
+     in
+     forward, (net :> Fnn.network)#copy
   | `Transpose node ->
      let tftranspose_axes, dims1_of_dims0 = _derive_configuration_of_transpose_layer node in
      let forward inputs =
@@ -201,7 +216,7 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
        |> Tfjs_api.Ops.reshape tfreshape_shape
        |> _validate_output_tensor net
      in
-     forward, net#copy
+     forward, (net :> Fnn.network)#copy
   | _ -> failwith ("soon 11:" ^ net#to_string)
 
 let _unpack_layer21 (net: Fnn.node21) up0_forward up1_forward =
@@ -236,7 +251,29 @@ let _unpack_layern1 (net: Fnn.noden1) up_forwards =
        |> _validate_output_tensor net
      in
      forward, (net :> Fnn.network)#copy
-  | _ -> failwith ("Layer not implemented: " ^ net#to_string)
+  | `Prod net ->
+     let forward inputs =
+       let rec aux = function
+         | [] -> failwith "unreachable (sum layer without upstream parents)"
+         | [x] -> x
+         | x::x'::tl -> aux ((Tfjs_api.Ops.mul x x')::tl)
+       in
+       List.map (fun fn -> fn inputs) up_forwards
+       |> aux
+       |> _validate_output_tensor net
+     in
+     forward, (net :> Fnn.network)#copy
+  | `Concatenate net ->
+     let axis, _ =
+       List.mapi (fun i x -> (i, x)) (channel_last_axes (Pshape.ndim net#out_shape))
+       |> List.find (fun (_, x) -> x = net#axis)
+     in
+     let forward inputs =
+       List.map (fun fn -> fn inputs) up_forwards
+       |> Tfjs_api.Ops.concat axis
+       |> _validate_output_tensor net
+     in
+     forward, (net :> Fnn.network)#copy
 
 let _unpack_node follow (net : Fnn.network) =
   match net#classify_node, List.map follow net#upstreams with

@@ -262,6 +262,26 @@ module Ops = struct
     let tensors = tensors |> Array.of_list |> Js.array in
     fun_call global##.tf##.concat [| inject tensors; inject axis |]
 
+  let maxpool :
+      ?s:int * int ->
+      ?b:[< `Valid | `Same ] ->
+      int * int ->
+      #tensor Js.t -> #tensor Js.t =
+    fun ?s:stride ?b:boundary_mode (ky, kx) x ->
+    let filter_size = Js.array [| ky; kx |] in
+    let stride = match stride with
+      | None -> filter_size
+      | Some (sy, sx) -> Js.array [| sy; sx |]
+    in
+    let boundary_mode = match boundary_mode with
+      | None -> "same"
+      | Some `Same -> "same"
+      | Some `Valid -> "valid"
+    in
+    let boundary_mode = Js.string boundary_mode in
+    fun_call global##.tf##.maxPool
+             [| inject x; inject filter_size; inject stride; inject boundary_mode |]
+
 
 end
 

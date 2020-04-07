@@ -5,6 +5,8 @@ module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Typed_array = Js_of_ocaml.Typed_array
 module L = Tfjs_api.Layers
 
+(* Utility types ******************************************************************************** *)
+
 type tftensor = Tfjs_api.tensor Js.t
 
 type optimization = float -> tftensor -> unit
@@ -49,6 +51,8 @@ type accumulator = {
   optimizations : optimization_map;
   pack : unit -> Fnn.network;
 }
+
+(* Utility functions **************************************************************************** *)
 
 let channel_last_axes = function
   | 5 -> [`N; `S2; `S1; `S0; `C]
@@ -101,6 +105,41 @@ let _validate_output_tensor node tensor =
     |> failwith;
   tensor
 
+let _derive_configuration_of_transpose_layer (node: Fnn.transpose) =
+  let mapping = node#mapping in
+  let shape0 = (node#upstream#out_shape) in
+  let shape1 = (node#out_shape) in
+  let ndim0 = Pshape.ndim shape0 in
+  let ndim1 = Pshape.ndim shape1 in
+  let is_sym0 = Pshape.is_symbolic shape0 in
+  let is_sym1 = Pshape.is_symbolic shape1 in
+  let axes0 = if is_sym0 then (channel_last_axes ndim0 :> Pshape.Axis.t list)
+              else (Pshape.Axis.absolute_axes_of_ndim ndim0 :> Pshape.Axis.t list)
+  in
+  let axes1 = if is_sym1 then (channel_last_axes ndim1 :> Pshape.Axis.t list)
+              else (Pshape.Axis.absolute_axes_of_ndim ndim1 :> Pshape.Axis.t list)
+  in
+  let mapping =       Pshape.Axis.transpose         ~mapping axes0 axes1   in
+  let index_of_axis0 ax =
+    List.mapi (fun i ax' -> (i, ax')) axes0
+    |> List.find (fun (_, ax') -> ax = ax')
+    |> fst
+  in
+  let tftranspose_axes =    List.concat mapping |> List.map index_of_axis0  in
+
+  let dims1_of_dims0 dims =
+    List.map (fun axs0 ->
+        List.map index_of_axis0 axs0
+        |> List.map (Array.get dims)
+        |> List.fold_left ( * ) 1
+      ) mapping
+    |> Array.of_list
+  in
+
+  tftranspose_axes, dims1_of_dims0
+
+(* Unpack functions ***************************************************************************** *)
+
 let _unpack_optimizer optim var =
   match optim with
   | `Sgd ->
@@ -147,45 +186,10 @@ let _unpack_node01 (net: Fnn.node01) =
 let _unpack_layer11 (net: Fnn.node11) up_forward =
   match net#classify_layer with
   | `Relu _ ->
-     let forward inputs =
-       _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs))
-     in
+     let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
      forward, net#copy
   | `Transpose node ->
-     let mapping = node#mapping in
-     let shape0 = (node#upstream#out_shape) in
-     let shape1 = (node#out_shape) in
-     let ndim0 = Pshape.ndim shape0 in
-     let ndim1 = Pshape.ndim shape1 in
-     let is_sym0 = Pshape.is_symbolic shape0 in
-     let is_sym1 = Pshape.is_symbolic shape1 in
-
-     let axes0 = if is_sym0 then (channel_last_axes ndim0 :> Pshape.Axis.t list)
-                 else (Pshape.Axis.absolute_axes_of_ndim ndim0 :> Pshape.Axis.t list)
-     in
-     let axes1 = if is_sym1 then (channel_last_axes ndim1 :> Pshape.Axis.t list)
-                 else (Pshape.Axis.absolute_axes_of_ndim ndim1 :> Pshape.Axis.t list)
-     in
-     let mapping =       Pshape.Axis.transpose         ~mapping axes0 axes1   in
-     let index_of_axis0 ax =
-       List.mapi (fun i ax' -> (i, ax')) axes0
-       |> List.find (fun (_, ax') -> ax = ax')
-       |> fst
-     in
-     let tftranspose_axes =
-       List.concat mapping |> List.map index_of_axis0
-     in
-     (* tftranspose_axes |> List.map string_of_int |> String.concat "," |> print_endline; *)
-
-     let dims1_of_dims0 dims =
-       List.map (fun axs0 ->
-              List.map index_of_axis0 axs0
-              |> List.map (Array.get dims)
-              |> List.fold_left ( * ) 1
-            ) mapping
-       |> Array.of_list
-     in
-
+     let tftranspose_axes, dims1_of_dims0 = _derive_configuration_of_transpose_layer node in
      let forward inputs =
        let x = up_forward inputs in
        let tfreshape_shape =
@@ -215,14 +219,15 @@ let _unpack_layer21 (net: Fnn.node21) up0_forward up1_forward =
        Tfjs_api.Ops.conv2d ~b ~d ~s (up1_forward inputs) (up0_forward inputs)
      in
      forward, net#copy
-  | _ -> failwith ("soon 21:" ^ net#to_string)
+  | _ -> failwith ("Layer not implemented: " ^ net#to_string)
 
 let _unpack_layern1 (net: Fnn.noden1) up_forwards =
   match net#classify_layer with
   | `Sum net ->
+     (* Could also be implemented with `tf.broadcast` and `tf.addN` *)
      let forward inputs =
        let rec aux = function
-         | [] -> failwith "unreachable"
+         | [] -> failwith "unreachable (sum layer without upstream parents)"
          | [x] -> x
          | x::x'::tl -> aux ((Tfjs_api.Ops.add x x')::tl)
        in
@@ -231,7 +236,7 @@ let _unpack_layern1 (net: Fnn.noden1) up_forwards =
        |> _validate_output_tensor net
      in
      forward, (net :> Fnn.network)#copy
-  | _ -> failwith ("soon n1:" ^ net#to_string)
+  | _ -> failwith ("Layer not implemented: " ^ net#to_string)
 
 let _unpack_node follow (net : Fnn.network) =
   match net#classify_node, List.map follow net#upstreams with
@@ -268,7 +273,7 @@ let _unpack_node follow (net : Fnn.network) =
        optimizations;
        pack;
      }
-  | _, _ -> failwith "unreachable"
+  | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
 
 let unpack : Fnn.network -> (tftensor Fnn.Map.t -> tftensor) * optimization_map * (unit -> Fnn.network) =
  (* Transform a `network` to everything that is needed to perform a training of that network

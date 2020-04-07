@@ -314,7 +314,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Tensordot of tensordot
     | `Maxpool2d of maxpool2d
     | `Conv2d of conv2d
-    | `Padding2d of padding2d
+    | `Padding of padding
     | `Transpose of transpose
     | `Parameter32 of parameter32 ]
 
@@ -326,7 +326,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Astype of astype
     | `Normalisation of normalisation
     | `Maxpool2d of maxpool2d
-    | `Padding2d of padding2d
+    | `Padding of padding
     | `Transpose of transpose ]
 
   and classified_layern1 = [ `Sum of sum | `Prod of prod | `Concatenate of concatenate ]
@@ -505,29 +505,27 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; boundary_padding : (Pshape.Size.any * Pshape.Size.any) * (Pshape.Size.any * Pshape.Size.any)
     ; boundary_lost : Pshape.Size.any * Pshape.Size.any >
 
-  and padding2d =
+  and padding =
     < upstreams : network list
-    ; classify_node : [ `Node11 of padding2d ]
-    ; classify_layer : [ `Padding2d of padding2d ]
-    ; out_shape :
-        'len 'ax. ( ([< Pshape.Length.tag > `L4 ] as 'len), Pshape.Size.tag,
-          ([< Pshape.Axis.t > `N `C `S0 `S1 ] as 'ax) ) Pshape.t
+    ; classify_node : [ `Node11 of padding ]
+    ; classify_layer : [ `Padding of padding ]
+    ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> padding2d
+    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> padding
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
     ; upstream : network
     ; value : [ `Constant of float | `Reflection | `Replication ]
-    ; width : (int * int) * (int * int)
-    ; top : int
-    ; bottom : int
-    ; left : int
-    ; right : int
+    ; paddings_of_axis : 'a. ([< Pshape.Axis.t] as 'a) -> int * int
+    ; axes : Pshape.Axis.t list
+    ; is_uniform : bool
     ; is_symmetric : bool
-    ; none_negative : bool
-    ; none_positive : bool >
+    ; is_padding : bool
+    ; is_cropping : bool
+    ; is_mixed : bool
+    ; is_noop : bool >
 
   and tensordot =
     < upstreams : network list
@@ -597,7 +595,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | Transpose : transpose layer_type
     | Maxpool2d : maxpool2d layer_type
     | Conv2d : conv2d layer_type
-    | Padding2d : padding2d layer_type
+    | Padding : padding layer_type
     | Parameter32 : parameter32 layer_type
 
   type _ node_type =
@@ -640,7 +638,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Transpose node -> (node :> network)
     | `Maxpool2d node -> (node :> network)
     | `Conv2d node -> (node :> network)
-    | `Padding2d node -> (node :> network)
+    | `Padding node -> (node :> network)
     | `Parameter32 node -> (node :> network)
 
   let downcast : _ any -> network =
@@ -658,7 +656,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Transpose node -> (node : transpose :> network)
     | `Maxpool2d node -> (node : maxpool2d :> network)
     | `Conv2d node -> (node : conv2d :> network)
-    | `Padding2d node -> (node : padding2d :> network)
+    | `Padding node -> (node : padding :> network)
     | `Parameter32 node -> (node : parameter32 :> network)
 
   let find_ids : ?max_size:int -> Id.t -> _ any list -> network list =
@@ -720,7 +718,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | Transpose, `Transpose node -> Hashtbl.add tbl node true
         | Maxpool2d, `Maxpool2d node -> Hashtbl.add tbl node true
         | Conv2d, `Conv2d node -> Hashtbl.add tbl node true
-        | Padding2d, `Padding2d node -> Hashtbl.add tbl node true
+        | Padding, `Padding node -> Hashtbl.add tbl node true
         | Parameter32, `Parameter32 node -> Hashtbl.add tbl node true
         | _, _ -> () );
       if Hashtbl.length tbl < max_size then List.iter follow node#upstreams
@@ -920,13 +918,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     val maxpool2d :
       ?b:[< boundary_mode ] -> ?s:int * int -> int * int -> ?id:Id.t -> _ any -> maxpool2d
 
-    val padding2d :
+    val padding :
       ?v:[< `Constant of float | `Reflection | `Replication ] ->
-      int list ->
+      ([<Pshape.Axis.t] * int list) list ->
       ?id:Id.t ->
       _ any ->
-      padding2d
-    (** width can be negative *)
+      padding
+    (** width can be negative to perform cropping *)
 
     val conv2d2 :
       ?g:int ->
@@ -948,7 +946,14 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     (** 3. Syntaxic sugars *)
 
-    val cropping2d : ?id:Id.t -> int list -> _ any -> padding2d
+    val padding2d :
+      ?v:[< `Constant of float | `Reflection | `Replication ] ->
+      int list ->
+      ?id:Id.t ->
+      _ any ->
+      padding
+
+    val cropping2d : ?id:Id.t -> int list -> _ any -> padding
 
     val dense :
       ?id:Id.t ->
@@ -1689,41 +1694,54 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       in
       fun ?id upstream -> instanciate id (downcast upstream)
 
-    let padding2d ?v:value width =
+    let padding ?v:value paddings_per_axis =
+      let paddings_per_axis = (paddings_per_axis :> (Pshape.Axis.t * int list) list) in
       let value = (value :> [ `Constant of float | `Reflection | `Replication ] option) in
       let value = match value with None -> `Constant 0. | Some v -> v in
-
-      let width =
-        match width with
-        | [ w ] -> ((w, w), (w, w))
-        | [ w; w' ] -> ((w, w), (w', w'))
-        | [ t; b; l; r ] -> ((t, b), (l, r))
-        | _ -> failwith "width should contain 1, 2 or 4 elements"
+      let axes = List.map fst paddings_per_axis in
+      let paddings =
+        List.map snd paddings_per_axis
+        |> List.map (function
+                     | [ p ] -> (p, p)
+                     | [ bef; aft ] -> (bef, aft)
+                     | _ -> failwith "In padding: padding list should contain 1 or 2 integers")
       in
+      if List.length axes <> List.length (List.sort_uniq compare axes) then
+        invalid_arg "In padding: Duplicate axis";
+      let axes, paddings =
+        List.combine axes paddings
+        |> List.filter_map
+             (fun ((_, (bef, aft)) as pair) -> if bef = 0 && aft = 0 then None else Some pair)
+        |> List.split
+      in
+
       let rec instanciate id upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype = upstream#out_dtype in
         let out_shape = upstream#out_shape in
-        if Pshape.ndim out_shape <> 4 then
-          invalid_arg "In padding2d: upstream should have 4 dimensions";
+        let shape_axes = Pshape.axes out_shape in
+        List.iter (fun ax ->
+            if not (List.mem ax shape_axes) then
+              invalid_arg "In padding: Axis missing from input shape"
+          ) axes;
 
         let out_shape =
-          let open Pshape.Size in
-          let open Pshape.Size.Infix in
-          let (t, b), (l, r) = width in
-          let out_shape = Pshape.set out_shape `S0 (Pshape.get out_shape `S0 + K l + K r) in
-          let out_shape = Pshape.set out_shape `S1 (Pshape.get out_shape `S1 + K t + K b) in
-          out_shape
+          List.combine axes paddings
+          |> List.fold_left (fun s (ax, (bef, aft)) ->
+                 let open Pshape.Size in
+                 let open Pshape.Size.Infix in
+                 Pshape.set s ax (Pshape.get s ax + K bef + K aft)
+               ) out_shape
         in
 
-        object (self : padding2d)
+        object (self : padding)
           method upstreams = [ upstream ]
 
           method classify_node = `Node11 self
 
-          method classify_layer = `Padding2d self
+          method classify_layer = `Padding self
 
-          method out_shape = out_shape |> Pshape.Open.to_layout Pshape.Layout.Sym4d
+          method out_shape = out_shape
 
           method out_dtype = dtype
 
@@ -1732,38 +1750,48 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
             match upstreams with
             | [ up ] -> instanciate (Some id) up
-            | _ -> invalid_arg "padding2d#copy takes 1 upstream"
+            | _ -> invalid_arg "padding#copy takes 1 upstream"
 
           method id = id
 
-          method layer_name = "padding2d"
+          method layer_name = "padding"
 
           method to_string =
-            if self#is_symmetric then
-              Printf.sprintf "<padding2d %s %d>" (Pshape.to_string out_shape) self#left
-            else
-              Printf.sprintf "<padding2d %s (%d, %d), (%d %d)>" (Pshape.to_string out_shape)
-                self#top self#bottom self#left self#right
+            match paddings, self#is_uniform with
+            | [], _ -> Printf.sprintf "<padding %s>" (Pshape.to_string out_shape)
+            | (bef, aft)::_, true ->
+               Printf.sprintf "<padding %s (%d, %d)>" (Pshape.to_string out_shape) bef aft
+            | _, false ->
+               List.map (fun (bef, aft) -> Printf.sprintf "%d, %d" bef aft) paddings
+               |> String.concat "; "
+               |>  Printf.sprintf "<padding %s [%s]>" (Pshape.to_string out_shape)
 
           method upstream = upstream
 
           method value = value
 
-          method width = width
+          method paddings_of_axis axis =
+            List.combine axes paddings
+            |> List.find (fun (ax, _) -> ax = (axis :> Pshape.Axis.t))
+            |> snd
 
-          method top = width |> fst |> fst
+          method axes = axes
 
-          method bottom = width |> fst |> snd
+          method is_uniform =
+            match paddings with
+            | [] -> true
+            | (bef, aft)::tl ->
+               List.for_all (fun (bef', aft') -> bef = bef' && aft = aft') tl
 
-          method left = width |> snd |> fst
+          method is_symmetric = List.for_all (fun (bef, aft) -> bef = aft) paddings
 
-          method right = width |> snd |> snd
+          method is_padding = List.for_all (fun (bef, aft) -> bef >= 0 && aft >= 0) paddings
 
-          method is_symmetric = self#right = self#left && self#top = self#bottom
+          method is_cropping = List.for_all (fun (bef, aft) -> bef <= 0 && aft <= 0) paddings
 
-          method none_negative = self#right > 0 && self#left > 0 && self#top > 0 && self#bottom > 0
+          method is_mixed = self#is_padding = false && self#is_cropping = false
 
-          method none_positive = self#right < 0 && self#left < 0 && self#top < 0 && self#bottom < 0
+          method is_noop = self#is_padding = true && self#is_cropping = true
         end
       in
       fun ?id upstream -> instanciate id (downcast upstream)
@@ -2021,13 +2049,25 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     (* 3. Syntaxic sugars ************************************************************************ *)
 
-    let cropping2d ?id width =
+    let padding2d ?v p =
+      let p =
+        match p with
+        | [ p ] -> [`S1, [ p ]; `S0, [ p ]]
+        | [ p; p' ] -> [`S1, [ p ]; `S0, [ p' ]]
+        | [ t; b; l; r ] -> [`S1, [t; b]; `S0, [l; r]]
+        | _ -> failwith "padding should contain 1, 2 or 4 elements"
+      in
+      match v with
+      | None -> padding p
+      | Some v -> padding ~v p
+
+    let cropping2d ?id p =
       let id = match id with None -> Id.create_default () | Some id -> id in
       List.map
         (fun x ->
-          if x < 0 then invalid_arg "In cropping2d: width must be positive";
+          if x < 0 then invalid_arg "In cropping2d: padding must be positive";
           -x)
-        width
+        p
       |> padding2d ~id
 
     let dense ?id new_sizes ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =

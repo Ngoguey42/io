@@ -237,7 +237,7 @@ module Ops = struct
       ?s:int * int ->
       ?d:int * int ->
       ?b:[< `Valid | `Same ] ->
-      #tensor Js.t -> #tensor Js.t -> #tensor Js.t =
+      #tensor Js.t -> #tensor Js.t -> tensor Js.t =
     fun ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode x kernel ->
     let boundary_mode = match boundary_mode with
       | None -> "same"
@@ -266,7 +266,7 @@ module Ops = struct
       ?s:int * int ->
       ?b:[< `Valid | `Same ] ->
       int * int ->
-      #tensor Js.t -> #tensor Js.t =
+      #tensor Js.t -> tensor Js.t =
     fun ?s:stride ?b:boundary_mode (ky, kx) x ->
     let filter_size = Js.array [| ky; kx |] in
     let stride = match stride with
@@ -282,6 +282,15 @@ module Ops = struct
     fun_call global##.tf##.maxPool
              [| inject x; inject filter_size; inject stride; inject boundary_mode |]
 
+  (* let pad : ?value:float -> int list -> *)
+  (*       fun ?value=0. width -> #tensor Js.t -> tensor Js.t = *)
+  (*     let width = *)
+  (*       match width with *)
+  (*       | [ w ] -> ((w, w), (w, w)) *)
+  (*       | [ w; w' ] -> ((w, w), (w', w')) *)
+  (*       | [ t; b; l; r ] -> ((t, b), (l, r)) *)
+  (*       | _ -> failwith "width should contain 1, 2 or 4 elements" *)
+  (*     in *)
 
 end
 

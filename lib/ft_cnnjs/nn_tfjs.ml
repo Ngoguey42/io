@@ -188,6 +188,8 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
   | `Relu _ ->
      let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
      forward, (net :> Fnn.network)#copy
+  (* | `Padding net -> *)
+  (*    forward, (net :> Fnn.network)#copy *)
   | `Maxpool2d net ->
      let b = match net#boundary_mode with
        | `Same -> `Same

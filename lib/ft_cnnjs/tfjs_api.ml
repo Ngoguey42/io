@@ -151,7 +151,13 @@ module Ops = struct
    fun shape -> fun_call global##.tf##.ones [| shape |> Js.array |> inject |]
 
   let reshape : int array -> #tensor Js.t -> tensor Js.t =
-   fun shape x -> fun_call global##.tf##.reshape [| inject x; shape |> Js.array |> inject |]
+    fun shape x ->
+    (* Printf.eprintf "in tf.reshape:\n%!"; *)
+    (* Firebug.console##log x##.shape; *)
+    (* Firebug.console##log (Js.array shape); *)
+    let s = fun_call global##.tf##.reshape [| inject x; shape |> Js.array |> inject |] in
+    (* Firebug.console##log s##.shape; *)
+    s
 
   let expand_dims : int -> #tensor Js.t -> tensor Js.t =
    fun axis x -> fun_call global##.tf##.expandDims [| inject x; inject axis |]
@@ -160,7 +166,14 @@ module Ops = struct
     fun ?perm x ->
     match perm with
     | None -> fun_call global##.tf##.transpose [| inject x |]
-    | Some perm -> fun_call global##.tf##.transpose [| inject x; perm |> Array.of_list |> Js.array |> inject |]
+    | Some perm ->
+       (* Printf.eprintf "in tf.transpose:\n%!"; *)
+       (* Firebug.console##log x##.shape; *)
+       (* Firebug.console##log (Js.array (Array.of_list perm)); *)
+
+       let s = fun_call global##.tf##.transpose [| inject x; perm |> Array.of_list |> Js.array |> inject |] in
+       (* Firebug.console##log s##.shape; *)
+       s
 
   let flatten : #tensor Js.t -> tensor Js.t = fun x -> reshape [| -1 |] x
 

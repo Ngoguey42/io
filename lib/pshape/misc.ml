@@ -8,7 +8,37 @@ Axes naming in various documentations
 - keras (2d):           rows      cols       batch channels
 - keras (3d): conv_dim1 conv_dim2 conv_dim3  batch channels
  *)
-module Axis = struct
+
+module type AXIS = sig
+  type symbolic1d = [ `N ]
+
+  type symbolic2d = [ symbolic1d | `C ]
+
+  type symbolic3d = [ symbolic2d | `S0 ]
+
+  type symbolic4d = [ symbolic3d | `S1 ]
+
+  type symbolic5d = [ symbolic4d | `S2 ]
+
+  type symbolic = symbolic5d
+
+  type absolute = [ `Idx of int ]
+
+  type t = [ symbolic | absolute ]
+  val is_symbolic : [< t ] -> bool
+
+  val is_absolute : [< t ] -> bool
+  val to_string : [< t ] -> string
+  val compatible_with_ndim : [< t ] -> int -> bool
+
+  val symbolic_axes_of_ndim : int -> symbolic list
+  val absolute_axes_of_ndim : int -> absolute list
+  val min_ndim_of_axis : [<t] -> int
+  val transpose : ?mapping:(t * t) list -> t list -> t list -> t list list
+
+end
+
+module Axis : AXIS = struct
   type symbolic1d = [ `N ]
 
   type symbolic2d = [ symbolic1d | `C ]
@@ -84,6 +114,68 @@ module Axis = struct
     | `S0 -> 3
     | `S1 -> 4
     | `S2 -> 5
+
+  let transpose =
+   fun ?mapping shape0_axes shape1_axes ->
+    (* Derive and check shapes axes *)
+    let shape0_axes = (shape0_axes :> t list) in
+    let shape1_axes = (shape1_axes :> t list) in
+    let ndim0 = List.length shape0_axes in
+    let ndim1 = List.length shape1_axes in
+    let is_sym0 = List.exists is_symbolic shape0_axes in
+    let is_sym1 = List.exists is_symbolic shape1_axes in
+    let shape0_axes' =
+      if is_sym0 then (List.sort compare (symbolic_axes_of_ndim ndim0))
+      else  (List.sort compare (absolute_axes_of_ndim ndim0))
+    in
+    let shape1_axes' =
+      if is_sym1 then (List.sort compare (symbolic_axes_of_ndim ndim1))
+      else  (List.sort compare (absolute_axes_of_ndim ndim1))
+    in
+    if List.sort compare shape0_axes <> shape0_axes' then
+      invalid_arg "In transpose: Invalid shape0_axes";
+    if List.sort compare shape1_axes <> shape1_axes' then
+      invalid_arg "In transpose: Invalid shape1_axes";
+
+    (* Derive and check mapping axes *)
+    let mapping = match mapping with
+      | Some mapping -> List.map (fun (a, b) -> (a, (b :> t))) mapping
+      | None -> List.combine shape0_axes (List.rev shape0_axes :> t list)
+    in
+
+    let left_axes = List.map fst mapping in
+    let right_axes = List.map snd mapping in
+    let missing_left_axes =
+      List.filter_map (fun ax -> if List.mem ax left_axes then None else Some ax) shape0_axes
+    in
+    List.iter
+      (fun ax ->
+        if not (List.mem (ax :> t) shape0_axes) then
+          "In transpose: Axis " ^ to_string ax ^ " doesn't exist in input shape" |> invalid_arg)
+      left_axes;
+    List.iter
+      (fun ax ->
+        if not (List.mem (ax :> t) shape1_axes) then
+          "In transpose: Axis " ^ to_string ax ^ " doesn't exist in output shape" |> invalid_arg)
+      right_axes;
+    List.iter
+      (fun ax ->
+        if List.mem (ax :> t) right_axes then
+          "In transpose: Input axis " ^ to_string ax
+          ^ " can't be flattened with other axes because it is missing from mapping"
+          |> invalid_arg)
+      missing_left_axes;
+
+    (* Build output list *)
+    let f ax =
+      match List.find_all (fun (_, dstax) -> ax = dstax) mapping with
+      | [] ->
+          if List.mem ax (missing_left_axes :> t list) then [ax]
+          else []
+      | l -> List.map fst l
+    in
+    List.map f shape1_axes
+
 end
 
 module type SIZE = sig

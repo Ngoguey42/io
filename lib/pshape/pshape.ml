@@ -889,63 +889,72 @@ module Pshape :
        (sym4d_partial ~n:(Size.U) ~c:(Size.K 2) ~s0:(Size.K 3) ~s1:(Size.K 5)) |}
      Produces the shape {n=_, c=30}
   *)
-  let transpose :
-      ?ndim:int -> ?mapping:('ax0 * [< Axis.t ]) list -> (_, 'sz, 'ax0) t -> (Length.tag, Size.tag, Axis.t) t
+  let transpose
       =
    fun ?ndim:len ?mapping shape ->
     (* Cast *)
-    let shape = shape |> to_partial in
-    let shape_axes = axes shape in
+    let shape = shape |> to_any in
+    let shape0_axes = axes shape in
     let mapping = match mapping with
-      | Some mapping -> List.map (fun (a, b) -> (a, (b :> Axis.t))) mapping
-      | None -> List.combine shape_axes (List.rev shape_axes :> Axis.t list)
+      | Some mapping -> (mapping :> (Axis.t * Axis.t) list)
+      | None -> List.combine shape0_axes (List.rev shape0_axes :> Axis.t list)
     in
-
-    (* List and check axes *)
-    let src_axes = List.map fst mapping in
-    let dst_axes = List.map snd mapping in
-    let missing_src_axes =
-      List.filter_map (fun ax -> if List.mem ax src_axes then None else Some ax) shape_axes
-    in
-    let is_sym_src = is_symbolic shape in
-    let is_abs_src = not is_sym_src in
-    let is_sym_dst =
-      match dst_axes with [] -> is_sym_src | _ -> List.exists Axis.is_symbolic dst_axes
-    in
-    let is_abs_dst =
-      match dst_axes with [] -> is_abs_src | _ -> List.exists Axis.is_absolute dst_axes
-    in
-    if is_sym_dst = is_abs_dst then
-      invalid_arg
-        "In transpose: Invalid axes in mapping. Can't decide if output is symbolic or partial";
-    List.iter
-      (fun ax ->
-        if not (List.mem ax shape_axes) then
-          "In transpose: Axis " ^ Axis.to_string ax ^ "doesn't exist in input shape" |> invalid_arg)
-      src_axes;
-    List.iter
-      (fun ax ->
-        if List.mem (ax :> Axis.t) dst_axes then
-          "In transpose: Input axis " ^ Axis.to_string ax
-          ^ " can't be flattened with other axes because it is missing from mapping"
-          |> invalid_arg)
-      missing_src_axes;
 
     (* Check ndim parameter *)
+    let left_axes = List.map fst mapping in
+    let right_axes = List.map snd mapping in
+    let is_sym1 = List.exists Axis.is_symbolic right_axes in
+    let missing_left_axes =
+      List.filter_map (fun ax -> if List.mem ax left_axes then None else Some ax) shape0_axes
+    in
     let min_len =
       max
-        (List.map Axis.min_ndim_of_axis dst_axes |> List.fold_left max 0)
-        (List.map Axis.min_ndim_of_axis missing_src_axes |> List.fold_left max 0)
+        (List.map Axis.min_ndim_of_axis right_axes |> List.fold_left max 0)
+        (List.map Axis.min_ndim_of_axis missing_left_axes |> List.fold_left max 0)
     in
     let len =
       match len with
       | None -> min_len
       | Some len ->
           if min_len > len then
-            Printf.sprintf "In transpose: An output axis doesn't fit inside ndim:%d" len
+            Printf.sprintf "In transpose: An output axis doesn't fit inside ?ndim=%d" len
             |> invalid_arg;
           len
     in
+    let shape1_axes =
+      if is_sym1 then (Axis.symbolic_axes_of_ndim len :> Axis.t list)
+      else (Axis.absolute_axes_of_ndim len :> Axis.t list)
+    in
+
+
+    (* List.iteri ( *)
+    (*     fun i (l) -> *)
+    (*      Printf.eprintf "shape0_axes[%d] = %s\n%!" i *)
+    (*                       (Axis.to_string l) *)
+    (*     ; *)
+    (*   ) shape0_axes; *)
+    (* List.iteri ( *)
+    (*     fun i (l) -> *)
+    (*      Printf.eprintf "shape1_axes[%d] = %s\n%!" i *)
+    (*                       (Axis.to_string l) *)
+    (*     ; *)
+    (*   ) shape1_axes; *)
+    (* List.iteri ( *)
+    (*     fun i (l, r) -> *)
+    (*      Printf.eprintf "old mapping[%d] = %s * %s\n%!" i *)
+    (*                       (Axis.to_string l) *)
+    (*                       (Axis.to_string r) *)
+    (*     ; *)
+    (*   ) mapping; *)
+
+    let mapping = Axis.transpose ~mapping shape0_axes shape1_axes in
+
+    (* List.iteri ( *)
+    (*     fun i l -> *)
+    (*     List.map Axis.to_string l *)
+    (*     |> String.concat "; " *)
+    (*     |> Printf.eprintf "new mapping[%d] = [%s]\n%!" i; *)
+    (*   ) mapping; *)
 
     (* Build output shape *)
     let is_total_dst =
@@ -954,17 +963,14 @@ module Pshape :
         (to_list shape)
     in
     let f ax =
-      match List.find_all (fun (_, dstax) -> ax = dstax) mapping with
-      | [] ->
-          if List.mem ax (missing_src_axes :> Axis.t list) then get (shape |> to_any) ax
-          else Size.K 1
-      | l ->
-          let srcaxs = List.map fst l in
+      match List.combine shape1_axes mapping |> List.find (fun (dstaxis, _) -> dstaxis = ax) with
+      | _, [] -> Size.K 1
+      | _, srcaxs ->
           let srcsizes = List.map (get shape) srcaxs in
           List.fold_left Size.mul (List.hd srcsizes) (List.tl srcsizes)
     in
     let g ax = f ax |> Size.Open.to_known in
-    match (is_sym_dst, is_total_dst, len) with
+    match (is_sym1, is_total_dst, len) with
     | _, _, 0 -> failwith "unreachable"
     | false, true, 1 -> abs1d_total (g (`Idx 0))
     | false, false, 1 -> abs1d_partial (f (`Idx 0))
@@ -1121,8 +1127,8 @@ module Pshape :
       invalid_arg "In squeeze: Can only squeeze size 1 axes";
     if
       is_symbolic shape
-      && List.sort_uniq compare remaining_axes
-         <> List.sort_uniq compare (Axis.symbolic_axes_of_ndim ndim1)
+      && (List.sort_uniq compare remaining_axes :> Axis.t list)
+         <> (List.sort_uniq compare (Axis.symbolic_axes_of_ndim ndim1) :> Axis.t list)
     then invalid_arg "In squeeze: Can' squeeze those axes of a symbolic shape";
 
     let is_total_dst =

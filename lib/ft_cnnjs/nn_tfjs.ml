@@ -153,61 +153,48 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
      forward, net#copy
   | `Transpose node ->
      let mapping = node#mapping in
-     let is_sym0 = Pshape.is_symbolic node#upstream#out_shape in
-     let is_sym1 = Pshape.is_symbolic node#out_shape in
-     let ndim0 = Pshape.ndim node#upstream#out_shape in
-     let ndim1 = Pshape.ndim node#out_shape in
-     (* Printf.eprintf "> in transpose\n%!"; *)
-     (* Printf.eprintf "input shape\n%!"; *)
-     (* print_endline (Pshape.to_string node#upstream#out_shape); *)
+     let shape0 = (node#upstream#out_shape) in
+     let shape1 = (node#out_shape) in
+     let ndim0 = Pshape.ndim shape0 in
+     let ndim1 = Pshape.ndim shape1 in
+     let is_sym0 = Pshape.is_symbolic shape0 in
+     let is_sym1 = Pshape.is_symbolic shape1 in
 
-     (* Printf.eprintf "output shape\n%!"; *)
-     (* print_endline (Pshape.to_string node#out_shape); *)
-
-     let shape =
-       Array.init ndim0 (fun i -> i + 10)
-       |> Pshape.from_int_array
+     let axes0 = if is_sym0 then (channel_last_axes ndim0 :> Pshape.Axis.t list)
+                 else (Pshape.Axis.absolute_axes_of_ndim ndim0 :> Pshape.Axis.t list)
      in
-     (* Printf.eprintf "made of fake ints:\n%!"; *)
-     (* print_endline (Pshape.to_string shape); *)
-     let shape =
-       if is_sym0 then Pshape.symbolize (channel_last_axes ndim0) shape |> Pshape.to_any
-       else shape |> Pshape.to_any
+     let axes1 = if is_sym1 then (channel_last_axes ndim1 :> Pshape.Axis.t list)
+                 else (Pshape.Axis.absolute_axes_of_ndim ndim1 :> Pshape.Axis.t list)
      in
-     (* Printf.eprintf "maybe to sym:\n%!"; *)
-     (* print_endline (Pshape.to_string shape); *)
-     let shape = Pshape.transpose ~ndim:ndim1 ~mapping shape in
-     (* Printf.eprintf "transposed:\n%!"; *)
-     (* print_endline (Pshape.to_string shape); *)
-     let shape =
-       if is_sym1 then
-         Pshape.desymbolize (channel_last_axes ndim1) (Pshape.to_symbolic shape)
-         |> Pshape.to_absolute
-         |> Pshape.to_total
-       else shape |> Pshape.to_absolute |> Pshape.to_total
+     let mapping =       Pshape.Axis.transpose         ~mapping axes0 axes1   in
+     let index_of_axis0 ax =
+       List.mapi (fun i ax' -> (i, ax')) axes0
+       |> List.find (fun (_, ax') -> ax = ax')
+       |> fst
      in
-     (* Printf.eprintf "maybe from sym:\n%!"; *)
-     (* print_endline (Pshape.to_string shape); *)
-     let ints = Pshape.to_int_array shape |> Array.to_list in
-     (* ints |> List.map string_of_int |> String.concat "," |> print_endline; *)
      let tftranspose_axes =
-       List.filter_map (fun j -> if j >= 10 then Some (j - 10) else None) ints
+       List.concat mapping |> List.map index_of_axis0
      in
      (* tftranspose_axes |> List.map string_of_int |> String.concat "," |> print_endline; *)
-     let tfexpand_axes =
-       List.mapi (fun i j -> (i, j)) ints
-       |> List.filter_map (fun (i, j) -> if j >= 10 then None else Some i)
+
+     let dims1_of_dims0 dims =
+       List.map (fun axs0 ->
+              List.map index_of_axis0 axs0
+              |> List.map (Array.get dims)
+              |> List.fold_left ( * ) 1
+            ) mapping
+       |> Array.of_list
      in
-     (* tfexpand_axes |> List.map string_of_int |> String.concat "," |> print_endline; *)
 
      let forward inputs =
        let x = up_forward inputs in
-       let x = Tfjs_api.Ops.transpose ~perm:tftranspose_axes x in
-       let rec aux x = function
-         | [] -> x
-         | axis::tl -> aux (Tfjs_api.Ops.expand_dims axis x) tl
+       let tfreshape_shape =
+         x##.shape
+         |> Js.to_array
+         |> dims1_of_dims0
        in
-       aux x tfexpand_axes
+       Tfjs_api.Ops.transpose ~perm:tftranspose_axes x
+       |> Tfjs_api.Ops.reshape tfreshape_shape
        |> _validate_output_tensor net
      in
      forward, net#copy

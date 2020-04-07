@@ -215,8 +215,8 @@ module type PSHAPE = sig
 
   val transpose :
     ?ndim:int ->
-    ?mapping:(([< Axis.t ] as 'ax0) * [< Axis.t ]) list ->
-    (_, _, 'ax0) t ->
+    ?mapping:([< Axis.t ] * [< Axis.t ]) list ->
+    (_, _, _) t ->
     (Length.tag, Size.tag, Axis.t) t
 
   val squeeze :

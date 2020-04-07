@@ -91,7 +91,7 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
 
   (* print_string (Ft_cnnjs.Nn.String.of_network decoder); *)
-  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:10000 ~get_lr ~get_data ~encoders ~decoder
+  Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:1 ~get_lr ~get_data ~encoders ~decoder
   >>= fun (encoders, decoder) ->
   (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
 

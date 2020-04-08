@@ -189,8 +189,30 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
   | `Relu _ ->
      let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
      forward, (net :> Fnn.network)#copy
-  (* | `Padding net -> *)
-  (*    forward, (net :> Fnn.network)#copy *)
+  | `Padding net ->
+     let value = match net#value with
+       | `Constant v -> v
+       | `Reflection -> failwith "Reflection padding not implemented"
+       | `Replication -> failwith "Replication padding not implemented"
+     in
+     let shape = net#out_shape in
+     let ndim = Pshape.ndim shape in
+     let axes =
+       if Pshape.is_symbolic shape then (channel_last_axes ndim :> Pshape.Axis.t list)
+       else (Pshape.Axis.absolute_axes_of_ndim ndim :> Pshape.Axis.t list)
+     in
+     let paddings_per_axis =
+       List.mapi (fun i ax ->
+           let bef, aft = net#paddings_of_axis ax in
+           i, [ bef; aft ]
+         ) axes
+     in
+     let forward inputs =
+       up_forward inputs
+       |> Tfjs_api.Ops.pad ~value paddings_per_axis
+       |> _validate_output_tensor net
+     in
+     forward, (net :> Fnn.network)#copy
   | `Maxpool2d net ->
      let b = match net#boundary_mode with
        | `Same -> `Same

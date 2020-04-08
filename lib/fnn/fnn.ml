@@ -1094,7 +1094,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let append ?head ?tail other =
       let head_end, tail_end =
         match (head, tail) with
-        | None, None | Some _, Some _ -> failwith "Provide only head or only tail"
+        | None, None | Some _, Some _ -> invalid_arg "Provide only head or only tail"
         | Some node, _ -> (downcast node, downcast other)
         | _, Some node -> (downcast other, downcast node)
       in
@@ -1142,11 +1142,11 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ( match optimizer with
       | `Sgd -> ()
       | `Adam (epsilon, beta1, beta2) ->
-          if epsilon <= 0. then failwith "In parameter: epsilon should be > 0.";
+          if epsilon <= 0. then invalid_arg "In parameter: epsilon should be > 0.";
           if beta1 <= 0. || beta1 >= 1. then
-            failwith "In parameter: beta1 should be between 0 and 1 (excluded)";
+            invalid_arg "In parameter: beta1 should be between 0 and 1 (excluded)";
           if beta2 <= 0. || beta2 >= 1. then
-            failwith "In parameter: beta2 should be between 0 and 1 (excluded)";
+            invalid_arg "In parameter: beta2 should be between 0 and 1 (excluded)";
           () );
       let rec instanciate tensor_optim id rng =
         let id = match id with None -> Id.create_default () | Some id -> id in
@@ -1618,8 +1618,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let stride = match stride with None -> kernel_size | Some s -> s in
 
       if fst kernel_size <= 0 || snd kernel_size <= 0 then
-        failwith "In maxpool2d: kernel_size should be >= 1";
-      if fst stride <= 0 || snd stride <= 0 then failwith "In maxpool2d: stride should be >= 1";
+        invalid_arg "In maxpool2d: kernel_size should be >= 1";
+      if fst stride <= 0 || snd stride <= 0 then invalid_arg "In maxpool2d: stride should be >= 1";
 
       let rec instanciate id upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
@@ -1705,7 +1705,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         |> List.map (function
                      | [ p ] -> (p, p)
                      | [ bef; aft ] -> (bef, aft)
-                     | _ -> failwith "In padding: padding list should contain 1 or 2 integers")
+                     | _ -> invalid_arg "In padding: padding list should contain 1 or 2 integers")
       in
       if List.length axes <> List.length (List.sort_uniq compare axes) then
         invalid_arg "In padding: Duplicate axis";
@@ -1833,9 +1833,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let conv2d2 ?g:(group_count = 1) ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode =
       let boundary_mode = Option.value ~default:`Same (boundary_mode :> boundary_mode option) in
 
-      if group_count <= 0 then failwith "In conv2d2: group_count should be >= 1";
-      if fst stride <= 0 || snd stride <= 0 then failwith "In conv2d2: stride should be >= 1";
-      if fst dilation <= 0 || snd dilation <= 0 then failwith "In conv2d2: dilation should be >= 1";
+      if group_count <= 0 then invalid_arg "In conv2d2: group_count should be >= 1";
+      if fst stride <= 0 || snd stride <= 0 then invalid_arg "In conv2d2: stride should be >= 1";
+      if fst dilation <= 0 || snd dilation <= 0 then invalid_arg "In conv2d2: dilation should be >= 1";
       let rec instanciate id weights x =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let wshape =
@@ -1855,9 +1855,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           | _ -> invalid_arg "In conv2d2: Can only be applied on floating point dtype"
         in
 
-        if x#out_dtype <> dtype then failwith "In conv2d2: The inputs disagree on dtype";
+        if x#out_dtype <> dtype then invalid_arg "In conv2d2: The inputs disagree on dtype";
         if Pshape.get xshape `C <> Pshape.Size.K in_filters then
-          failwith "In conv2d2: The inputs disagree on the number of channels";
+          invalid_arg "In conv2d2: The inputs disagree on the number of channels";
         let out_filters = out_group_filters * group_count in
         let overflow_s0, underflow_s0, padding_s0, lost_s0, out_size_s0 =
           _expand_boundary_mode boundary_mode
@@ -1875,9 +1875,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         let out_shape = Pshape.set out_shape `S1 out_size_s1 in
 
         if fst kernel_size <= 0 || snd kernel_size <= 0 then
-          failwith "In conv2d2: kernel_size should be >= 1";
+          invalid_arg "In conv2d2: kernel_size should be >= 1";
         if in_filters mod group_count <> 0 then
-          failwith "In conv2d2: group_count should divide in_filters";
+          invalid_arg "In conv2d2: group_count should divide in_filters";
 
         object (self : conv2d)
           method upstreams = [ weights; x ]
@@ -1998,7 +1998,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           | _ -> invalid_arg "In tensordot: Can only be applied on floating point dtype"
         in
 
-        if x1#out_dtype <> dtype then failwith "In tensordot: The inputs disagree on dtype";
+        if x1#out_dtype <> dtype then invalid_arg "In tensordot: The inputs disagree on dtype";
 
         object (self : tensordot)
           method upstreams = [ x0; x1 ]
@@ -2056,7 +2056,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | [ p ] -> [`S1, [ p ]; `S0, [ p ]]
         | [ p; p' ] -> [`S1, [ p ]; `S0, [ p' ]]
         | [ t; b; l; r ] -> [`S1, [t; b]; `S0, [l; r]]
-        | _ -> failwith "padding should contain 1, 2 or 4 elements"
+        | _ -> invalid_arg "padding should contain 1, 2 or 4 elements"
       in
       match v with
       | None -> padding p
@@ -2139,23 +2139,23 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let shape = upstream#out_shape |> Pshape.Open.to_layout Pshape.Layout.Sym4d in
       let in_filters =
         match Pshape.get shape `C with
-        | Pshape.Size.U -> failwith "In conv2d: input network should have a known channel size"
+        | Pshape.Size.U -> invalid_arg "In conv2d: input network should have a known channel size"
         | Pshape.Size.K v -> v
       in
       let group_count, out_filters =
         match filters with
         | `Full v ->
-            if v < 0 then failwith "In conv2d: out_filters should not be negative";
+            if v < 0 then invalid_arg "In conv2d: out_filters should not be negative";
             (1, v)
         | `Depthwise v ->
-            if v < 1 then failwith "In conv2d: expansion rate >= 1";
+            if v < 1 then invalid_arg "In conv2d: expansion rate >= 1";
             (in_filters, in_filters * v)
         | `Grouped (g, f) ->
-            if f < 0 then failwith "In conv2d: out_filters should not be negative";
+            if f < 0 then invalid_arg "In conv2d: out_filters should not be negative";
             (g, f)
       in
       if out_filters mod group_count <> 0 then
-        failwith "In conv2d: group_count should divide out_filters";
+        invalid_arg "In conv2d: group_count should divide out_filters";
       let out_group_filters = out_filters / group_count in
       let dimensions = [| fst kernel_size; snd kernel_size; in_filters; out_group_filters |] in
 

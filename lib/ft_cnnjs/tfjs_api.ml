@@ -2,6 +2,9 @@
  * It also contains helpers to avoid using tensorflows' losses, optimizers and
  * training loops. Gradients can be retrieved using the `variable_grads` function.
  * It also provides conversions from tensors to and from bigarrays and typed_arrays
+
+ * Tfjs documentation : https://js.tensorflow.org/api/latest/#class:Tensor
+ *   /!\ Be careful the documentation is not exhaustive.
  *)
 module Js = Js_of_ocaml.Js
 module Typed_array = Js_of_ocaml.Typed_array
@@ -23,11 +26,18 @@ type backend = [ `Webgl | `Cpu | `Wasm ]
 
 class type symbolicTensor = object end
 
+(**
+Tfjs.Tensor.shape == Numpy.Ndarray.shape == Torch.tensor.size() == Torch.tensor.shape
+Tfjs.Tensor.rank  == Numpy.Ndarray.ndim  == Torch.tensor.dim()  == Torch.tensor.ndim
+Tfjs.Tensor.size  == Numpy.Ndarray.size  == Torch.tensor.numel()
+ *)
 class type tensor =
   object
     method shape : int Js.js_array Js.t Js.readonly_prop
 
     method size : int Js.readonly_prop
+
+    method rank : int Js.readonly_prop
 
     method asType : Js.js_string Js.t -> tensor Js.t Js.meth
 
@@ -282,15 +292,20 @@ module Ops = struct
     fun_call global##.tf##.maxPool
              [| inject x; inject filter_size; inject stride; inject boundary_mode |]
 
-  (* let pad : ?value:float -> int list -> *)
-  (*       fun ?value=0. width -> #tensor Js.t -> tensor Js.t = *)
-  (*     let width = *)
-  (*       match width with *)
-  (*       | [ w ] -> ((w, w), (w, w)) *)
-  (*       | [ w; w' ] -> ((w, w), (w', w')) *)
-  (*       | [ t; b; l; r ] -> ((t, b), (l, r)) *)
-  (*       | _ -> failwith "width should contain 1, 2 or 4 elements" *)
-  (*     in *)
+  let pad : ?value:float -> (int * int list) list ->
+            #tensor Js.t -> tensor Js.t =
+    fun ?(value=0.) paddings_per_axis x ->
+      let paddings = Array.init x##.rank (fun i ->
+          match List.find_all (fun (ax, _) -> ax = i) paddings_per_axis with
+          | _::_::_ -> invalid_arg "In padding: Duplicate axis"
+          | [] -> Js.array [| 0; 0 |]
+          | [_, [ p ]] -> Js.array [| p; p |]
+          | [_, [ bef; aft ]] -> Js.array [| bef; aft |]
+          | [ _ ] -> invalid_arg "In padding: padding list should contain 1 or 2 integers"
+                               )
+          |> Js.array
+      in
+      fun_call global##.tf##.pad [| inject x; inject paddings; inject value |]
 
 end
 

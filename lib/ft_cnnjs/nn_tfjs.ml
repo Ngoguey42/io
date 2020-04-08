@@ -106,31 +106,29 @@ let _validate_output_tensor net tensor =
     |> failwith;
   tensor
 
+let _axes_of_shape shape =
+  let ndim = Pshape.ndim shape in
+  let is_sym = Pshape.is_symbolic shape in
+  if is_sym then (channel_last_axes ndim :> Pshape.Axis.t list)
+  else (Pshape.Axis.absolute_axes_of_ndim ndim :> Pshape.Axis.t list)
+
+let _tensor_axis_of_shape_axis shape ax =
+  List.mapi (fun i ax -> (i, ax)) (_axes_of_shape shape)
+  |> List.find (fun (_, x) -> x = ax)
+  |> fst
+
 let _derive_configuration_of_transpose_layer (net: Fnn.transpose) =
   let mapping = net#mapping in
-  let shape0 = (net#upstream#out_shape) in
-  let shape1 = (net#out_shape) in
-  let ndim0 = Pshape.ndim shape0 in
-  let ndim1 = Pshape.ndim shape1 in
-  let is_sym0 = Pshape.is_symbolic shape0 in
-  let is_sym1 = Pshape.is_symbolic shape1 in
-  let axes0 = if is_sym0 then (channel_last_axes ndim0 :> Pshape.Axis.t list)
-              else (Pshape.Axis.absolute_axes_of_ndim ndim0 :> Pshape.Axis.t list)
-  in
-  let axes1 = if is_sym1 then (channel_last_axes ndim1 :> Pshape.Axis.t list)
-              else (Pshape.Axis.absolute_axes_of_ndim ndim1 :> Pshape.Axis.t list)
-  in
+  let shape0 = net#upstream#out_shape in
+  let axes0 = _axes_of_shape shape0 in
+  let axes1 = _axes_of_shape net#out_shape in
   let mapping = Pshape.Axis.transpose ~mapping axes0 axes1 in
-  let index_of_axis0 ax =
-    List.mapi (fun i ax' -> (i, ax')) axes0
-    |> List.find (fun (_, ax') -> ax = ax')
-    |> fst
-  in
-  let tftranspose_axes = List.concat mapping |> List.map index_of_axis0 in
+  let mapping = List.map (List.map (_tensor_axis_of_shape_axis shape0)) mapping in
+  let tftranspose_axes = List.concat mapping in
 
   let dims1_of_dims0 dims =
-    List.map (fun axs0 ->
-        List.map index_of_axis0 axs0
+    List.map (fun tensor_axs0 ->
+        tensor_axs0
         |> List.map (Array.get dims)
         |> List.fold_left ( * ) 1
       ) mapping
@@ -189,18 +187,16 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
   | `Relu _ ->
      let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
      forward, (net :> Fnn.network)#copy
+  (* | `Softmax net -> *)
+  (*    let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in *)
+  (*    forward, (net :> Fnn.network)#copy *)
   | `Padding net ->
      let value = match net#value with
        | `Constant v -> v
        | `Reflection -> failwith "Reflection padding not implemented"
        | `Replication -> failwith "Replication padding not implemented"
      in
-     let shape = net#out_shape in
-     let ndim = Pshape.ndim shape in
-     let axes =
-       if Pshape.is_symbolic shape then (channel_last_axes ndim :> Pshape.Axis.t list)
-       else (Pshape.Axis.absolute_axes_of_ndim ndim :> Pshape.Axis.t list)
-     in
+     let axes = _axes_of_shape net#out_shape in
      let paddings_per_axis =
        List.mapi (fun i ax ->
            let bef, aft = net#paddings_of_axis ax in
@@ -290,10 +286,7 @@ let _unpack_layern1 (net: Fnn.noden1) up_forwards =
      in
      forward, (net :> Fnn.network)#copy
   | `Concatenate net ->
-     let axis, _ =
-       List.mapi (fun i x -> (i, x)) (channel_last_axes (Pshape.ndim net#out_shape))
-       |> List.find (fun (_, x) -> x = net#axis)
-     in
+     let axis = _tensor_axis_of_shape_axis net#out_shape net#axis in
      let forward inputs =
        List.map (fun fn -> fn inputs) up_forwards
        |> Tfjs_api.Ops.concat axis

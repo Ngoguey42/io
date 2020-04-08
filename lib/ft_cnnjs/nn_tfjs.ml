@@ -193,6 +193,17 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
        _validate_output_tensor net (Tfjs_api.Ops.softmax tensor_axis (up_forward inputs))
      in
      forward, (net :> Fnn.network)#copy
+  | `Astype net ->
+     let dtype =
+       ( match tfdtype_of_dtype net#dtype with
+         | `Float32 -> "float32"
+         | `Int32 -> "int32" )
+       |> Js.string
+     in
+     let forward inputs =
+       _validate_output_tensor net ((up_forward inputs)##asType dtype)
+     in
+     forward, (net :> Fnn.network)#copy
   | `Padding net ->
      let value = match net#value with
        | `Constant v -> v

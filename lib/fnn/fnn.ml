@@ -444,7 +444,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
-    ; upstream : network >
+    ; upstream : network
+    ; dtype : dtype >
 
   and normalisation =
     < upstreams : network list
@@ -1826,6 +1827,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method to_string = Printf.sprintf "<astype %s>" (Pshape.to_string shape)
 
           method upstream = upstream
+
+          method dtype = dtype
+
         end
       in
       fun ?id upstream -> instanciate id (downcast upstream)

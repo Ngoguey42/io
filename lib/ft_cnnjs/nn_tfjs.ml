@@ -187,9 +187,12 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
   | `Relu _ ->
      let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
      forward, (net :> Fnn.network)#copy
-  (* | `Softmax net -> *)
-  (*    let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in *)
-  (*    forward, (net :> Fnn.network)#copy *)
+  | `Softmax net ->
+     let tensor_axis = _tensor_axis_of_shape_axis net#upstream#out_shape net#axis in
+     let forward inputs =
+       _validate_output_tensor net (Tfjs_api.Ops.softmax tensor_axis (up_forward inputs))
+     in
+     forward, (net :> Fnn.network)#copy
   | `Padding net ->
      let value = match net#value with
        | `Constant v -> v

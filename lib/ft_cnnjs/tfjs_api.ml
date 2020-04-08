@@ -272,6 +272,12 @@ module Ops = struct
     let tensors = tensors |> Array.of_list |> Js.array in
     fun_call global##.tf##.concat [| inject tensors; inject axis |]
 
+  let softmax :
+        int ->
+        #tensor Js.t ->
+        tensor Js.t = fun axis x ->
+    fun_call global##.tf##.softmax [| inject x; inject axis |]
+
   let maxpool :
       ?s:int * int ->
       ?b:[< `Valid | `Same ] ->

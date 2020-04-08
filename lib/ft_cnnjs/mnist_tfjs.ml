@@ -54,11 +54,14 @@ end) = struct
 
       let x = Tfjs_api.tensor_of_ta [| batch_size; 28; 28; 1 |] x in
       let x = x##asType (Js.string "float32") in
-      let y = Tfjs_api.one_hot_of_ta 10 y in
-      let y = y##reshape (Js.array [| batch_size; 1; 1; 10 |]) in
-      let y = y##asType (Js.string "float32") in
+      let y_top1 = Tfjs_api.tensor_of_ta [| batch_size |] y in
+      let y_top1 = y_top1##asType (Js.string "int32") in
+      let y_1hot = Tfjs_api.Ops.one_hot 10 y_top1 in
+      let y_1hot = y_1hot##reshape (Js.array [| batch_size; 10 |]) in
+      let y_1hot = y_1hot##asType (Js.string "float32") in
 
-      ignore (verbose, x, y, lr, forward_decoder, forward_encoders, optimizations);
+      ignore (verbose, x, y_1hot, lr, forward_decoder, forward_encoders, optimizations);
+      let y'_1hot = ref y_1hot in
 
       let f () =
         (* The tfjs models use `execute` both inside `predict` and `train` functions,
@@ -71,11 +74,18 @@ end) = struct
         in
         let y' = Fnn.Map.singleton node0_decoder y' in
         let y' = forward_decoder y' in
-        let loss = Tfjs_api.categorical_crossentropy 1e-10 y' y in
+        assert (y'##.shape |> Js.to_array = [| batch_size; 10 |]);
+
+        y'_1hot := Tfjs_api.keep y';
+        let loss = Tfjs_api.categorical_crossentropy 1e-10 y' y_1hot in
+        (* let loss = Tfjs_api.hinge 1. y' (let open Tfjs_api.Ops in y_1hot * (Tfjs_api.float 2.) - (Tfjs_api.float 1.)) in *)
+        assert (loss##.shape |> Js.to_array = [| 1; 1 |]);
         let loss = Tfjs_api.Ops.sum false loss in
+        assert (loss##.shape |> Js.to_array = [||]);
         loss
       in
       let loss, grads = Tfjs_api.variable_grads f in
+      let y'_1hot = !y'_1hot in
       ( match Nn_tfjs.OptiMap.key_disjunction optimizations grads with
       | [], [] -> ()
       | name :: _, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
@@ -87,10 +97,44 @@ end) = struct
 
       progress i;
       if verbose then
+        let y'_top1 =
+          Tfjs_api.Ops.topk 1 y'_1hot
+          |> snd
+          |> Tfjs_api.Ops.reshape [| batch_size |]
+        in
+        let confu = Tfjs_api.Ops.confusion_matrix 10 y_top1 y'_top1 in
+        let stats = Tfjs_api.iou_recall_precision_of_cm confu in
+        let ious = Tfjs_api.Ops.slice [1, 0, 1] stats in
+        let recalls = Tfjs_api.Ops.slice [1, 1, 1] stats in
+        let precisions = Tfjs_api.Ops.slice [1, 2, 1] stats in
+        ignore (ious, recalls, precisions);
+
+        let mean_recall = Tfjs_api.Ops.mean false recalls |> Tfjs_api.to_float in
+        let mean_precision = Tfjs_api.Ops.mean false recalls |> Tfjs_api.to_float in
+        let mean_iou = Tfjs_api.Ops.mean false recalls |> Tfjs_api.to_float in
+        ignore (mean_iou, mean_recall, mean_precision);
+
+        let layer = Fnn.find_id (Some "classif") [decoder] in
+        let layer = layer#upstreams |> List.hd in
+        let classif_grad =
+          let open Tfjs_api.Ops in
+          let g = Tfjs_api.Named_tensor_map.find (Oo.id layer |> string_of_int) grads in
+          (g ** (Tfjs_api.float 2.))
+          |> sum false
+          |> sqrt
+        in
+        assert (classif_grad##.size = 1);
+        let classif_grad = Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float classif_grad) [||] in
+
         let time' = (new%js Js.date_now)##valueOf /. 1000. in
-        Printf.printf "Step %5d done, lr:%6.1e, loss:%9.6f, took:%.3fsec\n%!" i lr
+        Printf.printf "Step %5d done, lr:%6.1e, loss:%9.6f, classif-weights-grad-norm:%9.6f, iou:%5.1f%%, recall:%5.1f%%, took:%.3fsec\n%!" i lr
           (Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float loss) [||])
+          classif_grad
+          (mean_iou *. 100.)
+          (mean_recall *. 100.)
           (time' -. time);
+
+        Tfjs_api.dispose_tensor y'_1hot;
       ()
     in
 

@@ -173,7 +173,8 @@ let _unpack_node01 (net: Fnn.node01) =
        Tfjs_api.tensor_of_ba net#tensor
        |> Tfjs_api.variable ~name:(string_of_int (Oo.id net)) ~trainable:true
      in
-     let forward _ = _validate_output_tensor net var in
+     let forward _ =
+       _validate_output_tensor net var in
      let update, opti_pack = _unpack_optimizer net#optimizer var in
      let pack () =
        let tensor = Tfjs_api.ba_of_tensor_float var in
@@ -185,7 +186,8 @@ let _unpack_node01 (net: Fnn.node01) =
 let _unpack_layer11 (net: Fnn.node11) up_forward =
   match net#classify_layer with
   | `Relu _ ->
-     let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
+     let forward inputs =
+       _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
      forward, (net :> Fnn.network)#copy
   | `Softmax net ->
      let tensor_axis = _tensor_axis_of_shape_axis net#upstream#out_shape net#axis in
@@ -205,21 +207,37 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
      in
      forward, (net :> Fnn.network)#copy
   | `Padding net ->
+     if net#is_mixed then
+       failwith "Mixed paddings not yet implemented";
      let value = match net#value with
        | `Constant v -> v
        | `Reflection -> failwith "Reflection padding not implemented"
        | `Replication -> failwith "Replication padding not implemented"
      in
-     let axes = _axes_of_shape net#out_shape in
-     let paddings_per_axis =
-       List.mapi (fun i ax ->
-           let bef, aft = net#paddings_of_axis ax in
-           i, [ bef; aft ]
-         ) axes
+     let f =
+       let axes = _axes_of_shape net#upstream#out_shape in
+       if net#is_padding then
+         let paddings_per_axis =
+           List.mapi (fun i ax ->
+               let bef, aft = net#paddings_of_axis ax in
+               i, [ bef; aft ]
+             ) axes
+         in
+         Tfjs_api.Ops.pad ~value paddings_per_axis
+       else (fun x ->
+         let shape = x##.shape |> Js.to_array in
+         let per_axis =
+           List.mapi (fun i ax ->
+               let bef, aft = net#paddings_of_axis ax in
+               let size = Array.get shape i in
+               i, abs bef, size + bef + aft
+             ) axes
+         in
+         Tfjs_api.Ops.slice per_axis x )
      in
      let forward inputs =
        up_forward inputs
-       |> Tfjs_api.Ops.pad ~value paddings_per_axis
+       |> f
        |> _validate_output_tensor net
      in
      forward, (net :> Fnn.network)#copy
@@ -257,16 +275,21 @@ let _unpack_layer11 (net: Fnn.node11) up_forward =
 let _unpack_layer21 (net: Fnn.node21) up0_forward up1_forward =
   match net#classify_layer with
   | `Conv2d net ->
+     if net#is_grouped && not net#is_depthwise then
+       failwith "Grouped conv2d not implemented by tfjs";
+     if net#is_dilated then
+       failwith "Dilated conv2d backward not implemented by tfjs";
      let b = match net#boundary_mode with
        | `Same -> `Same
        | `Valid -> `Valid
        | `Assert_fit -> `Valid
-       | `Pad_fit -> failwith "not implemented"
+       | `Pad_fit -> failwith "Conv2d ~b:`Pad_fit not implemented"
      in
      let d = net#dilation in
      let s = net#stride in
+     let f = if net#is_depthwise then Tfjs_api.Ops.depthwise_conv2d else Tfjs_api.Ops.conv2d in
      let forward inputs =
-       Tfjs_api.Ops.conv2d ~b ~d ~s (up1_forward inputs) (up0_forward inputs)
+       f ~b ~d ~s (up1_forward inputs) (up0_forward inputs)
        |> _validate_output_tensor net
      in
      forward, net#copy
@@ -309,7 +332,7 @@ let _unpack_layern1 (net: Fnn.noden1) up_forwards =
      forward, (net :> Fnn.network)#copy
 
 let _unpack_node follow (net : Fnn.network) =
-  match net#classify_node, List.map follow net#upstreams with
+  let v = (match net#classify_node, List.map follow net#upstreams with
   | `Node01 net, [] -> _unpack_node01 net
   | `Node11 net, [ up_acc ] ->
      let forward, pack = _unpack_layer11 net up_acc.forward in
@@ -331,7 +354,8 @@ let _unpack_node follow (net : Fnn.network) =
        |> pack
      in
      { forward; optimizations; pack }
-  | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
+  | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents") in
+  v
 
 let unpack : Fnn.network -> (tftensor Fnn.Map.t -> tftensor) * optimization_map * (unit -> Fnn.network) =
  (* Transform a `network` to everything that is needed to perform a training of that network

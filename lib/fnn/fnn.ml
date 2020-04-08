@@ -744,6 +744,22 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
   let parameters : _ any list -> network list =
    fun network_ends -> List.concat [ (find_layers Parameter32 network_ends :> network list) ]
 
+  let iter_top_down : (network -> unit) -> _ any list -> unit =
+   fun f network_ends ->
+    let g follow (node : network) =
+      List.iter follow node#upstreams;
+      f node
+    in
+    memoized_walk_map g network_ends |> ignore
+
+  let iter_bottom_up : (network -> unit) -> _ any list -> unit =
+   fun f network_ends ->
+    let g follow (node : network) =
+      f node;
+      List.iter follow node#upstreams
+    in
+    memoized_walk_map g network_ends |> ignore
+
   let map :
       (network -> [ `Bound of network | `Unbound of network list -> network | `Remove | `Skip ]) ->
       _ any list ->
@@ -1049,7 +1065,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let kernel_size = K kernel_size in
       let stride = K stride in
       let dilation = K dilation in
-      let span = kernel_size * dilation in
+      let span = (K 1) + (kernel_size - (K 1)) * dilation in
 
       let overflow, underflow =
         match (size, span) with
@@ -1773,9 +1789,12 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method value = value
 
           method paddings_of_axis axis =
-            List.combine axes paddings
-            |> List.find (fun (ax, _) -> ax = (axis :> Pshape.Axis.t))
-            |> snd
+            let axis = (axis :> Pshape.Axis.t) in
+            match List.combine axes paddings
+                  |> List.find_opt (fun (ax, _) -> ax = axis) with
+            | Some (_, paddings) -> paddings
+            | None -> if List.mem axis shape_axes then (0, 0)
+                      else invalid_arg "In padding#paddings_of_axis: Unknown axis"
 
           method axes = axes
 
@@ -1925,7 +1944,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
               | `Assert_fit -> " ~b:assert_fit"
               | `Pad_fit -> " ~b:padfit"
             in
-            Printf.sprintf "<conv2d %s%s%s%s%s%s>" filters_str (Pshape.to_string out_shape)
+            Printf.sprintf "<conv2d %s%s%s%s%s%s>" (Pshape.to_string out_shape) filters_str
               (pair_to_string ~tilde:false ~show_one:true "k" kernel_size)
               (pair_to_string "s" stride) (pair_to_string "d" dilation) padding_str
 
@@ -1949,9 +1968,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method out_group_filters = out_filters / group_count
 
-          method is_grouped = group_count > 1
+          method is_grouped = group_count > 1 && in_filters > 1
 
-          method is_depthwise = group_count = in_filters
+          method is_depthwise = group_count = in_filters && in_filters > 1
 
           method is_pointwise = kernel_size = (1, 1)
 

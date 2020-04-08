@@ -89,7 +89,10 @@ let _validate_output_tensor net tensor =
     | Pshape.Size.K j, i when i = j -> false
     | _, _ -> true
   in
-  if List.combine net_dims tensor_dims |> List.exists sizes_invalid then
+  if
+    List.length net_dims <> List.length tensor_dims
+    || List.combine net_dims tensor_dims |> List.exists sizes_invalid
+  then
     Printf.sprintf "Output tensor of net %s has shape (%s) but was expected to have shape %s=(%s)"
       net#to_string
       (List.map string_of_int tensor_dims |> String.concat ", ")
@@ -130,19 +133,15 @@ let _derive_configuration_of_transpose_layer (net : Fnn.transpose) =
 let _unpack_optimizer optim var =
   match optim with
   | `Sgd ->
-      let update lr grad = Tfjs_api.sgd_updater#update var lr grad in
+      let updater = Tfjs_api.sgd_updater var in
       let pack () = `Sgd in
-      (update, pack)
+      (updater#update, pack)
   | `Adam (epsilon, beta1, beta2, step, rgrad, rgrad_sq) ->
-      let updater = Tfjs_api.create_adam_updater epsilon beta1 beta2 step rgrad rgrad_sq in
-      let update lr grad = updater#update var lr grad in
+      let updater = Tfjs_api.create_adam_updater epsilon beta1 beta2 step rgrad rgrad_sq var in
       let pack () =
-        let step = updater#get_step##arraySync_intScalar in
-        let rgrad = Tfjs_api.ba_of_tensor_float updater#get_rgrad in
-        let rgrad_sq = Tfjs_api.ba_of_tensor_float updater#get_rgrad_sq in
-        `Adam (epsilon, beta1, beta2, step, rgrad, rgrad_sq)
+        `Adam (epsilon, beta1, beta2, updater#get_step, updater#get_rgrad, updater#get_rgrad_sq)
       in
-      (update, pack)
+      (updater#update, pack)
 
 let _unpack_node01 (net : Fnn.node01) =
   match net#classify_layer with
@@ -180,11 +179,10 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
       in
       (forward, (net :> Fnn.network)#copy)
   | `Astype net ->
-      let dtype =
-        (match tfdtype_of_dtype net#dtype with `Float32 -> "float32" | `Int32 -> "int32")
-        |> Js.string
+      let dtype = tfdtype_of_dtype net#dtype in
+      let forward inputs =
+        up_forward inputs |> Tfjs_api.Ops.astype dtype |> _validate_output_tensor net
       in
-      let forward inputs = _validate_output_tensor net ((up_forward inputs)##asType dtype) in
       (forward, (net :> Fnn.network)#copy)
   | `Padding net ->
       if net#is_mixed then failwith "Mixed paddings not yet implemented";
@@ -323,7 +321,7 @@ let _unpack_node follow (net : Fnn.network) =
   in
   v
 
-let unpack :
+let unpack_for_training :
     Fnn.network -> (tftensor Fnn.Map.t -> tftensor) * optimization_map * (unit -> Fnn.network) =
  (* Transform a `network` to everything that is needed to perform a training of that network
   * using tensorflow.js:

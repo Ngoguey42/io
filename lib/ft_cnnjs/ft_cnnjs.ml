@@ -6,9 +6,7 @@ module Tfjs_api = Tfjs_api
 module Nn_tfjs = Nn_tfjs
 module Mnist_tfjs = Mnist_tfjs
 
-type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray Js.t
-
-type uint8_ta = (int, [ `Uint8 ]) Typed_array.typedArray Js.t
+type uint8_ba = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
 module type TRAINER = sig
   (* TODO: freeze some networks *)
@@ -17,7 +15,7 @@ module type TRAINER = sig
     ?progress:(int -> unit) ->
     batch_count:int ->
     get_lr:(int -> float) ->
-    get_data:(int -> float32_ta * uint8_ta) ->
+    get_data:(int -> uint8_ba * uint8_ba) ->
     encoders:Fnn.network list ->
     decoder:Fnn.network ->
     (Fnn.network list * Fnn.network) Lwt.t

@@ -1,7 +1,8 @@
 (* Js_of_ocaml bindings for the tensorflow.js library. It is not exhaustive.
- * It also contains helpers to avoid using tensorflows' losses, optimizers and
- * training loops. Gradients can be retrieved using the `variable_grads` function.
+ * It also contains helper functions to avoid using tensorflows' losses, optimizers, training loops
+    and layer/model abstraction. Gradients can be retrieved using the `variable_grads` function.
  * It also provides conversions from tensors to and from bigarrays and typed_arrays
+ * Designed using tfjs=1.5.2
 
  * Tfjs documentation : https://js.tensorflow.org/api/latest/#class:Tensor
  *   /!\ Be careful the documentation is not exhaustive.
@@ -352,7 +353,12 @@ module Ops = struct
       [| inject truth; inject pred; inject class_count |]
 
   let one_hot : int -> #tensor Js.t -> tensor Js.t =
-   fun width arr -> fun_call global##.tf##.oneHot [| inject arr; inject width |]
+   fun width x -> fun_call global##.tf##.oneHot [| inject x; inject width |]
+
+  let astype : [< `Float32 | `Int32 ] -> #tensor Js.t -> tensor Js.t =
+   fun dtype x ->
+    let dtype = Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32") in
+    x##asType dtype
 end
 
 (* Constructors ********************************************************************************* *)
@@ -361,8 +367,13 @@ let tensor_of_ta : int array -> ('a, 'b) Typed_array.typedArray Js.t -> tensor J
   let open Js.Unsafe in
   fun_call global##.tf##.tensor [| inject ta; shape |> Js.array |> inject |]
 
-let tensor_of_ba : ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.t =
- fun arr -> tensor_of_ta (Bigarray.Genarray.dims arr) (Ft_js.Conv.Float32.ta_of_ba arr)
+let tensor_of_ba (type a b) : (a, b, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.t =
+ fun arr ->
+  match Bigarray.Genarray.kind arr with
+  | Bigarray.Float32 -> tensor_of_ta (Bigarray.Genarray.dims arr) (Ft_js.Conv.Float32.ta_of_ba arr)
+  | Bigarray.Int8_unsigned ->
+      tensor_of_ta (Bigarray.Genarray.dims arr) (Ft_js.Conv.Uint8.ta_of_ba arr)
+  | _ -> failwith "In tensor_of_ta: Unsopported dtype"
 
 let ba_of_tensor_float : #tensor Js.t -> float32_ba =
  fun t ->
@@ -390,9 +401,9 @@ let int : int -> tensor Js.t =
   let open Js.Unsafe in
   fun_call global##.tf##.scalar [| inject x; "int32" |> Js.string |> inject |]
 
-let to_float : #tensor Js.t -> float = fun x -> Typed_array.unsafe_get x##asScalar##dataSync_float 0
+let to_float : #tensor Js.t -> float = fun x -> x##asScalar##arraySync_floatScalar
 
-let to_int : #tensor Js.t -> int = fun x -> Typed_array.unsafe_get x##asScalar##dataSync_int 0
+let to_int : #tensor Js.t -> int = fun x -> x##asScalar##arraySync_intScalar
 
 (* Tensorflow model and optimizers  ************************************************************* *)
 let model : symbolicTensor Js.t list -> symbolicTensor Js.t list -> model Js.t =
@@ -429,7 +440,7 @@ let compile : model Js.t -> optimizer Js.t -> string -> unit =
   let open Js.Unsafe in
   meth_call m "compile" [| inject params |]
 
-(* ********************************************************************************************** *)
+(* Tensorflow layers **************************************************************************** *)
 module Layers = struct
   let input : ?dtype:[< `Float32 | `Int32 ] -> ?name:string -> int array -> symbolicTensor Js.t =
    fun ?(dtype = `Float32) ?name shape ->
@@ -560,10 +571,6 @@ module Layers = struct
 end
 
 (* Hard coded losses / optimizers  ************************************************************** *)
-(* The two `updaters` receive the `weights` at `update` time instead of instanciation time because
- * tensorflow does not instanciate the `weights` object as soon as the `layer` is instanciated.
- * But as soon as they are instanciated, they do not change.
- *)
 let categorical_crossentropy : float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
  fun epsilon softmaxed_pred truth ->
   (* a truth element must be 0. or 1. *)
@@ -577,15 +584,17 @@ let hinge : ?margin:float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
   let open Ops in
   float margin - (truth * pred) |> maximum (float 0.) |> sum ~axis:(-1) true |> mean ~axis:0 true
 
-let sgd_updater =
+let sgd_updater : variable Js.t -> _ =
+ fun weights ->
   object
-    method update weights lr grad =
+    method update lr grad =
       let open Ops in
       weights##assign (grad |> mul (float lr) |> neg |> add weights)
   end
 
-let create_adam_updater : float -> float -> float -> int -> float32_ba -> float32_ba -> _ =
- fun epsilon beta1 beta2 step rgrad rgrad_sq ->
+let create_adam_updater :
+    float -> float -> float -> int -> float32_ba -> float32_ba -> variable Js.t -> _ =
+ fun epsilon beta1 beta2 step rgrad rgrad_sq weights ->
   let beta1 = beta1 |> float in
   let beta2 = beta2 |> float in
   let beta1' = Ops.sub (float 1.) beta1 in
@@ -594,18 +603,16 @@ let create_adam_updater : float -> float -> float -> int -> float32_ba -> float3
 
   let step = step |> int |> variable ~dtype:`Int32 in
   let rgrad =
-    rgrad |> Ft_js.Conv.Float32.ta_of_ba
-    |> tensor_of_ta (Bigarray.Genarray.dims rgrad)
+    tensor_of_ba rgrad
     |> variable ~trainable:false
   in
   let rgrad_sq =
-    rgrad_sq |> Ft_js.Conv.Float32.ta_of_ba
-    |> tensor_of_ta (Bigarray.Genarray.dims rgrad_sq)
+    tensor_of_ba rgrad_sq
     |> variable ~trainable:false
   in
 
   object
-    method update (weights : variable Js.t) lr (grad : tensor Js.t) =
+    method update lr (grad : tensor Js.t) =
       let open Ops in
       step##assign (step + int 1);
       let correction1 = float 1. - (beta1 ** step) in
@@ -617,11 +624,11 @@ let create_adam_updater : float -> float -> float -> int -> float32_ba -> float3
         |> mul (float lr)
         |> neg |> add weights )
 
-    method get_step = step
+    method get_step = to_int step
 
-    method get_rgrad = rgrad
+    method get_rgrad = ba_of_tensor_float rgrad
 
-    method get_rgrad_sq = rgrad_sq
+    method get_rgrad_sq = ba_of_tensor_float rgrad_sq
   end
 
 let iou_recall_precision_of_cm : #tensor Js.t -> tensor Js.t =
@@ -638,9 +645,9 @@ let iou_recall_precision_of_cm : #tensor Js.t -> tensor Js.t =
     let true_pos = Ops.slice [ (0, catidx, 1); (1, catidx, 1) ] cm in
     let false_neg = (Ops.slice [ (0, catidx, 1) ] cm |> Ops.sum true) - true_pos in
     let false_pos = (Ops.slice [ (1, catidx, 1) ] cm |> Ops.sum true) - true_pos in
-    let true_pos = (reshape [| 1 |] true_pos)##asType (Js.string "float32") in
-    let false_neg = (reshape [| 1 |] false_neg)##asType (Js.string "float32") in
-    let false_pos = (reshape [| 1 |] false_pos)##asType (Js.string "float32") in
+    let true_pos = reshape [| 1 |] true_pos |> astype `Float32 in
+    let false_neg = reshape [| 1 |] false_neg |> astype `Float32 in
+    let false_pos = reshape [| 1 |] false_pos |> astype `Float32 in
     let iou = true_pos / (true_pos + false_neg + false_pos) in
     let recall = true_pos / (true_pos + false_neg) in
     let precision = true_pos / (true_pos + false_pos) in

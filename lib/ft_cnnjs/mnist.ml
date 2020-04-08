@@ -53,9 +53,25 @@ let _entry_data_of_idb entry store =
 
   _update_entry_status entry "Checking...";
   Lwt_js.sleep 0.1 >>= fun () ->
+  let reshape arr =
+    let sub i j a = Bigarray.Genarray.sub_left a i j in
+    match entry with
+    | `Train_imgs ->
+        Ft_js.Conv.Uint8.ba_of_ta arr
+        |> sub 16 (60000 * 28 * 28)
+        |> Fun.flip Bigarray.reshape [| 60000; 28; 28 |]
+    | `Train_labs ->
+        Ft_js.Conv.Uint8.ba_of_ta arr |> sub 8 60000 |> Fun.flip Bigarray.reshape [| 60000 |]
+    | `Test_imgs ->
+        Ft_js.Conv.Uint8.ba_of_ta arr
+        |> sub 16 (10000 * 28 * 28)
+        |> Fun.flip Bigarray.reshape [| 10000; 28; 28 |]
+    | `Test_labs ->
+        Ft_js.Conv.Uint8.ba_of_ta arr |> sub 8 10000 |> Fun.flip Bigarray.reshape [| 10000 |]
+  in
   let arr =
     Ft_js.Idb.get store n >>= function
-    | Some arr -> arr |> Lwt.return
+    | Some arr -> arr |> reshape |> Lwt.return
     | None ->
         let progress i j =
           let f = float_of_int i /. float_of_int j *. 100. in
@@ -71,7 +87,7 @@ let _entry_data_of_idb entry store =
 
         _update_entry_status entry "Storing...";
         Lwt_js.sleep 0.1 >>= fun () ->
-        Ft_js.Idb.set store n arr >>= fun _ -> Lwt.return arr
+        Ft_js.Idb.set store n arr >>= fun _ -> arr |> reshape |> Lwt.return
   in
   arr >>= fun _ ->
   _update_entry_status entry "&#10003;";
@@ -97,7 +113,6 @@ let get () =
   in
   Lwt.all promises >|= fun l ->
   Ft_js.Idb.close store.db;
-
   match l with [ a; b; c; d ] -> (a, b, c, d) | _ -> assert false
 
 let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
@@ -105,7 +120,7 @@ let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
     img |> Ft_js.Conv.Uint8.ba_of_ta
     |> (fun x -> Ndarray.reshape x [| 28; 28; 1 |])
     |> (fun x -> Ndarray.repeat x [| 1; 1; 3 |])
-    |> Ndarray.pad ~v:(char_of_int 255) [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
+    |> Ndarray.pad ~v:255 [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
     |> Ft_js.Conv.Uint8.ta_of_ba
   in
   canvas##.width := 28;

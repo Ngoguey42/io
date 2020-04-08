@@ -12,7 +12,7 @@ type arrayBuffer = Typed_array.arrayBuffer Js.t
 (* BigArray *)
 type float32_ba = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
-type uint8_ba = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
+type uint8_ba = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
 let list_of_ta : ('a, 'b) Typed_array.typedArray Js.t -> 'a list = fun arr ->
   List.init arr##.length (fun i -> Typed_array.unsafe_get arr i)

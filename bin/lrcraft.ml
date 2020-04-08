@@ -24,8 +24,8 @@ let print_arr_ad x = print_arr @@ Algodiff.unpack_arr x
 
    Successive widths: 28, 14, 7, 4
  *)
-let[@ocamlformat "disable"] encoder_padding_batchnorm o : Fnn.network =
-  let open Fnn.Builder in
+let[@ocamlformat "disable"] encoder_padding_batchnorm (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
   input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
   |> conv2d ~o (`Full 10) (3, 3) ~s:(2, 2) ~b:`Same (* pooling *) |> bias |> batch_norm |> relu
   |> conv2d ~o (`Full 10) (3, 3) ~s:(2, 2) ~b:`Same (* pooling *) |> bias |> batch_norm |> relu
@@ -40,12 +40,12 @@ let[@ocamlformat "disable"] encoder_padding_batchnorm o : Fnn.network =
 
    Successive widths: 28, 13, 6, 4
  *)
-let[@ocamlformat "disable"] encoder_pooling o : Fnn.network =
-  let open Fnn.Builder in
+let[@ocamlformat "disable"] encoder_pooling (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
   input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
-  |> conv2d ~o (`Full 10) (4, 4) ~s:(2, 2) ~b:`Assert_fit (* pooling *) |> bias |> relu
-  |> conv2d ~o (`Full 10) (3, 3) ~s:(2, 2) ~b:`Assert_fit (* pooling *) |> bias |> relu
-  |> conv2d ~o (`Full 10) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
+  |> conv2d ~o (`Full 12) (4, 4) ~s:(2, 2) ~b:`Assert_fit (* pooling *) |> bias |> relu
+  |> conv2d ~o (`Full 25) (3, 3) ~s:(2, 2) ~b:`Assert_fit (* pooling *) |> bias |> relu
+  |> conv2d ~o (`Full 50) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
   |> Fnn.downcast
 
 (* Residual network inspired by mobilenet v2:
@@ -61,8 +61,8 @@ let[@ocamlformat "disable"] encoder_pooling o : Fnn.network =
 
    Successive widths: 28, 14, 6, 4
    *)
-let[@ocamlformat "disable"] encoder_mobilenet o : Fnn.network =
-  let open Fnn.Builder in
+let[@ocamlformat "disable"] encoder_mobilenet (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
   input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
   |> conv2d ~o (`Full 18) (2, 2) ~s:(2, 2) ~b:`Assert_fit |> bias (* expansion (pooling) *)
   |> (fun up -> [
@@ -101,8 +101,8 @@ let[@ocamlformat "disable"] encoder_mobilenet o : Fnn.network =
 
    Successive widths: 28, 22, 16, 10, 4
  *)
-let[@ocamlformat "disable"] encoder_dilatedconvs o : Fnn.network =
-  let open Fnn.Builder in
+let[@ocamlformat "disable"] encoder_dilatedconvs (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
   input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
   |> conv2d ~o (`Full 10) (3, 3) ~d:(3, 3) ~b:`Assert_fit |> bias |> relu
   |> conv2d ~o (`Full 10) (3, 3) ~d:(3, 3) ~b:`Assert_fit |> bias |> relu
@@ -122,8 +122,8 @@ let[@ocamlformat "disable"] encoder_dilatedconvs o : Fnn.network =
 
    Successive widths: 28, 4
  *)
-let[@ocamlformat "disable"] encoder_oneconv o : Fnn.network =
-  let open Fnn.Builder in
+let[@ocamlformat "disable"] encoder_oneconv (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
   input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
   |> conv2d ~o (`Full 10) (16, 16) ~s:(4, 4) ~b:`Assert_fit |> bias
   |> relu
@@ -133,19 +133,23 @@ let[@ocamlformat "disable"] encoder_oneconv o : Fnn.network =
 
 let _main_nn train_imgs train_labs test_imgs test_labs =
   ignore (train_imgs, train_labs, test_imgs, test_labs);
+  let rng = Random.State.make [| 42 |] in
+  let builder = Fnn.create_builder ~rng () in
 
   let open Lwt.Infix in
   let o = `Adam (0.9, 0.999, 1e-10) in
   let encoders, decoder =
-    let open Fnn.Builder in
+    (* let module Builder = (val builder) in *)
+    let module Builder = (val builder) in
+    let open Builder in
     let open Pshape.Size in
     Printf.eprintf "Building encoder(s)...\n%!";
     let encoders = [
         (* encoder_padding_batchnorm (); *)
-        (* encoder_pooling o; *)
-        (* encoder_mobilenet o; *)
+        encoder_pooling builder o;
+        (* encoder_mobilenet builder o; *)
         (* encoder_dilatedconvs (); *)
-        encoder_oneconv o;
+        (* encoder_oneconv builder o; *)
       ]
     in
     Printf.eprintf "Building decoder...\n%!";
@@ -156,7 +160,6 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
         |> List.fold_left add (K 0)
       in
       input (Pshape.sym4d_partial ~n:U ~c ~s0:(K 4) ~s1:(K 4)) `Float32
-
       (* |> conv2d ~id:(Some "classif") (`Full 10) (4, 4) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
 
       (* Classify and flatten using a 1x1 conv and a max-pool 4x4 *)
@@ -168,49 +171,33 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
       |> softmax `C
       |> Fnn.downcast
     in
-
-
-    (* let decoder = *)
-    (*   input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 4) ~s1:(K 4)) `Float32 *)
-
-    (*   input2d (10 * List.length encoders) *)
-    (*   |> conv2d (`One 3) false (`One 1) 10 `Tanh optimizer *)
-    (*   |> maxpool2d (`One 2) (`One 2) *)
-    (*   |> softmax |> finalize *)
-    (* in *)
     Printf.eprintf "...done building\n%!";
     encoders, decoder
   in
 
   let module Backend = (val Ft_cnnjs.get_backend `Tfjs_webgl) in
   (* let module Backend = (val Ft_cnnjs.get_backend `Tfjs_cpu) in *)
-  let batch_count, batch_size = 1000, 2000 in
+
+  let batch_count, batch_size = 10000, 2000 in
   (* let batch_count, batch_size = 2, 10 in *)
   let get_data _ =
-    (* TODO: Real random  *)
-    let slice a b arr =
-      Js.Unsafe.meth_call arr "slice" [| Js.Unsafe.inject a; Js.Unsafe.inject b |]
+    let indices = Array.init batch_size (fun _ -> Random.State.int rng 60000) in
+    let imgs =
+      Array.map (fun i -> Bigarray.Genarray.sub_left train_imgs i (1)) indices
+      |> Ndarray.concatenate ~axis:0
     in
-    let j = Random.int 50000 in
-    let imgs = train_imgs |> slice (16 + (28 * 28 * j)) (16 + (28 * 28 * (j + batch_size))) in
-    let labs = train_labs |> slice (8 + j) (8 + (j + batch_size)) in
+    let labs =
+      Array.map (fun i -> Bigarray.Genarray.sub_left train_labs i (1)) indices
+      |> Ndarray.concatenate ~axis:0
+    in
     (imgs, labs)
   in
   let get_lr i =
     1e-3 *. (1. -. (float_of_int i) /. (float_of_int batch_count))
   in
 
-  (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
-
-  (* print_string (Ft_cnnjs.Nn.String.of_network decoder); *)
   Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count ~get_lr ~get_data ~encoders ~decoder
   >>= fun (encoders, decoder) ->
-  (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
-
-  (* Backend.train ~progress:(fun _ -> ()) ~verbose:true ~batch_count:4 ~get_lr ~get_data ~encoders ~decoder *)
-  (* >>= fun (encoders, decoder) -> *)
-  (* print_string (Ft_cnnjs.Nn.String.of_network (List.hd encoders)); *)
-
   ignore encoders;
   ignore decoder;
   Lwt.return ()

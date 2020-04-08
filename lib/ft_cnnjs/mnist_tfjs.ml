@@ -4,6 +4,8 @@ module Ndarray = Owl_base_dense_ndarray_generic
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Typed_array = Js_of_ocaml.Typed_array
 
+type uint8_ba = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
+
 module Make_backend (Backend : sig
   val v : Tfjs_api.backend
 end) =
@@ -39,10 +41,12 @@ struct
     in
     let node0_decoder = Fnn.inputs [ decoder ] |> List.hd |> Fnn.downcast in
 
-    let forward_encoders, o, pack_encoders = List.map Nn_tfjs.unpack encoders |> Ft.List.split3 in
+    let forward_encoders, o, pack_encoders =
+      List.map Nn_tfjs.unpack_for_training encoders |> Ft.List.split3
+    in
     let optimizations = Nn_tfjs.OptiMap.union_list_exn o in
 
-    let forward_decoder, o, pack_decoder = Nn_tfjs.unpack decoder in
+    let forward_decoder, o, pack_decoder = Nn_tfjs.unpack_for_training decoder in
     let optimizations = Nn_tfjs.OptiMap.union_exn optimizations o in
 
     let train_on_batch i =
@@ -50,15 +54,23 @@ struct
 
       let lr = get_lr i in
       let x, y = get_data i in
-      let batch_size = y##.length in
+      let batch_size = (Bigarray.Genarray.dims x).(0) in
 
-      let x = Tfjs_api.tensor_of_ta [| batch_size; 28; 28; 1 |] x in
-      let x = x##asType (Js.string "float32") in
-      let y_top1 = Tfjs_api.tensor_of_ta [| batch_size |] y in
-      let y_top1 = y_top1##asType (Js.string "int32") in
-      let y_1hot = Tfjs_api.Ops.one_hot 10 y_top1 in
-      let y_1hot = y_1hot##reshape (Js.array [| batch_size; 10 |]) in
-      let y_1hot = y_1hot##asType (Js.string "float32") in
+      let x =
+        Tfjs_api.tensor_of_ba x
+        |> Tfjs_api.Ops.astype `Float32
+        |> Tfjs_api.Ops.reshape [| batch_size; 28; 28; 1 |]
+      in
+      let y_top1 =
+        Tfjs_api.tensor_of_ba y
+        |> Tfjs_api.Ops.astype `Int32
+        |> Tfjs_api.Ops.reshape [| batch_size |]
+      in
+      let y_1hot =
+        Tfjs_api.Ops.one_hot 10 y_top1
+        |> Tfjs_api.Ops.astype `Float32
+        |> Tfjs_api.Ops.reshape [| batch_size; 10 |]
+      in
 
       ignore (verbose, x, y_1hot, lr, forward_decoder, forward_encoders, optimizations);
       let y'_1hot = ref y_1hot in
@@ -115,7 +127,7 @@ struct
           g ** Tfjs_api.float 2. |> sum false |> sqrt
         in
         assert (classif_grad##.size = 1);
-        let classif_grad = Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float classif_grad) [||] in
+        let classif_grad = Tfjs_api.to_float classif_grad in
 
         let time' = (new%js Js.date_now)##valueOf /. 1000. in
         Printf.printf
@@ -123,7 +135,7 @@ struct
            recall:%5.1f%%, took:%.3fsec\n\
            %!"
           i lr
-          (Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float loss) [||])
+          (Tfjs_api.to_float loss)
           classif_grad (mean_iou *. 100.) (mean_recall *. 100.) (time' -. time);
 
         Tfjs_api.dispose_tensor y'_1hot;
@@ -145,7 +157,7 @@ struct
       ?progress:(int -> unit) ->
       batch_count:int ->
       get_lr:(int -> float) ->
-      get_data:(int -> float32_ta Js.t * uint8_ta Js.t) ->
+      get_data:(int -> uint8_ba * uint8_ba) ->
       encoders:Fnn.network list ->
       decoder:Fnn.network ->
       (Fnn.network list * Fnn.network) Lwt.t =

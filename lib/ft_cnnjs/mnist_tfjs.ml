@@ -6,7 +6,8 @@ module Typed_array = Js_of_ocaml.Typed_array
 
 module Make_backend (Backend : sig
   val v : Tfjs_api.backend
-end) = struct
+end) =
+struct
   (* TODO: Generic eval functions
    * let predict : ~verbose:bool -> ~progress:_ -> ~h:int -> ~w:int ->
    *          -> ~datagen:_ (defines batch_size and image count)
@@ -24,7 +25,6 @@ end) = struct
 
   let _train verbose progress batch_count get_lr get_data encoders decoder =
     let open Lwt.Infix in
-
     let node0 =
       let open Pshape.Size in
       Fnn.Builder.input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
@@ -33,11 +33,11 @@ end) = struct
     let encoders =
       List.map
         (fun net ->
-          let input = Fnn.inputs [net] |> List.hd |> Fnn.downcast in
-          Fnn.copy ~sub:[input, node0] [net] |> List.hd)
+          let input = Fnn.inputs [ net ] |> List.hd |> Fnn.downcast in
+          Fnn.copy ~sub:[ (input, node0) ] [ net ] |> List.hd)
         encoders
     in
-    let node0_decoder = Fnn.inputs [decoder] |> List.hd |> Fnn.downcast in
+    let node0_decoder = Fnn.inputs [ decoder ] |> List.hd |> Fnn.downcast in
 
     let forward_encoders, o, pack_encoders = List.map Nn_tfjs.unpack encoders |> Ft.List.split3 in
     let optimizations = Nn_tfjs.OptiMap.union_list_exn o in
@@ -68,10 +68,7 @@ end) = struct
          * with a `training: bool` parameter. Using `predict` for training seems ok.
          *)
         let x = Fnn.Map.singleton node0 x in
-        let y' =
-          List.map (fun fw -> fw x) forward_encoders
-          |> Tfjs_api.Ops.concat 3
-        in
+        let y' = List.map (fun fw -> fw x) forward_encoders |> Tfjs_api.Ops.concat 3 in
         let y' = Fnn.Map.singleton node0_decoder y' in
         let y' = forward_decoder y' in
         assert (y'##.shape |> Js.to_array = [| batch_size; 10 |]);
@@ -96,17 +93,13 @@ end) = struct
         optimizations;
 
       progress i;
-      if verbose then
-        let y'_top1 =
-          Tfjs_api.Ops.topk 1 y'_1hot
-          |> snd
-          |> Tfjs_api.Ops.reshape [| batch_size |]
-        in
+      if verbose then (
+        let y'_top1 = Tfjs_api.Ops.topk 1 y'_1hot |> snd |> Tfjs_api.Ops.reshape [| batch_size |] in
         let confu = Tfjs_api.Ops.confusion_matrix 10 y_top1 y'_top1 in
         let stats = Tfjs_api.iou_recall_precision_of_cm confu in
-        let ious = Tfjs_api.Ops.slice [1, 0, 1] stats in
-        let recalls = Tfjs_api.Ops.slice [1, 1, 1] stats in
-        let precisions = Tfjs_api.Ops.slice [1, 2, 1] stats in
+        let ious = Tfjs_api.Ops.slice [ (1, 0, 1) ] stats in
+        let recalls = Tfjs_api.Ops.slice [ (1, 1, 1) ] stats in
+        let precisions = Tfjs_api.Ops.slice [ (1, 2, 1) ] stats in
         ignore (ious, recalls, precisions);
 
         let mean_recall = Tfjs_api.Ops.mean false recalls |> Tfjs_api.to_float in
@@ -114,28 +107,27 @@ end) = struct
         let mean_iou = Tfjs_api.Ops.mean false recalls |> Tfjs_api.to_float in
         ignore (mean_iou, mean_recall, mean_precision);
 
-        let layer = Fnn.find_id (Some "classif") [decoder] in
+        let layer = Fnn.find_id (Some "classif") [ decoder ] in
         let layer = layer#upstreams |> List.hd in
         let classif_grad =
           let open Tfjs_api.Ops in
           let g = Tfjs_api.Named_tensor_map.find (Oo.id layer |> string_of_int) grads in
-          (g ** (Tfjs_api.float 2.))
-          |> sum false
-          |> sqrt
+          g ** Tfjs_api.float 2. |> sum false |> sqrt
         in
         assert (classif_grad##.size = 1);
         let classif_grad = Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float classif_grad) [||] in
 
         let time' = (new%js Js.date_now)##valueOf /. 1000. in
-        Printf.printf "Step %5d done, lr:%6.1e, loss:%9.6f, classif-weights-grad-norm:%9.6f, iou:%5.1f%%, recall:%5.1f%%, took:%.3fsec\n%!" i lr
+        Printf.printf
+          "Step %5d done, lr:%6.1e, loss:%9.6f, classif-weights-grad-norm:%9.6f, iou:%5.1f%%, \
+           recall:%5.1f%%, took:%.3fsec\n\
+           %!"
+          i lr
           (Bigarray.Genarray.get (Tfjs_api.ba_of_tensor_float loss) [||])
-          classif_grad
-          (mean_iou *. 100.)
-          (mean_recall *. 100.)
-          (time' -. time);
+          classif_grad (mean_iou *. 100.) (mean_recall *. 100.) (time' -. time);
 
         Tfjs_api.dispose_tensor y'_1hot;
-      ()
+        () )
     in
 
     let rec aux i =
@@ -143,7 +135,7 @@ end) = struct
       else (
         Tfjs_api.tidy (fun () -> train_on_batch i);
         Lwt_js.sleep 0.01 >>= fun () -> aux (i + 1) )
-        (* Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1) ) *)
+      (* Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1) ) *)
     in
 
     aux 0 >>= fun _ -> Lwt.return (List.map (fun f -> f ()) pack_encoders, pack_decoder ())

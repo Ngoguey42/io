@@ -25,17 +25,22 @@ module type AXIS = sig
   type absolute = [ `Idx of int ]
 
   type t = [ symbolic | absolute ]
+
   val is_symbolic : [< t ] -> bool
 
   val is_absolute : [< t ] -> bool
+
   val to_string : [< t ] -> string
+
   val compatible_with_ndim : [< t ] -> int -> bool
 
   val symbolic_axes_of_ndim : int -> symbolic list
-  val absolute_axes_of_ndim : int -> absolute list
-  val min_ndim_of_axis : [<t] -> int
-  val transpose : ?mapping:(t * t) list -> t list -> t list -> t list list
 
+  val absolute_axes_of_ndim : int -> absolute list
+
+  val min_ndim_of_axis : [< t ] -> int
+
+  val transpose : ?mapping:(t * t) list -> t list -> t list -> t list list
 end
 
 module Axis : AXIS = struct
@@ -115,8 +120,7 @@ module Axis : AXIS = struct
     | `S1 -> 4
     | `S2 -> 5
 
-  let transpose =
-   fun ?mapping shape0_axes shape1_axes ->
+  let transpose ?mapping shape0_axes shape1_axes =
     (* Derive and check shapes axes *)
     let shape0_axes = (shape0_axes :> t list) in
     let shape1_axes = (shape1_axes :> t list) in
@@ -125,12 +129,12 @@ module Axis : AXIS = struct
     let is_sym0 = List.exists is_symbolic shape0_axes in
     let is_sym1 = List.exists is_symbolic shape1_axes in
     let shape0_axes' =
-      if is_sym0 then (List.sort compare (symbolic_axes_of_ndim ndim0))
-      else  (List.sort compare (absolute_axes_of_ndim ndim0))
+      if is_sym0 then List.sort compare (symbolic_axes_of_ndim ndim0)
+      else List.sort compare (absolute_axes_of_ndim ndim0)
     in
     let shape1_axes' =
-      if is_sym1 then (List.sort compare (symbolic_axes_of_ndim ndim1))
-      else  (List.sort compare (absolute_axes_of_ndim ndim1))
+      if is_sym1 then List.sort compare (symbolic_axes_of_ndim ndim1)
+      else List.sort compare (absolute_axes_of_ndim ndim1)
     in
     if List.sort compare shape0_axes <> shape0_axes' then
       invalid_arg "In transpose: Invalid shape0_axes";
@@ -138,7 +142,8 @@ module Axis : AXIS = struct
       invalid_arg "In transpose: Invalid shape1_axes";
 
     (* Derive and check mapping axes *)
-    let mapping = match mapping with
+    let mapping =
+      match mapping with
       | Some mapping -> List.map (fun (a, b) -> (a, (b :> t))) mapping
       | None -> List.combine shape0_axes (List.rev shape0_axes :> t list)
     in
@@ -169,13 +174,10 @@ module Axis : AXIS = struct
     (* Build output list *)
     let f ax =
       match List.find_all (fun (_, dstax) -> ax = dstax) mapping with
-      | [] ->
-          if List.mem ax (missing_left_axes :> t list) then [ax]
-          else []
+      | [] -> if List.mem ax (missing_left_axes :> t list) then [ ax ] else []
       | l -> List.map fst l
     in
     List.map f shape1_axes
-
 end
 
 module type SIZE = sig

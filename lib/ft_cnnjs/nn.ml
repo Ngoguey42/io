@@ -59,57 +59,66 @@ type content0 = { axis : int }
  * a non-trainable tensor
  * a noise generator
  * ? a placeholder for an input ?
-*)
+ *)
 
 type layer11 =
   [ `Conv2d of conv_content | `Maxpool2d of maxpool2d_content | `Relu | `Softmax of content0 ]
 
 type layern1 = [ `Concatenate of content0 | `Add of content0 ]
 
-type layer = [
-  | layer11
-  | layern1
-  ]
+type layer = [ layer11 | layern1 ]
 
-class type node01 = object
-  method out_filters : int
-  method dtype : [ `Float32 ]
-end
+class type node01 =
+  object
+    method out_filters : int
 
-class type ['network] node11 = object
-  method upstream : 'network
-  method layer : layer11
-end
+    method dtype : [ `Float32 ]
+  end
 
-class type ['network] noden1 = object
-  method upstreams : 'network list
-  method count : int
-  method layer : layern1
-end
+class type ['network] node11 =
+  object
+    method upstream : 'network
 
-type t = Node01 of node01
-       | Node11 of t node11
-       | Noden1 of t noden1
+    method layer : layer11
+  end
+
+class type ['network] noden1 =
+  object
+    method upstreams : 'network list
+
+    method count : int
+
+    method layer : layern1
+  end
+
+type t = Node01 of node01 | Node11 of t node11 | Noden1 of t noden1
 
 let node01 out_filters dtype =
-  Node01 (object
-      method out_filters = out_filters
-      method dtype = dtype
+  Node01
+    (object
+       method out_filters = out_filters
+
+       method dtype = dtype
     end)
 
 let node11 upstream layer =
-  Node11 (object
-      method upstream = upstream
-      method layer = layer
+  Node11
+    (object
+       method upstream = upstream
+
+       method layer = layer
     end)
 
 let noden1 upstreams layer =
   let count = List.length upstreams in
   if count == 0 then failwith "a node of type n->1 requires at least one input";
-  Noden1 (object
-      method upstreams = upstreams
-      method count = count
-      method layer = layer
+  Noden1
+    (object
+       method upstreams = upstreams
+
+       method count = count
+
+       method layer = layer
     end)
 
 (* let rec fold_bottom_up f x net = *)
@@ -133,7 +142,7 @@ module String = struct
         Printf.sprintf "Adam@%d %+.3e/%+.3e" c.step (mean_val c.rgrad c.beta1)
           (mean_val c.rgrad_sq c.beta2)
 
-  let of_layer : [< layer] -> string = function
+  let of_layer : [< layer ] -> string = function
     | `Conv2d (c : conv_content) ->
         let mean_val arr = Ndarray.sum' arr /. float_of_int (Ndarray.numel arr) in
         let ky, kx = c.kernel_size in
@@ -148,48 +157,47 @@ module String = struct
     | `Add _ -> "Add"
 
   let of_last_node = function
-    | Node01 node ->
-        Printf.sprintf "Input2d <%d> %s" node#out_filters (of_dtype node#dtype)
+    | Node01 node -> Printf.sprintf "Input2d <%d> %s" node#out_filters (of_dtype node#dtype)
     | Node11 node -> of_layer node#layer
     | Noden1 node -> of_layer node#layer
 
   let rec of_network network =
     match network with
-    | Node01 _ ->
-        Printf.sprintf "| %s\n" (of_last_node network)
-    | Node11 node ->
-       Printf.sprintf "%s> %s\n" (of_network node#upstream) (of_last_node network)
+    | Node01 _ -> Printf.sprintf "| %s\n" (of_last_node network)
+    | Node11 node -> Printf.sprintf "%s> %s\n" (of_network node#upstream) (of_last_node network)
     | Noden1 node ->
-       Printf.sprintf "%s> %s (%d hidden branches)\n" (of_network (List.hd node#upstreams))
-                      (of_layer node#layer) (node#count - 1)
-
+        Printf.sprintf "%s> %s (%d hidden branches)\n"
+          (of_network (List.hd node#upstreams))
+          (of_layer node#layer) (node#count - 1)
 end
 
 let fold_top_down f net =
   let table = Hashtbl.create 100 in
   let f ~id acc_list net =
-       Printf.printf "Computing node:%d (%s)\n%!" id (String.of_last_node net);
-       let acc_list = f acc_list net in
-       Hashtbl.add table id acc_list;
-       acc_list
-  (*   match Hashtbl.find_opt table id with *)
-  (*   | None -> *)
-  (*   | Some acc_list -> *)
-  (*      Printf.printf "  Reusing node:%d (%s)\n%!" id (String.of_last_node net); *)
-  (*      acc_list *)
+    Printf.printf "Computing node:%d (%s)\n%!" id (String.of_last_node net);
+    let acc_list = f acc_list net in
+    Hashtbl.add table id acc_list;
+    acc_list
+    (*   match Hashtbl.find_opt table id with *)
+    (*   | None -> *)
+    (*   | Some acc_list -> *)
+    (*      Printf.printf "  Reusing node:%d (%s)\n%!" id (String.of_last_node net); *)
+    (*      acc_list *)
   in
   let rec aux net =
-    let id = match net with
+    let id =
+      match net with
       | Node01 node -> Oo.id node
       | Node11 node -> Oo.id node
       | Noden1 node -> Oo.id node
     in
-    let acc_list = match net, Hashtbl.find_opt table id with
+    let acc_list =
+      match (net, Hashtbl.find_opt table id) with
       | _, Some acc_list ->
-         Printf.printf "  Reusing node:%d (%s)\n%!" id (String.of_last_node net);
-         acc_list
+          Printf.printf "  Reusing node:%d (%s)\n%!" id (String.of_last_node net);
+          acc_list
       | Node01 _, None -> f ~id [] net
-      | Node11 node, None -> f ~id [aux node#upstream] net
+      | Node11 node, None -> f ~id [ aux node#upstream ] net
       | Noden1 node, None -> f ~id (List.map aux node#upstreams) net
     in
     acc_list
@@ -275,27 +283,32 @@ module Builder = struct
     { up with network = node11 up.network (`Maxpool2d { kernel_size; stride }) }
 
   let concatenate ?(axis = 3) up_list =
-    let filters = match List.length up_list, axis with
+    let filters =
+      match (List.length up_list, axis) with
       | 0, _ -> failwith "Can't concatenate nothing"
       | _, 3 -> List.fold_left (fun acc up -> acc + up.filters) 0 up_list
-      | _, _ -> let filters = (List.hd up_list).filters in
-                List.iter (fun up -> assert (up.filters = filters)) up_list;
-                filters
+      | _, _ ->
+          let filters = (List.hd up_list).filters in
+          List.iter (fun up -> assert (up.filters = filters)) up_list;
+          filters
     in
     let up_networks = List.map (fun up -> up.network) up_list in
     { filters; network = noden1 up_networks (`Concatenate { axis }) }
 
-  let fork : (upstream -> upstream list) -> upstream -> upstream list = fun create_downs up ->
-    create_downs up
-    (* List.map (fun down -> down up) downs *)
+  let fork : (upstream -> upstream list) -> upstream -> upstream list =
+   fun create_downs up -> create_downs up
+
+  (* List.map (fun down -> down up) downs *)
 
   let add ?(axis = 3) up_list =
-    let filters = match List.length up_list, axis with
+    let filters =
+      match (List.length up_list, axis) with
       | 0, _ -> failwith "Can't add nothing"
       | _, 3 -> List.fold_left (fun acc up -> acc + up.filters) 0 up_list
-      | _, _ -> let filters = (List.hd up_list).filters in
-                List.iter (fun up -> assert (up.filters = filters)) up_list;
-                filters
+      | _, _ ->
+          let filters = (List.hd up_list).filters in
+          List.iter (fun up -> assert (up.filters = filters)) up_list;
+          filters
     in
     let up_networks = List.map (fun up -> up.network) up_list in
     { filters; network = noden1 up_networks (`Add { axis }) }

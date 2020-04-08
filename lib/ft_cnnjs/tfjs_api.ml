@@ -166,29 +166,17 @@ module Ops = struct
    fun shape -> fun_call global##.tf##.zeros [| shape |> Js.array |> inject |]
 
   let reshape : int array -> #tensor Js.t -> tensor Js.t =
-    fun shape x ->
-    (* Printf.eprintf "in tf.reshape:\n%!"; *)
-    (* Firebug.console##log x##.shape; *)
-    (* Firebug.console##log (Js.array shape); *)
-    let s = fun_call global##.tf##.reshape [| inject x; shape |> Js.array |> inject |] in
-    (* Firebug.console##log s##.shape; *)
-    s
+   fun shape x -> fun_call global##.tf##.reshape [| inject x; shape |> Js.array |> inject |]
 
   let expand_dims : int -> #tensor Js.t -> tensor Js.t =
    fun axis x -> fun_call global##.tf##.expandDims [| inject x; inject axis |]
 
   let transpose : ?perm:int list -> #tensor Js.t -> tensor Js.t =
-    fun ?perm x ->
+   fun ?perm x ->
     match perm with
     | None -> fun_call global##.tf##.transpose [| inject x |]
     | Some perm ->
-       (* Printf.eprintf "in tf.transpose:\n%!"; *)
-       (* Firebug.console##log x##.shape; *)
-       (* Firebug.console##log (Js.array (Array.of_list perm)); *)
-
-       let s = fun_call global##.tf##.transpose [| inject x; perm |> Array.of_list |> Js.array |> inject |] in
-       (* Firebug.console##log s##.shape; *)
-       s
+        fun_call global##.tf##.transpose [| inject x; perm |> Array.of_list |> Js.array |> inject |]
 
   let flatten : #tensor Js.t -> tensor Js.t = fun x -> reshape [| -1 |] x
 
@@ -255,119 +243,116 @@ module Ops = struct
       ?s:int * int ->
       ?d:int * int ->
       ?b:[< `Valid | `Same ] ->
-      #tensor Js.t -> #tensor Js.t -> tensor Js.t =
-    fun ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode x kernel ->
+      #tensor Js.t ->
+      #tensor Js.t ->
+      tensor Js.t =
+   fun ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode x kernel ->
     let stride = Js.array [| fst stride; snd stride |] in
     let dilation = Js.array [| fst dilation; snd dilation |] in
-    let boundary_mode = match boundary_mode with
-      | None -> "same"
-      | Some `Same -> "same"
-      | Some `Valid -> "valid"
+    let boundary_mode =
+      match boundary_mode with None -> "same" | Some `Same -> "same" | Some `Valid -> "valid"
     in
     let boundary_mode = Js.string boundary_mode in
-    fun_call global##.tf##.conv2d [|
-               inject x; inject kernel;
-               inject stride;
-               inject boundary_mode;
-               "NHWC" |> Js.string |> inject;
-               inject dilation;
-                     |]
+    fun_call
+      global##.tf##.conv2d
+      [|
+        inject x;
+        inject kernel;
+        inject stride;
+        inject boundary_mode;
+        "NHWC" |> Js.string |> inject;
+        inject dilation;
+      |]
 
   let depthwise_conv2d :
       ?s:int * int ->
       ?d:int * int ->
       ?b:[< `Valid | `Same ] ->
-      #tensor Js.t -> #tensor Js.t -> tensor Js.t =
-    fun ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode x kernel ->
+      #tensor Js.t ->
+      #tensor Js.t ->
+      tensor Js.t =
+   fun ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode x kernel ->
     let stride = Js.array [| fst stride; snd stride |] in
     let dilation = Js.array [| fst dilation; snd dilation |] in
-    let boundary_mode = match boundary_mode with
-      | None -> "same"
-      | Some `Same -> "same"
-      | Some `Valid -> "valid"
+    let boundary_mode =
+      match boundary_mode with None -> "same" | Some `Same -> "same" | Some `Valid -> "valid"
     in
     let boundary_mode = Js.string boundary_mode in
-    fun_call global##.tf##.depthwiseConv2d [|
-               inject x; inject kernel;
-               inject stride;
-               inject boundary_mode;
-               "NHWC" |> Js.string |> inject;
-               inject dilation;
-             |]
+    fun_call
+      global##.tf##.depthwiseConv2d
+      [|
+        inject x;
+        inject kernel;
+        inject stride;
+        inject boundary_mode;
+        "NHWC" |> Js.string |> inject;
+        inject dilation;
+      |]
 
   let concat : int -> #tensor Js.t list -> tensor Js.t =
    fun axis tensors ->
     let tensors = tensors |> Array.of_list |> Js.array in
     fun_call global##.tf##.concat [| inject tensors; inject axis |]
 
-  let softmax :
-        int ->
-        #tensor Js.t ->
-        tensor Js.t = fun axis x ->
-    fun_call global##.tf##.softmax [| inject x; inject axis |]
+  let softmax : int -> #tensor Js.t -> tensor Js.t =
+   fun axis x -> fun_call global##.tf##.softmax [| inject x; inject axis |]
 
   let maxpool : ?s:int * int -> ?b:[< `Valid | `Same ] -> int * int -> #tensor Js.t -> tensor Js.t =
-    fun ?s:stride ?b:boundary_mode (ky, kx) x ->
+   fun ?s:stride ?b:boundary_mode (ky, kx) x ->
     let filter_size = Js.array [| ky; kx |] in
-    let stride = match stride with
-      | None -> filter_size
-      | Some (sy, sx) -> Js.array [| sy; sx |]
-    in
-    let boundary_mode = match boundary_mode with
-      | None -> "same"
-      | Some `Same -> "same"
-      | Some `Valid -> "valid"
+    let stride = match stride with None -> filter_size | Some (sy, sx) -> Js.array [| sy; sx |] in
+    let boundary_mode =
+      match boundary_mode with None -> "same" | Some `Same -> "same" | Some `Valid -> "valid"
     in
     let boundary_mode = Js.string boundary_mode in
-    fun_call global##.tf##.maxPool
-             [| inject x; inject filter_size; inject stride; inject boundary_mode |]
+    fun_call
+      global##.tf##.maxPool
+      [| inject x; inject filter_size; inject stride; inject boundary_mode |]
 
   let pad : ?value:float -> (int * int list) list -> #tensor Js.t -> tensor Js.t =
-    fun ?(value=0.) paddings_per_axis x ->
-      let paddings = Array.init x##.rank (fun i ->
+   fun ?(value = 0.) paddings_per_axis x ->
+    let paddings =
+      Array.init x##.rank (fun i ->
           match List.find_all (fun (ax, _) -> ax = i) paddings_per_axis with
-          | _::_::_ -> invalid_arg "In padding: Duplicate axis"
+          | _ :: _ :: _ -> invalid_arg "In padding: Duplicate axis"
           | [] -> Js.array [| 0; 0 |]
-          | [_, [ p ]] -> Js.array [| p; p |]
-          | [_, [ bef; aft ]] -> Js.array [| bef; aft |]
-          | [ _ ] -> invalid_arg "In padding: padding list should contain 1 or 2 integers"
-                               )
-          |> Js.array
-      in
-      fun_call global##.tf##.pad [| inject x; inject paddings; inject value |]
+          | [ (_, [ p ]) ] -> Js.array [| p; p |]
+          | [ (_, [ bef; aft ]) ] -> Js.array [| bef; aft |]
+          | [ _ ] -> invalid_arg "In padding: padding list should contain 1 or 2 integers")
+      |> Js.array
+    in
+    fun_call global##.tf##.pad [| inject x; inject paddings; inject value |]
 
   let slice : (int * int * int) list -> #tensor Js.t -> tensor Js.t =
-    fun per_axis x ->
-      let shape = x##.shape |> Js.to_array in
-      let begins, sizes =
-        List.init x##.rank (fun i ->
+   fun per_axis x ->
+    let shape = x##.shape |> Js.to_array in
+    let begins, sizes =
+      List.init x##.rank (fun i ->
           match List.find_all (fun (ax, _, _) -> ax = i) per_axis with
-          | _::_::_ -> invalid_arg "In padding: Duplicate axis"
-          | [] -> 0, Array.get shape i
-          | [ _, start, size ] -> start, size
-        )
-        |> List.split
-      in
-      let begins = begins |> Array.of_list |> Js.array in
-      let sizes = sizes |> Array.of_list |> Js.array in
-      fun_call global##.tf##.slice [| inject x; inject begins; inject sizes |]
+          | _ :: _ :: _ -> invalid_arg "In padding: Duplicate axis"
+          | [] -> (0, shape.(i))
+          | [ (_, start, size) ] -> (start, size))
+      |> List.split
+    in
+    let begins = begins |> Array.of_list |> Js.array in
+    let sizes = sizes |> Array.of_list |> Js.array in
+    fun_call global##.tf##.slice [| inject x; inject begins; inject sizes |]
 
   let topk : int -> #tensor Js.t -> tensor Js.t * tensor Js.t =
-    fun k x ->
+   fun k x ->
     let res = fun_call global##.tf##.topk [| inject x; inject k |] in
-    get res "values", get res "indices"
+    (get res "values", get res "indices")
 
   let confusion_matrix : int -> #tensor Js.t -> #tensor Js.t -> tensor Js.t =
-    fun class_count truth pred ->
+   fun class_count truth pred ->
     if truth##.rank <> 1 || pred##.rank <> 1 then
       invalid_arg "In confusion_matrix: Input tensors should have 1 dimension";
-    fun_call global##.tf##.math##.confusionMatrix
-             [| inject truth; inject pred; inject class_count |]
+    fun_call
+      global##.tf##.math##.confusionMatrix
+      [| inject truth; inject pred; inject class_count |]
 
   let one_hot : int -> #tensor Js.t -> tensor Js.t =
-    fun width arr ->
-    fun_call global##.tf##.oneHot [| inject arr; inject width |]
-
+   fun width arr -> fun_call global##.tf##.oneHot [| inject arr; inject width |]
 end
 
 (* Constructors ********************************************************************************* *)
@@ -405,13 +390,9 @@ let int : int -> tensor Js.t =
   let open Js.Unsafe in
   fun_call global##.tf##.scalar [| inject x; "int32" |> Js.string |> inject |]
 
-let to_float : #tensor Js.t -> float =
-  fun x ->
-  Typed_array.unsafe_get x##asScalar##dataSync_float 0
+let to_float : #tensor Js.t -> float = fun x -> Typed_array.unsafe_get x##asScalar##dataSync_float 0
 
-let to_int : #tensor Js.t -> int =
-  fun x ->
-  Typed_array.unsafe_get x##asScalar##dataSync_int 0
+let to_int : #tensor Js.t -> int = fun x -> Typed_array.unsafe_get x##asScalar##dataSync_int 0
 
 (* Tensorflow model and optimizers  ************************************************************* *)
 let model : symbolicTensor Js.t list -> symbolicTensor Js.t list -> model Js.t =
@@ -576,7 +557,6 @@ module Layers = struct
    fun a b_inputs b ->
     let b = model b_inputs [ b ] in
     b##apply a
-
 end
 
 (* Hard coded losses / optimizers  ************************************************************** *)
@@ -592,13 +572,10 @@ let categorical_crossentropy : float -> tensor Js.t -> tensor Js.t -> tensor Js.
   |> Ops.log |> Ops.mul truth |> Ops.neg |> Ops.sum ~axis:(-1) true |> Ops.mean ~axis:0 true
 
 let hinge : ?margin:float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
-  fun ?(margin=1.) pred truth ->
+ fun ?(margin = 1.) pred truth ->
   (* a truth element must be -1. or 1. *)
   let open Ops in
-  (float margin) - truth * pred
-  |> maximum (float 0.)
-  |> sum ~axis:(-1) true
-  |> mean ~axis:0 true
+  float margin - (truth * pred) |> maximum (float 0.) |> sum ~axis:(-1) true |> mean ~axis:0 true
 
 let sgd_updater =
   object
@@ -648,30 +625,28 @@ let create_adam_updater : float -> float -> float -> int -> float32_ba -> float3
   end
 
 let iou_recall_precision_of_cm : #tensor Js.t -> tensor Js.t =
-  fun cm ->
-  let w = match cm##.shape |> Js.to_array with
+ fun cm ->
+  let w =
+    match cm##.shape |> Js.to_array with
     | [| v0; v1 |] ->
-       if v0 <> v1 then invalid_arg "In recall_of_cm: invalid confusion matrix";
-       v0
+        if v0 <> v1 then invalid_arg "In recall_of_cm: invalid confusion matrix";
+        v0
     | _ -> invalid_arg "In recall_of_cm: invalid confusion matrix"
   in
   let stats_of_cat catidx =
     let open Ops in
-    let true_pos = Ops.slice [0, catidx, 1; 1, catidx, 1] cm in
-    let false_neg = (Ops.slice [0, catidx, 1] cm |> Ops.sum true) - true_pos in
-    let false_pos = (Ops.slice [1, catidx, 1] cm |> Ops.sum true) - true_pos in
+    let true_pos = Ops.slice [ (0, catidx, 1); (1, catidx, 1) ] cm in
+    let false_neg = (Ops.slice [ (0, catidx, 1) ] cm |> Ops.sum true) - true_pos in
+    let false_pos = (Ops.slice [ (1, catidx, 1) ] cm |> Ops.sum true) - true_pos in
     let true_pos = (reshape [| 1 |] true_pos)##asType (Js.string "float32") in
     let false_neg = (reshape [| 1 |] false_neg)##asType (Js.string "float32") in
     let false_pos = (reshape [| 1 |] false_pos)##asType (Js.string "float32") in
     let iou = true_pos / (true_pos + false_neg + false_pos) in
     let recall = true_pos / (true_pos + false_neg) in
     let precision = true_pos / (true_pos + false_pos) in
-    reshape [| 1; 3 |] (concat 0 [iou; recall; precision])
+    reshape [| 1; 3 |] (concat 0 [ iou; recall; precision ])
   in
-  let res =
-    List.init w stats_of_cat
-    |> Ops.concat 0
-  in
+  let res = List.init w stats_of_cat |> Ops.concat 0 in
   assert (Js.to_array res##.shape = [| w; 3 |]);
   res
 
@@ -762,11 +737,11 @@ let tidy_lwt : (unit -> 'a Lwt.t) -> 'a Lwt.t =
   Lwt.finalize f f'
 
 let keep : tensor Js.t -> tensor Js.t =
-  fun x ->
+ fun x ->
   let open Js.Unsafe in
   fun_call global##.tf##.keep [| x |> inject |]
 
 let dispose_tensor : tensor Js.t -> unit =
-  fun x ->
+ fun x ->
   let open Js.Unsafe in
   fun_call global##.tf##.dispose_tensor [| x |> inject |]

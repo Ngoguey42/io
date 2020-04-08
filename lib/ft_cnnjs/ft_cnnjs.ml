@@ -7,6 +7,7 @@ module Nn_tfjs = Nn_tfjs
 module Mnist_tfjs = Mnist_tfjs
 
 type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray Js.t
+
 type uint8_ta = (int, [ `Uint8 ]) Typed_array.typedArray Js.t
 
 module type TRAINER = sig
@@ -26,4 +27,5 @@ let[@ocamlformat "disable"] get_backend : _ -> (module TRAINER) = function
   (* | _ -> failwith "nope" *)
   | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end))
   | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
-  (* | `Owl_cpu -> (module Mnist_owl) *)
+
+(* | `Owl_cpu -> (module Mnist_owl) *)

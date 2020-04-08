@@ -520,7 +520,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; to_string : string
     ; upstream : network
     ; value : [ `Constant of float | `Reflection | `Replication ]
-    ; paddings_of_axis : 'a. ([< Pshape.Axis.t] as 'a) -> int * int
+    ; paddings_of_axis : 'a. ([< Pshape.Axis.t ] as 'a) -> int * int
     ; axes : Pshape.Axis.t list
     ; is_uniform : bool
     ; is_symmetric : bool
@@ -931,14 +931,18 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       normalisation
 
     val transpose :
-      ?ndim:int -> ?mapping:([< Pshape.Axis.t ] * [< Pshape.Axis.t ]) list -> ?id:Id.t -> _ any -> transpose
+      ?ndim:int ->
+      ?mapping:([< Pshape.Axis.t ] * [< Pshape.Axis.t ]) list ->
+      ?id:Id.t ->
+      _ any ->
+      transpose
 
     val maxpool2d :
       ?b:[< boundary_mode ] -> ?s:int * int -> int * int -> ?id:Id.t -> _ any -> maxpool2d
 
     val padding :
       ?v:[< `Constant of float | `Reflection | `Replication ] ->
-      ([<Pshape.Axis.t] * int list) list ->
+      ([< Pshape.Axis.t ] * int list) list ->
       ?id:Id.t ->
       _ any ->
       padding
@@ -1065,7 +1069,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let kernel_size = K kernel_size in
       let stride = K stride in
       let dilation = K dilation in
-      let span = (K 1) + (kernel_size - (K 1)) * dilation in
+      let span = K 1 + ((kernel_size - K 1) * dilation) in
 
       let overflow, underflow =
         match (size, span) with
@@ -1583,11 +1587,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     let transpose ?ndim ?mapping =
       let rec instanciate id upstream =
-        let mapping = match mapping with
-          | Some mapping -> List.map (fun (a, b) -> ((a :> Pshape.Axis.t), (b :> Pshape.Axis.t))) mapping
+        let mapping =
+          match mapping with
+          | Some mapping ->
+              List.map (fun (a, b) -> ((a :> Pshape.Axis.t), (b :> Pshape.Axis.t))) mapping
           | None ->
-             let axes = Pshape.axes upstream#out_shape in
-             List.combine axes (List.rev axes)
+              let axes = Pshape.axes upstream#out_shape in
+              List.combine axes (List.rev axes)
         in
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype = upstream#out_dtype in
@@ -1720,16 +1726,16 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let paddings =
         List.map snd paddings_per_axis
         |> List.map (function
-                     | [ p ] -> (p, p)
-                     | [ bef; aft ] -> (bef, aft)
-                     | _ -> invalid_arg "In padding: padding list should contain 1 or 2 integers")
+             | [ p ] -> (p, p)
+             | [ bef; aft ] -> (bef, aft)
+             | _ -> invalid_arg "In padding: padding list should contain 1 or 2 integers")
       in
       if List.length axes <> List.length (List.sort_uniq compare axes) then
         invalid_arg "In padding: Duplicate axis";
       let axes, paddings =
         List.combine axes paddings
-        |> List.filter_map
-             (fun ((_, (bef, aft)) as pair) -> if bef = 0 && aft = 0 then None else Some pair)
+        |> List.filter_map (fun ((_, (bef, aft)) as pair) ->
+               if bef = 0 && aft = 0 then None else Some pair)
         |> List.split
       in
 
@@ -1738,18 +1744,20 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         let dtype = upstream#out_dtype in
         let out_shape = upstream#out_shape in
         let shape_axes = Pshape.axes out_shape in
-        List.iter (fun ax ->
+        List.iter
+          (fun ax ->
             if not (List.mem ax shape_axes) then
-              invalid_arg "In padding: Axis missing from input shape"
-          ) axes;
+              invalid_arg "In padding: Axis missing from input shape")
+          axes;
 
         let out_shape =
           List.combine axes paddings
-          |> List.fold_left (fun s (ax, (bef, aft)) ->
+          |> List.fold_left
+               (fun s (ax, (bef, aft)) ->
                  let open Pshape.Size in
                  let open Pshape.Size.Infix in
-                 Pshape.set s ax (Pshape.get s ax + K bef + K aft)
-               ) out_shape
+                 Pshape.set s ax (Pshape.get s ax + K bef + K aft))
+               out_shape
         in
 
         object (self : padding)
@@ -1775,14 +1783,14 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method layer_name = "padding"
 
           method to_string =
-            match paddings, self#is_uniform with
+            match (paddings, self#is_uniform) with
             | [], _ -> Printf.sprintf "<padding %s>" (Pshape.to_string out_shape)
-            | (bef, aft)::_, true ->
-               Printf.sprintf "<padding %s (%d, %d)>" (Pshape.to_string out_shape) bef aft
+            | (bef, aft) :: _, true ->
+                Printf.sprintf "<padding %s (%d, %d)>" (Pshape.to_string out_shape) bef aft
             | _, false ->
-               List.map (fun (bef, aft) -> Printf.sprintf "%d, %d" bef aft) paddings
-               |> String.concat "; "
-               |>  Printf.sprintf "<padding %s [%s]>" (Pshape.to_string out_shape)
+                List.map (fun (bef, aft) -> Printf.sprintf "%d, %d" bef aft) paddings
+                |> String.concat "; "
+                |> Printf.sprintf "<padding %s [%s]>" (Pshape.to_string out_shape)
 
           method upstream = upstream
 
@@ -1790,19 +1798,18 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method paddings_of_axis axis =
             let axis = (axis :> Pshape.Axis.t) in
-            match List.combine axes paddings
-                  |> List.find_opt (fun (ax, _) -> ax = axis) with
+            match List.combine axes paddings |> List.find_opt (fun (ax, _) -> ax = axis) with
             | Some (_, paddings) -> paddings
-            | None -> if List.mem axis shape_axes then (0, 0)
-                      else invalid_arg "In padding#paddings_of_axis: Unknown axis"
+            | None ->
+                if List.mem axis shape_axes then (0, 0)
+                else invalid_arg "In padding#paddings_of_axis: Unknown axis"
 
           method axes = axes
 
           method is_uniform =
             match paddings with
             | [] -> true
-            | (bef, aft)::tl ->
-               List.for_all (fun (bef', aft') -> bef = bef' && aft = aft') tl
+            | (bef, aft) :: tl -> List.for_all (fun (bef', aft') -> bef = bef' && aft = aft') tl
 
           method is_symmetric = List.for_all (fun (bef, aft) -> bef = aft) paddings
 
@@ -1848,7 +1855,6 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method upstream = upstream
 
           method dtype = dtype
-
         end
       in
       fun ?id upstream -> instanciate id (downcast upstream)
@@ -1858,7 +1864,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
       if group_count <= 0 then invalid_arg "In conv2d2: group_count should be >= 1";
       if fst stride <= 0 || snd stride <= 0 then invalid_arg "In conv2d2: stride should be >= 1";
-      if fst dilation <= 0 || snd dilation <= 0 then invalid_arg "In conv2d2: dilation should be >= 1";
+      if fst dilation <= 0 || snd dilation <= 0 then
+        invalid_arg "In conv2d2: dilation should be >= 1";
       let rec instanciate id weights x =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let wshape =
@@ -2076,14 +2083,12 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let padding2d ?v p =
       let p =
         match p with
-        | [ p ] -> [`S1, [ p ]; `S0, [ p ]]
-        | [ p; p' ] -> [`S1, [ p ]; `S0, [ p' ]]
-        | [ t; b; l; r ] -> [`S1, [t; b]; `S0, [l; r]]
+        | [ p ] -> [ (`S1, [ p ]); (`S0, [ p ]) ]
+        | [ p; p' ] -> [ (`S1, [ p ]); (`S0, [ p' ]) ]
+        | [ t; b; l; r ] -> [ (`S1, [ t; b ]); (`S0, [ l; r ]) ]
         | _ -> invalid_arg "padding should contain 1, 2 or 4 elements"
       in
-      match v with
-      | None -> padding p
-      | Some v -> padding ~v p
+      match v with None -> padding p | Some v -> padding ~v p
 
     let cropping2d ?id p =
       let id = match id with None -> Id.create_default () | Some id -> id in

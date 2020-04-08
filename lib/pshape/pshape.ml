@@ -889,13 +889,12 @@ module Pshape :
        (sym4d_partial ~n:(Size.U) ~c:(Size.K 2) ~s0:(Size.K 3) ~s1:(Size.K 5)) |}
      Produces the shape {n=_, c=30}
   *)
-  let transpose
-      =
-   fun ?ndim:len ?mapping shape ->
+  let transpose ?ndim:len ?mapping shape =
     (* Cast *)
     let shape = shape |> to_any in
     let shape0_axes = axes shape in
-    let mapping = match mapping with
+    let mapping =
+      match mapping with
       | Some mapping -> (mapping :> (Axis.t * Axis.t) list)
       | None -> List.combine shape0_axes (List.rev shape0_axes :> Axis.t list)
     in
@@ -926,7 +925,6 @@ module Pshape :
       else (Axis.absolute_axes_of_ndim len :> Axis.t list)
     in
 
-
     (* List.iteri ( *)
     (*     fun i (l) -> *)
     (*      Printf.eprintf "shape0_axes[%d] = %s\n%!" i *)
@@ -946,7 +944,6 @@ module Pshape :
     (*                       (Axis.to_string r) *)
     (*     ; *)
     (*   ) mapping; *)
-
     let mapping = Axis.transpose ~mapping shape0_axes shape1_axes in
 
     (* List.iteri ( *)
@@ -1067,8 +1064,7 @@ module Pshape :
       let ax = List.nth axs i in
       if not (Axis.compatible_with_ndim ax (ndim shape)) then
         Printf.sprintf "axis %s passed to desymbolize is incompatible with input shape %s"
-                       (Axis.to_string ax)
-                       (to_string shape)
+          (Axis.to_string ax) (to_string shape)
         |> invalid_arg;
       get shape ax
     in
@@ -1570,4 +1566,5 @@ module Pshape :
     let pad_left = pad_left
   end
 end
+
 include Pshape

@@ -1,5 +1,8 @@
 include Misc
 include Pshape_sig
+(*
+    A P(olymorphic)shape has length (a.k.a. ndim), has an axis type, and an dimension size type.
+ *)
 
 module Pshape :
   PSHAPE

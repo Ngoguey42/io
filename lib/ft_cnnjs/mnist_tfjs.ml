@@ -115,8 +115,8 @@ struct
         ignore (ious, recalls, precisions);
 
         let mean_recall = Tfjs_api.Ops.mean false recalls |> Tfjs_api.to_float in
-        let mean_precision = Tfjs_api.Ops.mean false recalls |> Tfjs_api.to_float in
-        let mean_iou = Tfjs_api.Ops.mean false recalls |> Tfjs_api.to_float in
+        let mean_precision = Tfjs_api.Ops.mean false precisions |> Tfjs_api.to_float in
+        let mean_iou = Tfjs_api.Ops.mean false ious |> Tfjs_api.to_float in
         ignore (mean_iou, mean_recall, mean_precision);
 
         let layer = Fnn.find_id (Some "classif") [ decoder ] in

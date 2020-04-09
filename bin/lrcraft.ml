@@ -26,7 +26,8 @@ let print_arr_ad x = print_arr @@ Algodiff.unpack_arr x
  *)
 let[@ocamlformat "disable"] encoder_padding_batchnorm (module Builder : Fnn.BUILDER) o : Fnn.network =
   let open Builder in
-  input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
   |> conv2d ~o (`Full 10) (3, 3) ~s:(2, 2) ~b:`Same (* pooling *) |> bias |> batch_norm |> relu
   |> conv2d ~o (`Full 10) (3, 3) ~s:(2, 2) ~b:`Same (* pooling *) |> bias |> batch_norm |> relu
   |> conv2d ~o (`Full 10) (3, 3) ~s:(2, 2) ~b:`Same (* pooling *) |> bias |> batch_norm |> relu
@@ -42,7 +43,8 @@ let[@ocamlformat "disable"] encoder_padding_batchnorm (module Builder : Fnn.BUIL
  *)
 let[@ocamlformat "disable"] encoder_pooling (module Builder : Fnn.BUILDER) o : Fnn.network =
   let open Builder in
-  input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
   |> conv2d ~o (`Full 12) (4, 4) ~s:(2, 2) ~b:`Assert_fit (* pooling *) |> bias |> relu
   |> conv2d ~o (`Full 25) (3, 3) ~s:(2, 2) ~b:`Assert_fit (* pooling *) |> bias |> relu
   |> conv2d ~o (`Full 50) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
@@ -63,7 +65,8 @@ let[@ocamlformat "disable"] encoder_pooling (module Builder : Fnn.BUILDER) o : F
    *)
 let[@ocamlformat "disable"] encoder_mobilenet (module Builder : Fnn.BUILDER) o : Fnn.network =
   let open Builder in
-  input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
   |> conv2d ~o (`Full 18) (2, 2) ~s:(2, 2) ~b:`Assert_fit |> bias (* expansion (pooling) *)
   |> (fun up -> [
           up
@@ -103,7 +106,8 @@ let[@ocamlformat "disable"] encoder_mobilenet (module Builder : Fnn.BUILDER) o :
  *)
 let[@ocamlformat "disable"] encoder_dilatedconvs (module Builder : Fnn.BUILDER) o : Fnn.network =
   let open Builder in
-  input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
   |> conv2d ~o (`Full 10) (3, 3) ~d:(3, 3) ~b:`Assert_fit |> bias |> relu
   |> conv2d ~o (`Full 10) (3, 3) ~d:(3, 3) ~b:`Assert_fit |> bias |> relu
   |> conv2d ~o (`Full 10) (3, 3) ~d:(3, 3) ~b:`Assert_fit |> bias |> relu
@@ -124,8 +128,9 @@ let[@ocamlformat "disable"] encoder_dilatedconvs (module Builder : Fnn.BUILDER) 
  *)
 let[@ocamlformat "disable"] encoder_oneconv (module Builder : Fnn.BUILDER) o : Fnn.network =
   let open Builder in
-  input (Pshape.sym4d_partial ~n:Pshape.Size.U ~c:(Pshape.Size.K 1) ~s0:Pshape.Size.U ~s1:Pshape.Size.U) `Float32
-  |> conv2d ~o (`Full 10) (16, 16) ~s:(4, 4) ~b:`Assert_fit |> bias
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
+  |> conv2d ~o (`Full 50) (16, 16) ~s:(4, 4) ~b:`Assert_fit |> bias
   |> relu
   |> Fnn.downcast
 
@@ -137,7 +142,8 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   let builder = Fnn.create_builder ~rng () in
 
   let open Lwt.Infix in
-  let o = `Adam (0.9, 0.999, 1e-10) in
+  (* let o = `Sgd in *)
+  let o = `Adam (0.9, 0.999, 1e-4) in
   let encoders, decoder =
     (* let module Builder = (val builder) in *)
     let module Builder = (val builder) in
@@ -146,10 +152,10 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
     Printf.eprintf "Building encoder(s)...\n%!";
     let encoders = [
         (* encoder_padding_batchnorm (); *)
-        encoder_pooling builder o;
+        (* encoder_pooling builder o; *)
         (* encoder_mobilenet builder o; *)
         (* encoder_dilatedconvs (); *)
-        (* encoder_oneconv builder o; *)
+        encoder_oneconv builder o;
       ]
     in
     Printf.eprintf "Building decoder...\n%!";
@@ -160,13 +166,17 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
         |> List.fold_left add (K 0)
       in
       input (Pshape.sym4d_partial ~n:U ~c ~s0:(K 4) ~s1:(K 4)) `Float32
-      (* |> conv2d ~id:(Some "classif") (`Full 10) (4, 4) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
+      |> conv2d ~o ~id:(Some "classif") (`Full 10) (4, 4) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C]
+
+      (* |> maxpool2d (4, 4) |> conv2d ~id:(Some "classif") (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
+      (* |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias *)
+
 
       (* Classify and flatten using a 1x1 conv and a max-pool 4x4 *)
-      |> conv2d ~id:(Some "classif") (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> maxpool2d (4, 4) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C]
+      (* |> conv2d ~o ~id:(Some "classif") (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> maxpool2d (4, 4) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
 
       (* Classify and flatten using flatten and fully-connected *)
-      (* |> reorder_axes [`C, `C; `S0, `C; `S1, `C] |> dense [`C, 10] |> bias *)
+      (* |> reorder_axes [`C, `C; `S0, `C; `S1, `C] |> dense ~o [`C, 10] |> bias *)
 
       |> softmax `C
       |> Fnn.downcast
@@ -178,6 +188,7 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   let module Backend = (val Ft_cnnjs.get_backend `Tfjs_webgl) in
   (* let module Backend = (val Ft_cnnjs.get_backend `Tfjs_cpu) in *)
 
+  let rng = Random.State.make [| 42 |] in
   let batch_count, batch_size = 10000, 2000 in
   (* let batch_count, batch_size = 2, 10 in *)
   let get_data _ =

@@ -191,27 +191,17 @@ module Ops = struct
   let mul : #tensor Js.t -> #tensor Js.t -> tensor Js.t =
    fun x x' -> fun_call global##.tf##.mul [| inject x; inject x' |]
 
-  let ( * ) = mul
-
   let div : #tensor Js.t -> #tensor Js.t -> tensor Js.t =
    fun x x' -> fun_call global##.tf##.div [| inject x; inject x' |]
-
-  let ( / ) = div
 
   let add : #tensor Js.t -> #tensor Js.t -> tensor Js.t =
    fun x x' -> fun_call global##.tf##.add [| inject x; inject x' |]
 
-  let ( + ) = add
-
   let sub : #tensor Js.t -> #tensor Js.t -> tensor Js.t =
    fun x x' -> fun_call global##.tf##.sub [| inject x; inject x' |]
 
-  let ( - ) = sub
-
   let pow : #tensor Js.t -> #tensor Js.t -> tensor Js.t =
    fun x x' -> fun_call global##.tf##.pow [| inject x; inject x' |]
-
-  let ( ** ) = pow
 
   let maximum : #tensor Js.t -> #tensor Js.t -> tensor Js.t =
    fun x x' -> fun_call global##.tf##.maximum [| inject x; inject x' |]
@@ -359,6 +349,67 @@ module Ops = struct
    fun dtype x ->
     let dtype = Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32") in
     x##asType dtype
+
+  let dot : #tensor Js.t -> #tensor Js.t -> tensor Js.t =
+   fun x x' -> fun_call global##.tf##.dot [| inject x; inject x' |]
+
+  let tensordot : (int * int) list -> #tensor Js.t -> #tensor Js.t -> tensor Js.t =
+    fun contract_axes x y ->
+    let normalize_axis ndim i =
+      let i = if i < 0 then -(i + 1) else i in
+      if i >= ndim then
+        invalid_arg "In tensordot: Index out of bound";
+      i
+    in
+    let none_if_mem l i = if List.mem i l then None else Some i in
+    let prod l = List.fold_left (fun a b -> a * b) 1 l in
+    let xcontract_axes, ycontract_axes = List.split contract_axes in
+
+    let xshape = x##.shape |> Js.to_array in
+    let xndim = x##.rank in
+    let x_axes = List.init xndim (fun i -> i) in
+    let xcontract_axes = List.map (normalize_axis xndim) xcontract_axes in
+    let xkeep_axes = List.filter_map (none_if_mem xcontract_axes) x_axes in
+    let xcontract_sizes = List.map (fun i -> xshape.(i)) xcontract_axes in
+    let xkeep_sizes = List.map (fun i -> xshape.(i)) xkeep_axes in
+    let x = transpose ~perm:(xkeep_axes @ xcontract_axes) x in
+    let x = reshape [| prod xkeep_sizes; prod xcontract_sizes |] x in
+
+    let yshape = y##.shape |> Js.to_array in
+    let yndim = y##.rank in
+    let y_axes = List.init yndim (fun i -> i) in
+    let ycontract_axes = List.map (normalize_axis yndim) ycontract_axes in
+    let ykeep_axes = List.filter_map (none_if_mem ycontract_axes) y_axes in
+    let ycontract_sizes = List.map (fun i -> yshape.(i)) ycontract_axes in
+    let ykeep_sizes = List.map (fun i -> yshape.(i)) ykeep_axes in
+    let y = transpose ~perm:(ycontract_axes @ ykeep_axes) y in
+    let y = reshape [| prod ycontract_sizes; prod ykeep_sizes |] y in
+
+    let z = dot x y in
+    let z = reshape ((xkeep_sizes @ ykeep_sizes) |> Array.of_list) z in
+    z
+
+  let range : int list -> [< `Float32 | `Int32 ] -> tensor Js.t =
+    fun ints dtype ->
+    let start, stop, step = match ints with
+      | [ start; stop; step ] -> start, stop, step
+      | [ start; stop ] -> start, stop, 1
+      | [ stop ] -> 0, stop, 1
+      | _ -> invalid_arg "In range: int list should have lenght 1, 2 or 3"
+    in
+    let dtype = Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32") in
+    fun_call global##.tf##.range [| inject start; inject stop; inject step; inject dtype |]
+
+  let ( * ) = mul
+
+  let ( / ) = div
+
+  let ( + ) = add
+
+  let ( - ) = sub
+
+  let ( ** ) = pow
+
 end
 
 (* Constructors ********************************************************************************* *)

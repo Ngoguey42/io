@@ -731,21 +731,22 @@ module Pshape :
 
      The same goes for `mapping1` and `shape1`.
 
-     Only known sizes can be contracted. The list of sizes to contract in mapping0 should be equal to
-     the one from mapping1.
+     Only known sizes can be contracted. The list of sizes to contract in mapping0 should be equal
+     to the one from mapping1.
 
-     Example 0: Matrix dot product. Produces the shape ((t) 5, 9)
-     contract
+     Example 0: Matrix dot product.
+     {| contract
        [ `Idx 0, Some (`Idx 0)
        ; `Idx 1, None ]
        [ `Idx 0, None
        ; `Idx 1, Some (`Idx 1) ]
        (abs2d_total (Size.K 5) (Size.K 7))
-       (abs2d_total (Size.K 7) (Size.K 9))
+       (abs2d_total (Size.K 7) (Size.K 9)) |}
+       Produces the shape ((t) 5, 9)
 
-     Example 1: Pointwise fully connected layer (1x1 convolution) from a symbolic and an absolute shape
-       to a symbolic one. Produces the shape {(p) n=_, c=9, s0=_, s1=_}
-     contract
+     Example 1: Pointwise fully connected layer (1x1 convolution) from a symbolic and an absolute
+     shape to a symbolic one.
+     {| contract
        [ `N,     Some `N
        ; `C,     None
        ; `S0,    Some `S0
@@ -753,7 +754,8 @@ module Pshape :
        [ `Idx 0, None
        ; `Idx 1, Some `C ]
        (sym4d_partial ~n:Size.U ~c:(Size.K 7) ~s0:Size.U ~s1:Size.U)
-       (abs2d_total (Size.K 7) (Size.K 9))
+       (abs2d_total (Size.K 7) (Size.K 9)) |}
+     Produces the shape {(p) n=_, c=9, s0=_, s1=_}
   *)
   let contract :
       ('ax0 * ([< Axis.t ] as 'ax) option) list ->
@@ -856,17 +858,23 @@ module Pshape :
 
      A missing output axis will be set to `Size.K 1`.
 
-     An input axis `ax` missing from `mapping` is interpreted as having `ax` as a destination too.
+     An input axis `ax` missing from `mapping` is implicitly interpreted as having `ax` as a
+     destination too.
 
-     If several input axes are mapped to the same output axis they will all be flattened together
-     in the same order that they are stated in `mapping`. The resulting output size will be the
-     product of all the input sizes. An error will be thrown if one of the flattend axis is missing
-     from `mapping`.
+     If several input axes are mapped to the same output axis they will all be flattened together,
+     the resulting output size will be the product of all the input sizes. To avoid errors when
+     flattening a bunch of axes, you can't rely on the implicit interpretation of the destination
+     axes: all of the flattened axes must be stated in `mapping`.
+
+     The ordering inside mapping has no effect on the computed shape. Although when implementing
+     a tensor transpose method base on that `mapping`, the order of the flattened axes affect
+     the order of the elements in the output tensor. (see example 3)
 
      If `mapping` is omited, it defaults to the input shape's axes in reverse order, hense the
      name of this function.
 
-     If `mapping` is an empty list and `ndim` is omited, `transpose` is the identity function.
+     As a consequence of all the above rules, if `mapping` is an empty list and `ndim` is omited,
+     `transpose` is the identity function.
 
      Example 0: Transposing an abs2d shape
      {| transpose
@@ -889,6 +897,14 @@ module Pshape :
        [ `S1, `C
        ; `S0, `C
        ; `C, `C ]
+       (sym4d_partial ~n:(Size.U) ~c:(Size.K 2) ~s0:(Size.K 3) ~s1:(Size.K 5)) |}
+     Produces the shape {n=_, c=30}
+
+     Flatten `C, `S0 and `S1 together in the `channel first` order.
+     {| transpose
+       [ `C, `C
+       ; `S1, `C
+       ; `S0, `C ]
        (sym4d_partial ~n:(Size.U) ~c:(Size.K 2) ~s0:(Size.K 3) ~s1:(Size.K 5)) |}
      Produces the shape {n=_, c=30}
   *)
@@ -928,33 +944,8 @@ module Pshape :
       else (Axis.absolute_axes_of_ndim len :> Axis.t list)
     in
 
-    (* List.iteri ( *)
-    (*     fun i (l) -> *)
-    (*      Printf.eprintf "shape0_axes[%d] = %s\n%!" i *)
-    (*                       (Axis.to_string l) *)
-    (*     ; *)
-    (*   ) shape0_axes; *)
-    (* List.iteri ( *)
-    (*     fun i (l) -> *)
-    (*      Printf.eprintf "shape1_axes[%d] = %s\n%!" i *)
-    (*                       (Axis.to_string l) *)
-    (*     ; *)
-    (*   ) shape1_axes; *)
-    (* List.iteri ( *)
-    (*     fun i (l, r) -> *)
-    (*      Printf.eprintf "old mapping[%d] = %s * %s\n%!" i *)
-    (*                       (Axis.to_string l) *)
-    (*                       (Axis.to_string r) *)
-    (*     ; *)
-    (*   ) mapping; *)
+    (* Rely on Axis.transpose to perform the transpose on the list of axes *)
     let mapping = Axis.transpose ~mapping shape0_axes shape1_axes in
-
-    (* List.iteri ( *)
-    (*     fun i l -> *)
-    (*     List.map Axis.to_string l *)
-    (*     |> String.concat "; " *)
-    (*     |> Printf.eprintf "new mapping[%d] = [%s]\n%!" i; *)
-    (*   ) mapping; *)
 
     (* Build output shape *)
     let is_total_dst =
@@ -1407,7 +1398,7 @@ module Pshape :
     in
     aux count shape
 
-  (** Two shapes are broadcastable if one of those three conditions is met for each dimensions:
+  (** Two shpeas are broadcastable if one of those three conditions is met for each dimensions:
       - At least one of the two sizes is known and equal to one
       - The two sizes known and equal
       - The two sizes are unknown

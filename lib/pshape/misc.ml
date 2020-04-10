@@ -120,6 +120,13 @@ module Axis : AXIS = struct
     | `S1 -> 4
     | `S2 -> 5
 
+  (** Given a list of input axes `[a0; ...]`, a list of output axes `[b0; ...]` of length L1 and
+     an optional list of input/output axes mapping `[(a, b); ...]`. Computes a list of list of
+     input axes of length L1 `[[a; ...]; ...]` where the `i-th` element contains the list of input
+     axes `[a; ...]` that will be flattened together to compose the `i-th` output axis.
+
+     See `Pshape.transpose`.
+   *)
   let transpose ?mapping shape0_axes shape1_axes =
     (* Derive and check shapes axes *)
     let shape0_axes = (shape0_axes :> t list) in

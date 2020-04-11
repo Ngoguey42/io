@@ -166,7 +166,7 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
         |> List.fold_left add (K 0)
       in
       input (Pshape.sym4d_partial ~n:U ~c ~s0:(K 4) ~s1:(K 4)) `Float32
-      |> conv2d ~o ~id:(Some "classif") (`Full 10) (4, 4) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C]
+      (* |> conv2d ~o ~id:(Some "classif") (`Full 10) (4, 4) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
 
       (* |> maxpool2d (4, 4) |> conv2d ~id:(Some "classif") (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
       (* |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias *)
@@ -176,7 +176,7 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
       (* |> conv2d ~o ~id:(Some "classif") (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> maxpool2d (4, 4) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
 
       (* Classify and flatten using flatten and fully-connected *)
-      (* |> reorder_axes [`C, `C; `S0, `C; `S1, `C] |> dense ~o [`C, 10] |> bias *)
+      |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] |> dense ~o [`C, 10] ~id:(Some "classif") |> bias
 
       |> softmax `C
       |> Fnn.downcast
@@ -189,8 +189,8 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   (* let module Backend = (val Ft_cnnjs.get_backend `Tfjs_cpu) in *)
 
   let rng = Random.State.make [| 42 |] in
-  let batch_count, batch_size = 10000, 2000 in
-  (* let batch_count, batch_size = 2, 10 in *)
+  (* let batch_count, batch_size = 10000, 2000 in *)
+  let batch_count, batch_size = 2, 10 in
   let get_data _ =
     let indices = Array.init batch_size (fun _ -> Random.State.int rng 60000) in
     let imgs =

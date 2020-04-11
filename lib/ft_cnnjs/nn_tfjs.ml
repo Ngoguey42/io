@@ -101,6 +101,11 @@ let _validate_output_tensor net tensor =
     |> failwith;
   tensor
 
+let _index_in_list l x =
+  List.mapi (fun i y -> i, y) l
+  |> List.find (fun (_, y) -> x = y)
+  |> fst
+
 let _axes_of_shape shape =
   let ndim = Pshape.ndim shape in
   let is_sym = Pshape.is_symbolic shape in
@@ -118,15 +123,43 @@ let _derive_configuration_of_transpose_layer (net : Fnn.transpose) =
   let mapping = Pshape.Axis.transpose ~mapping axes0 axes1 in
   let mapping = List.map (List.map (_tensor_axis_of_shape_axis shape0)) mapping in
   let tftranspose_axes = List.concat mapping in
-
   let dims1_of_dims0 dims =
     List.map
       (fun tensor_axs0 -> tensor_axs0 |> List.map (Array.get dims) |> List.fold_left ( * ) 1)
       mapping
     |> Array.of_list
   in
-
   (tftranspose_axes, dims1_of_dims0)
+
+let _derive_configuration_of_tensordot_layer net =
+  (* Extract shape0 infos *)
+  let shape0 = net#upstream0#out_shape in
+  let axes0 = _axes_of_shape shape0 in
+  let caxes0 = net#contracted_axes0 in
+  let kaxes0 = List.filter (fun ax -> not (List.mem ax caxes0)) axes0 in
+  let kcount0 = List.length kaxes0 in
+  (* Extract shape1 infos *)
+  let shape1 = net#upstream1#out_shape in
+  let axes1 = _axes_of_shape shape1 in
+  let caxes1 = net#contracted_axes1 in
+  let kaxes1 = List.filter (fun ax -> not (List.mem ax caxes1)) axes1 in
+  (* Compute tensordot argument *)
+  let caxes01 =
+    List.combine
+      (List.map (_index_in_list axes0) caxes0)
+      (List.map (_index_in_list axes1) caxes1)
+  in
+  (* Compute permute argument *)
+  let shape2 = net#out_shape in
+  let axes2 = _axes_of_shape shape2 in
+  let perm =
+    List.map (fun ax ->
+        match net#input_axis_of_output_axis ax with
+        | `Left ax -> 0 + _index_in_list kaxes0 ax
+        | `Right ax -> kcount0 + _index_in_list kaxes1 ax
+      ) axes2
+  in
+  caxes01, perm
 
 (* Unpack functions ***************************************************************************** *)
 
@@ -262,8 +295,15 @@ let _unpack_layer21 (net : Fnn.node21) up0_forward up1_forward =
       let forward inputs =
         f ~b ~d ~s (up1_forward inputs) (up0_forward inputs) |> _validate_output_tensor net
       in
-      (forward, net#copy)
-  | _ -> failwith ("Layer not implemented: " ^ net#to_string)
+      (forward, (net :> Fnn.network)#copy)
+  | `Tensordot net ->
+     let mapping, perm = _derive_configuration_of_tensordot_layer net in
+     let forward inputs =
+       Tfjs_api.Ops.tensordot mapping (up0_forward inputs) (up1_forward inputs)
+       |> Tfjs_api.Ops.transpose ~perm
+       |> _validate_output_tensor net
+     in
+     (forward, (net :> Fnn.network)#copy)
 
 let _unpack_layern1 (net : Fnn.noden1) up_forwards =
   match net#classify_layer with

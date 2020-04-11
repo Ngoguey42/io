@@ -119,8 +119,11 @@ struct
         let mean_iou = Tfjs_api.Ops.mean false ious |> Tfjs_api.to_float in
         ignore (mean_iou, mean_recall, mean_precision);
 
-        let layer = Fnn.find_id (Some "classif") [ decoder ] in
-        let layer = layer#upstreams |> List.hd in
+        let layer = match (Fnn.find_id (Some "classif") [ decoder ])#classify_layer with
+          | `Conv2d node -> node#upstream0
+          | `Tensordot node -> node#upstream1
+          | _ -> failwith "unsupported `classif` layer"
+        in
         let classif_grad =
           let open Tfjs_api.Ops in
           let g = Tfjs_api.Named_tensor_map.find (Oo.id layer |> string_of_int) grads in

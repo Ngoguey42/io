@@ -545,7 +545,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; mapping0 : (Pshape.Axis.t * Pshape.Axis.t option) list
     ; mapping1 : (Pshape.Axis.t * Pshape.Axis.t option) list
     ; contracted_axes0 : Pshape.Axis.t list
-    ; contracted_axes1 : Pshape.Axis.t list >
+    ; contracted_axes1 : Pshape.Axis.t list
+    ; input_axis_of_output_axis : Pshape.Axis.t -> [ `Left of Pshape.Axis.t | `Right of Pshape.Axis.t ] >
 
   and conv2d =
     < upstreams : network list
@@ -2074,6 +2075,27 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method contracted_axes0 = contracted_axes0
 
           method contracted_axes1 = contracted_axes1
+
+          method input_axis_of_output_axis ax =
+            let find_opt_in_mapping mapping =
+              let f = function
+                | _, Some ax1 when ax1 = ax -> true
+                | _, _ -> false
+              in
+              match List.find_opt f mapping with
+              | Some (ax, _) -> Some ax
+              | None -> None
+            in
+
+            match find_opt_in_mapping mapping0 with
+            | Some ax -> `Left ax
+            | None ->
+               match find_opt_in_mapping mapping1 with
+               | Some ax -> `Right ax
+               | None ->
+                  "In tensordot#input_axis_of_output_axis: axis doesnt belon to output shape"
+                  |> invalid_arg
+
         end
       in
       fun ?id x0 x1 -> instanciate id (downcast x0) (downcast x1)

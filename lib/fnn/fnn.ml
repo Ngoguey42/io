@@ -455,6 +455,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_dtype : float_dtype
     ; stateful : bool
     ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> normalisation
+    ; replicate :
+        ?id:Id.t ->
+        [ `Batch of float
+        | `Moving32 of float * float * int * float32_tensor * float32_tensor
+        | `Moving_exp32 of float * float * float32_tensor * float32_tensor ] ->
+        network ->
+        normalisation
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -1550,6 +1557,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
             match upstreams with
             | [ up ] -> instanciate (if reinit then None else Some algorithm) (Some id) rng up
             | _ -> invalid_arg "normalisation#copy takes 1 upstream"
+
+          method replicate ?(id = self#id) algorithm upstream =
+            instanciate (Some algorithm) (Some id) None upstream
 
           method id = id
 

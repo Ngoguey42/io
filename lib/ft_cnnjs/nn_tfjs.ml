@@ -162,6 +162,32 @@ let _derive_configuration_of_tensordot_layer net =
   caxes01, perm
 
 (* Unpack functions ***************************************************************************** *)
+let _unpack_normalisation_algorithm = function
+  | `Batch epsilon ->
+     let forward x =
+       let open Tfjs_api.Ops in
+       (Tfjs_api.float 1.) / (Tfjs_api.float epsilon + x)
+     in
+     let pack () =
+       `Batch epsilon
+     in
+     forward, pack
+  | `Moving32 (epsilon, momentum, step, avg, var) ->
+     let forward x =
+       x
+     in
+     let pack () =
+       `Moving32 (epsilon, momentum, step, avg, var)
+     in
+     forward, pack
+  | `Moving_exp32 (epsilon, momentum, avg, var) ->
+     let forward x =
+       x
+     in
+     let pack () =
+       `Moving_exp32 (epsilon, momentum, avg, var)
+     in
+     forward, pack
 
 let _unpack_optimizer optim var =
   match optim with
@@ -204,19 +230,22 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
   match net#classify_layer with
   | `Relu _ ->
       let forward inputs = _validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
-      (forward, (net :> Fnn.network)#copy)
+      let copy : Fnn.network list -> Fnn.network = (net :> Fnn.network)#copy in
+      (forward, copy)
   | `Softmax net ->
       let tensor_axis = _tensor_axis_of_shape_axis net#upstream#out_shape net#axis in
       let forward inputs =
         _validate_output_tensor net (Tfjs_api.Ops.softmax tensor_axis (up_forward inputs))
       in
-      (forward, (net :> Fnn.network)#copy)
+      let copy : Fnn.network list -> Fnn.network = (net :> Fnn.network)#copy in
+      (forward, copy)
   | `Astype net ->
       let dtype = tfdtype_of_dtype net#dtype in
       let forward inputs =
         up_forward inputs |> Tfjs_api.Ops.astype dtype |> _validate_output_tensor net
       in
-      (forward, (net :> Fnn.network)#copy)
+      let copy : Fnn.network list -> Fnn.network = (net :> Fnn.network)#copy in
+      (forward, copy)
   | `Padding net ->
       if net#is_mixed then failwith "Mixed paddings not yet implemented";
       let value =
@@ -249,7 +278,8 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
           Tfjs_api.Ops.slice per_axis x
       in
       let forward inputs = up_forward inputs |> f |> _validate_output_tensor net in
-      (forward, (net :> Fnn.network)#copy)
+      let copy : Fnn.network list -> Fnn.network = (net :> Fnn.network)#copy in
+      (forward, copy)
   | `Maxpool2d net ->
       let b =
         match net#boundary_mode with
@@ -263,7 +293,8 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
       let forward inputs =
         up_forward inputs |> Tfjs_api.Ops.maxpool2d ~s ~b kernel_size |> _validate_output_tensor net
       in
-      (forward, (net :> Fnn.network)#copy)
+      let copy : Fnn.network list -> Fnn.network = (net :> Fnn.network)#copy in
+      (forward, copy)
   | `Transpose net ->
       let tftranspose_axes, dims1_of_dims0 = _derive_configuration_of_transpose_layer net in
       let forward inputs =
@@ -273,8 +304,20 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
         |> Tfjs_api.Ops.reshape tfreshape_shape
         |> _validate_output_tensor net
       in
-      (forward, (net :> Fnn.network)#copy)
-  | _ -> failwith ("soon 11:" ^ net#to_string)
+      let copy : Fnn.network list -> Fnn.network = (net :> Fnn.network)#copy in
+      (forward, copy)
+  | `Normalisation net ->
+     let norm_forward, norm_pack = _unpack_normalisation_algorithm net#algorithm in
+     let forward inputs =
+       let x = up_forward inputs in
+       norm_forward |> ignore;
+       x
+     in
+     let copy = function
+       | [ upstream ] -> (net#replicate (norm_pack ()) upstream :> Fnn.network)
+       | _ -> failwith "unreachable: Normalisation.pack takes only 1 input"
+     in
+     (forward, copy)
 
 let _unpack_layer21 (net : Fnn.node21) up0_forward up1_forward =
   match net#classify_layer with

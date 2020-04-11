@@ -288,18 +288,6 @@ module Ops = struct
   let softmax : int -> #tensor Js.t -> tensor Js.t =
    fun axis x -> fun_call global##.tf##.softmax [| inject x; inject axis |]
 
-  let maxpool : ?s:int * int -> ?b:[< `Valid | `Same ] -> int * int -> #tensor Js.t -> tensor Js.t =
-   fun ?s:stride ?b:boundary_mode (ky, kx) x ->
-    let filter_size = Js.array [| ky; kx |] in
-    let stride = match stride with None -> filter_size | Some (sy, sx) -> Js.array [| sy; sx |] in
-    let boundary_mode =
-      match boundary_mode with None -> "same" | Some `Same -> "same" | Some `Valid -> "valid"
-    in
-    let boundary_mode = Js.string boundary_mode in
-    fun_call
-      global##.tf##.maxPool
-      [| inject x; inject filter_size; inject stride; inject boundary_mode |]
-
   let pad : ?value:float -> (int * int list) list -> #tensor Js.t -> tensor Js.t =
    fun ?(value = 0.) paddings_per_axis x ->
     let paddings =
@@ -399,6 +387,105 @@ module Ops = struct
     in
     let dtype = Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32") in
     fun_call global##.tf##.range [| inject start; inject stop; inject step; inject dtype |]
+
+  let maxpool2d : ?s:int * int -> ?b:[< `Valid | `Same ] -> int * int -> #tensor Js.t -> tensor Js.t =
+   fun ?s:stride ?b:boundary_mode (ky, kx) x ->
+    let filter_size = Js.array [| ky; kx |] in
+    let stride = match stride with None -> filter_size | Some (sy, sx) -> Js.array [| sy; sx |] in
+    let boundary_mode =
+      match boundary_mode with None -> "same" | Some `Same -> "same" | Some `Valid -> "valid"
+    in
+    let boundary_mode = Js.string boundary_mode in
+    fun_call
+      global##.tf##.maxPool
+      [| inject x; inject filter_size; inject stride; inject boundary_mode |]
+
+  let avgpool :
+        ?s:int list -> ?b:[< `Valid | `Same | `AssertFit ] -> int list -> #tensor Js.t ->
+        tensor Js.t =
+    fun ?s:strides ?b:boundary_mode kernel_sizes x ->
+    let boundary_mode = match boundary_mode with
+      | None -> `Same
+      | Some b -> (b :> [ `Valid | `Same | `AssertFit ])
+    in
+    let strides = match strides with
+      | None -> kernel_sizes
+      | Some s -> s
+    in
+
+    if List.length kernel_sizes <> x##.rank then
+      invalid_arg "In avgpool: kernel_sizes length should match tensor's ndim";
+    if List.exists (fun ks -> ks <= 0) kernel_sizes then
+      invalid_arg "In avgpool: kernel_sizes must be >= 1";
+    if List.exists (fun ks -> ks <= 0) strides then
+      invalid_arg "In avgpool: kernel_sizes must be >= 1";
+
+    let strides = Array.of_list strides in
+    let kernel_sizes = Array.of_list kernel_sizes in
+    let b =
+      Js.string ( match boundary_mode with
+                  | `AssertFit -> "valid"
+                  | `Same -> "same"
+                  | `Valid -> "valid" )
+    in
+    let axes = List.init x##.rank (fun idx -> idx) in
+
+    let aux x idx =
+      let dims = Js.to_array x##.shape in
+      let dim = dims.(idx) in
+      let ks = kernel_sizes.(idx) in
+      let s = strides.(idx) in
+      if ks = 1 && s = 1 then
+        x
+      else
+        let fits =
+          float_of_int (dim - ks) /. (float_of_int s)
+          |> Float.is_integer
+        in
+        if boundary_mode = `AssertFit && not fits then
+          invalid_arg "In avgpool: `AssertFit failed";
+        let prod l = List.fold_left ( * ) 1 l in
+        let sizes_before =
+          List.filter_map (fun i ->
+              if i < idx then Some (dims.(i)) else None) axes
+        in
+        let sizes_after =
+          List.filter_map (fun i -> if i > idx then Some (dims.(i)) else None) axes
+        in
+
+        let ks = Js.array [| ks ; 1 |] in
+        let s = Js.array [| s ; 1 |] in
+        let f x =
+          fun_call global##.tf##.avgPool [| inject x; inject ks; inject s; inject b |]
+        in
+        x
+        |> reshape [| prod sizes_before; dim; 1; prod sizes_after |]
+        |> f
+        |> reshape ( sizes_before @ [ -1 ] @ sizes_after |> Array.of_list )
+    in
+    List.fold_left aux x axes
+
+  let lol () =
+    Printf.eprintf "welcome to lolworld\n%!";
+    let x =
+      range [4 * 4] `Float32
+      |> reshape [| 1; 4; 4; 1 |]
+    in
+    let y =
+      avgpool ~b:`AssertFit [1; 4; 2; 1] x
+    in
+    ignore (x, y);
+
+    Printf.eprintf "x\n%!";
+    Firebug.console##log x;
+    (reshape [| 4; 4 |] x)##print;
+
+    Printf.eprintf "y\n%!";
+    Firebug.console##log y;
+    (reshape [| 1; 2 |] y)##print;
+    if true then assert false;
+    ()
+
 
   let ( * ) = mul
 
@@ -543,7 +630,7 @@ module Layers = struct
     let open Js.Unsafe in
     fun_call global##.tf##.layers##.conv2d [| inject params |]
 
-  let max_pool2d ?name kernel_size stride : layer Js.t =
+  let maxpool2d ?name kernel_size stride : layer Js.t =
     let ky, kx = kernel_size in
     let sy, sx = stride in
     let params =

@@ -261,7 +261,7 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
       let kernel_size = net#kernel_size in
       let s = net#stride in
       let forward inputs =
-        up_forward inputs |> Tfjs_api.Ops.maxpool ~s ~b kernel_size |> _validate_output_tensor net
+        up_forward inputs |> Tfjs_api.Ops.maxpool2d ~s ~b kernel_size |> _validate_output_tensor net
       in
       (forward, (net :> Fnn.network)#copy)
   | `Transpose net ->

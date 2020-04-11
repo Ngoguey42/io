@@ -166,6 +166,7 @@ struct
       (Fnn.network list * Fnn.network) Lwt.t =
    fun ?(verbose = true) ?(progress = fun _ -> ()) ~batch_count ~get_lr ~get_data ~encoders ~decoder ->
     let open Lwt.Infix in
+    Tfjs_api.Ops.lol ();
     Tfjs_api.setup_backend Backend.v >>= fun _ ->
     let f () = _train verbose progress batch_count get_lr get_data encoders decoder in
     Tfjs_api.tidy_lwt f >>= fun res ->

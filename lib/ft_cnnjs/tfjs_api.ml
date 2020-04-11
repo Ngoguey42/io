@@ -465,27 +465,106 @@ module Ops = struct
     in
     List.fold_left aux x axes
 
-  let lol () =
-    Printf.eprintf "welcome to lolworld\n%!";
-    let x =
-      range [4 * 4] `Float32
-      |> reshape [| 1; 4; 4; 1 |]
+  let maxpool :
+        ?s:int list -> ?b:[< `Valid | `Same | `AssertFit ] -> int list -> #tensor Js.t ->
+        tensor Js.t =
+    fun ?s:strides ?b:boundary_mode kernel_sizes x ->
+    let boundary_mode = match boundary_mode with
+      | None -> `Same
+      | Some b -> (b :> [ `Valid | `Same | `AssertFit ])
     in
-    let y =
-      avgpool ~b:`AssertFit [1; 4; 2; 1] x
+    let strides = match strides with
+      | None -> kernel_sizes
+      | Some s -> s
     in
-    ignore (x, y);
 
-    Printf.eprintf "x\n%!";
-    Firebug.console##log x;
-    (reshape [| 4; 4 |] x)##print;
+    if List.length kernel_sizes <> x##.rank then
+      invalid_arg "In maxpool: kernel_sizes length should match tensor's ndim";
+    if List.exists (fun ks -> ks <= 0) kernel_sizes then
+      invalid_arg "In maxpool: kernel_sizes must be >= 1";
+    if List.exists (fun ks -> ks <= 0) strides then
+      invalid_arg "In maxpool: kernel_sizes must be >= 1";
 
-    Printf.eprintf "y\n%!";
-    Firebug.console##log y;
-    (reshape [| 1; 2 |] y)##print;
-    if true then assert false;
-    ()
+    let strides = Array.of_list strides in
+    let kernel_sizes = Array.of_list kernel_sizes in
+    let b =
+      Js.string ( match boundary_mode with
+                  | `AssertFit -> "valid"
+                  | `Same -> "same"
+                  | `Valid -> "valid" )
+    in
+    let axes = List.init x##.rank (fun idx -> idx) in
 
+    let aux x idx =
+      let dims = Js.to_array x##.shape in
+      let dim = dims.(idx) in
+      let ks = kernel_sizes.(idx) in
+      let s = strides.(idx) in
+      if ks = 1 && s = 1 then
+        x
+      else
+        let fits =
+          float_of_int (dim - ks) /. (float_of_int s)
+          |> Float.is_integer
+        in
+        if boundary_mode = `AssertFit && not fits then
+          invalid_arg "In maxpool: `AssertFit failed";
+        let prod l = List.fold_left ( * ) 1 l in
+        let sizes_before =
+          List.filter_map (fun i ->
+              if i < idx then Some (dims.(i)) else None) axes
+        in
+        let sizes_after =
+          List.filter_map (fun i -> if i > idx then Some (dims.(i)) else None) axes
+        in
+
+        let ks = Js.array [| ks ; 1 |] in
+        let s = Js.array [| s ; 1 |] in
+        let f x =
+          fun_call global##.tf##.maxPool [| inject x; inject ks; inject s; inject b |]
+        in
+        x
+        |> reshape [| prod sizes_before; dim; 1; prod sizes_after |]
+        |> f
+        |> reshape ( sizes_before @ [ -1 ] @ sizes_after |> Array.of_list )
+    in
+    List.fold_left aux x axes
+
+  let upsample : int list -> #tensor Js.t -> tensor Js.t =
+    fun expansion_factors x ->
+    if List.length expansion_factors <> x##.rank then
+      invalid_arg "In upsampling: expansion_factors length should match tensor's ndim";
+    if List.exists (fun ks -> ks <= 0) expansion_factors then
+      invalid_arg "In upsampling: expansion_factors must be >= 1";
+
+    let expansion_factors = Array.of_list expansion_factors in
+    let axes = List.init x##.rank (fun idx -> idx) in
+
+    let aux x idx =
+      let dims = Js.to_array x##.shape in
+      let dim = dims.(idx) in
+      let fact = expansion_factors.(idx) in
+      if fact = 1 then
+        x
+      else
+        let prod l = List.fold_left ( * ) 1 l in
+        let sizes_before =
+          List.filter_map (fun i -> if i < idx then Some (dims.(i)) else None) axes
+        in
+        let sizes_after =
+          List.filter_map (fun i -> if i > idx then Some (dims.(i)) else None) axes
+        in
+        let fact = Js.array [| dim * fact ; 1 |] in
+        let f x =
+          fun_call global##.tf##.image##.resizeNearestNeighbor
+                   [| inject x; inject fact; inject false |]
+        in
+        x
+        |> reshape [| prod sizes_before; dim; 1; prod sizes_after |]
+        |> f
+        |> reshape ( sizes_before @ [ -1 ] @ sizes_after |> Array.of_list )
+    in
+    List.fold_left aux x axes
 
   let ( * ) = mul
 

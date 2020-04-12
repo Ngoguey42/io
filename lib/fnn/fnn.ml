@@ -1488,9 +1488,6 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           | #int_dtype -> invalid_arg "In normalisation: Can't be applied on an integer tensor"
         in
 
-        (* Extraction: axes *)
-
-
         (* Extraction: input sizes *)
         let shape = upstream#out_shape in
         let dimensions =

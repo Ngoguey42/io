@@ -130,11 +130,16 @@ let[@ocamlformat "disable"] encoder_oneconv (module Builder : Fnn.BUILDER) o : F
   let open Builder in
   let open Pshape.Size in
   (* let batch_norm = batch_norm ~affine:false in (\* TODO: Remove line *\) *)
-  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
+  (* input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U `Float32 *)
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
   (* |> conv2d ~o (`Full 50) (16, 16) ~s:(4, 4) ~b:`Assert_fit |> bias *)
+  (* |> normalisation [ `C; `C ] *)
+  |> normalisation [ `S0; `C; `S1 ]
+
   |> conv2d ~o (`Full 50) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias
   (* |> conv2d ~o (`Full 50) (16, 16) ~s:(3, 3) ~b:`Assert_fit |> bias *)
   (* |> batch_norm ~affine:false *)
+
   |> relu
   |> Fnn.downcast
 
@@ -193,8 +198,8 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   (* let module Backend = (val Ft_cnnjs.get_backend `Tfjs_cpu) in *)
 
   let rng = Random.State.make [| 42 |] in
-  let batch_count, batch_size = 1000, 1000 in
-  (* let batch_count, batch_size = 2, 10 in *)
+  (* let batch_count, batch_size = 1000, 1000 in *)
+  let batch_count, batch_size = 2, 10 in
   let get_data _ =
     let indices = Array.init batch_size (fun _ -> Random.State.int rng 60000) in
     let imgs =

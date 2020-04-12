@@ -180,6 +180,7 @@ let _unpack_normalisation_algorithm axes = function
      in
      forward, pack
   | `Exp_moving32 (epsilon, momentum, avg, var) ->
+     (* TODO: What if different order? *)
      let normaliser =
        Tfjs_api.create_exp_moving32_normaliser epsilon momentum avg var true axes
      in
@@ -308,8 +309,7 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
       (forward, copy)
   | `Normalisation net ->
      let shape = net#upstream#out_shape in
-     let axes =
-       List.map (_tensor_axis_of_shape_axis shape) net#axes in
+     let axes = List.map (_tensor_axis_of_shape_axis shape) net#axes in
      let norm_forward, norm_pack = _unpack_normalisation_algorithm axes net#algorithm in
      let forward inputs =
        up_forward inputs

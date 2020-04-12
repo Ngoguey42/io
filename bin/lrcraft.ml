@@ -27,6 +27,7 @@ let print_arr_ad x = print_arr @@ Algodiff.unpack_arr x
 let[@ocamlformat "disable"] encoder_padding_batchnorm (module Builder : Fnn.BUILDER) o : Fnn.network =
   let open Builder in
   let open Pshape.Size in
+  let batch_norm = batch_norm ~affine:false ~stats:(`Batch 1e-8) in (* TODO: Remove line *)
   input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
   |> conv2d ~o (`Full 10) (3, 3) ~s:(2, 2) ~b:`Same (* pooling *) |> bias |> batch_norm |> relu
   |> conv2d ~o (`Full 10) (3, 3) ~s:(2, 2) ~b:`Same (* pooling *) |> bias |> batch_norm |> relu
@@ -151,11 +152,11 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
     let open Pshape.Size in
     Printf.eprintf "Building encoder(s)...\n%!";
     let encoders = [
-        (* encoder_padding_batchnorm (); *)
+        encoder_padding_batchnorm builder o;
         (* encoder_pooling builder o; *)
         (* encoder_mobilenet builder o; *)
         (* encoder_dilatedconvs (); *)
-        encoder_oneconv builder o;
+        (* encoder_oneconv builder o; *)
       ]
     in
     Printf.eprintf "Building decoder...\n%!";
@@ -189,8 +190,8 @@ let _main_nn train_imgs train_labs test_imgs test_labs =
   (* let module Backend = (val Ft_cnnjs.get_backend `Tfjs_cpu) in *)
 
   let rng = Random.State.make [| 42 |] in
-  (* let batch_count, batch_size = 10000, 2000 in *)
-  let batch_count, batch_size = 2, 10 in
+  let batch_count, batch_size = 10000, 1000 in
+  (* let batch_count, batch_size = 2, 10 in *)
   let get_data _ =
     let indices = Array.init batch_size (fun _ -> Random.State.int rng 60000) in
     let imgs =

@@ -162,27 +162,31 @@ let _derive_configuration_of_tensordot_layer net =
   caxes01, perm
 
 (* Unpack functions ***************************************************************************** *)
-let _unpack_normalisation_algorithm = function
+let _unpack_normalisation_algorithm axes = function
   | `Batch epsilon ->
-     let forward x =
-       let open Tfjs_api.Ops in
-       (Tfjs_api.float 1.) / (Tfjs_api.float epsilon + x)
-     in
+     let normaliser = Tfjs_api.create_batch_normaliser epsilon axes in
+     let forward = normaliser#normalise in
      let pack () =
        `Batch epsilon
      in
      forward, pack
   | `Moving32 (epsilon, momentum, step, avg, var) ->
      let forward x =
-       x
+       ignore x;
+       failwith "not implemented"
      in
      let pack () =
        `Moving32 (epsilon, momentum, step, avg, var)
      in
      forward, pack
   | `Moving_exp32 (epsilon, momentum, avg, var) ->
+     let sizes = Bigarray.Genarray.dims avg |> Array.to_list in
      let forward x =
-       x
+       let shape = x##.shape |> Js.to_array in
+       if sizes <> List.map (fun i -> shape.(i)) axes then
+         failwith "In normalisation@forward, invalid input tensor shape";
+       ignore x;
+       failwith "not implemented"
      in
      let pack () =
        `Moving_exp32 (epsilon, momentum, avg, var)
@@ -192,11 +196,11 @@ let _unpack_normalisation_algorithm = function
 let _unpack_optimizer optim var =
   match optim with
   | `Sgd ->
-      let updater = Tfjs_api.sgd_updater var in
+      let updater = Tfjs_api.create_sgd_updater var in
       let pack () = `Sgd in
       (updater#update, pack)
   | `Adam (epsilon, beta1, beta2, step, rgrad, rgrad_sq) ->
-      let updater = Tfjs_api.create_adam_updater epsilon beta1 beta2 step rgrad rgrad_sq var in
+      let updater = Tfjs_api.create_adam32_updater epsilon beta1 beta2 step rgrad rgrad_sq var in
       let pack () =
         `Adam (epsilon, beta1, beta2, updater#get_step, updater#get_rgrad, updater#get_rgrad_sq)
       in
@@ -220,7 +224,7 @@ let _unpack_node01 (net : Fnn.node01) =
       let forward _ = _validate_output_tensor net var in
       let update, opti_pack = _unpack_optimizer net#optimizer var in
       let pack () =
-        let tensor = Tfjs_api.ba_of_tensor_float var in
+        let tensor = Tfjs_api.ba_of_tensor Bigarray.Float32 var in
         let optimizer = opti_pack () in
         (net#replicate ~id:net#id tensor optimizer :> Fnn.network)
       in
@@ -307,11 +311,14 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
       let copy : Fnn.network list -> Fnn.network = (net :> Fnn.network)#copy in
       (forward, copy)
   | `Normalisation net ->
-     let norm_forward, norm_pack = _unpack_normalisation_algorithm net#algorithm in
+     let shape = net#upstream#out_shape in
+     let axes =
+       List.map (_tensor_axis_of_shape_axis shape) net#axes in
+     let norm_forward, norm_pack = _unpack_normalisation_algorithm axes net#algorithm in
      let forward inputs =
-       let x = up_forward inputs in
-       norm_forward |> ignore;
-       x
+       up_forward inputs
+       |> norm_forward
+       |> _validate_output_tensor net
      in
      let copy = function
        | [ upstream ] -> (net#replicate (norm_pack ()) upstream :> Fnn.network)

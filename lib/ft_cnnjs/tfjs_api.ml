@@ -54,9 +54,9 @@ class type tensor =
 
     method data_int : int32_ta Js.t Ft_js.promise Js.t Js.meth
 
-    method dataSync_float : float32_ta Js.t Js.meth
+    method dataSync_float32 : float32_ta Js.t Js.meth
 
-    method dataSync_int : int32_ta Js.t Js.meth
+    method dataSync_int32 : int32_ta Js.t Js.meth
 
     method arraySync_int : int Js.js_array Js.t Js.meth
 
@@ -592,10 +592,17 @@ let tensor_of_ba (type a b) : (a, b, Bigarray.c_layout) Bigarray.Genarray.t -> t
       tensor_of_ta (Bigarray.Genarray.dims arr) (Ft_js.Conv.Uint8.ta_of_ba arr)
   | _ -> failwith "In tensor_of_ta: Unsopported dtype"
 
-let ba_of_tensor_float : #tensor Js.t -> float32_ba =
- fun t ->
-  t##dataSync_float |> Ft_js.Conv.Float32.ba_of_ta |> fun arr ->
-  Bigarray.reshape arr (Js.to_array t##.shape)
+let ba_of_tensor (type a b) : (a, b) Bigarray.kind -> #tensor Js.t ->
+                              (a, b, Bigarray.c_layout) Bigarray.Genarray.t =
+  fun kind tensor ->
+  let tensor_astype dtype =
+    tensor##asType (Js.string dtype)
+  in
+  let reshape arr =    Bigarray.reshape arr (Js.to_array tensor##.shape)  in
+  match kind with
+  | Bigarray.Float32 ->
+     (tensor_astype "float32")##dataSync_float32 |> Ft_js.Conv.Float32.ba_of_ta |> reshape
+  | _ -> failwith "In ba_of_tensor: Kind not implemented"
 
 let variable :
     ?trainable:bool -> ?name:string -> ?dtype:[< `Float32 | `Int32 ] -> tensor Js.t -> variable Js.t
@@ -801,7 +808,38 @@ let hinge : ?margin:float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
   let open Ops in
   float margin - (truth * pred) |> maximum (float 0.) |> sum ~axis:(-1) true |> mean ~axis:0 true
 
-let sgd_updater : variable Js.t -> _ =
+(* let avgpool : *)
+(*       ?s:int list -> ?b:[< `Valid | `Same | `AssertFit ] -> int list -> #tensor Js.t -> *)
+(*       tensor Js.t = *)
+
+let create_batch_normaliser : float -> int list -> _ =
+  fun epsilon norm_axes ->
+  if epsilon < 0. then
+    invalid_arg "In create_batch_normaliser: epsilon should be >=0";
+  let epsilon = float epsilon in
+  if List.length norm_axes = 0 then
+    invalid_arg "In create_batch_normaliser: norm_axes shouldn't be an empty list";
+  object
+    method normalise x =
+      let dims = x##.shape |> Js.to_array in
+      let ndim = Array.length dims in
+      let norm_axes = List.map (fun ax ->
+                     let ax = if ax < 0 then -(ax + 1) else ax in
+                     if ax >= ndim then
+                       failwith "In create_batch_normaliser#normalise: Input tensor is too small";
+                     ax
+                   ) norm_axes in
+      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
+
+      let open Ops in
+      let avg = avgpool ~b:`AssertFit kernel_sizes x in
+      let x_centered = x - avg in
+      let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
+      x_centered / (var + epsilon |> sqrt)
+
+  end
+
+let create_sgd_updater : variable Js.t -> _ =
  fun weights ->
   object
     method update lr grad =
@@ -809,7 +847,7 @@ let sgd_updater : variable Js.t -> _ =
       weights##assign (grad |> mul (float lr) |> neg |> add weights)
   end
 
-let create_adam_updater :
+let create_adam32_updater :
     float -> float -> float -> int -> float32_ba -> float32_ba -> variable Js.t -> _ =
  fun epsilon beta1 beta2 step rgrad rgrad_sq weights ->
   let beta1 = beta1 |> float in
@@ -843,9 +881,9 @@ let create_adam_updater :
 
     method get_step = to_int step
 
-    method get_rgrad = ba_of_tensor_float rgrad
+    method get_rgrad = ba_of_tensor Bigarray.Float32 rgrad
 
-    method get_rgrad_sq = ba_of_tensor_float rgrad_sq
+    method get_rgrad_sq = ba_of_tensor Bigarray.Float32 rgrad_sq
   end
 
 let iou_recall_precision_of_cm : #tensor Js.t -> tensor Js.t =

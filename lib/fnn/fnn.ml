@@ -467,8 +467,6 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; to_string : string
     ; upstream : network
     ; axes : Pshape.Axis.t list
-    ; group_sizes : int list
-    ; group_counts : int list
     ; algorithm :
         [ `Batch of float
         | `Moving32 of float * float * int * float32_tensor * float32_tensor
@@ -931,7 +929,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     val astype : dtype -> ?id:Id.t -> _ any -> astype
 
     val normalisation :
-      ([< Pshape.Axis.t ] * int) list ->
+      [< Pshape.Axis.t ] list ->
       ?stats:[< `Batch of float | `Moving of float * float | `Moving_exp of float * float ] ->
       ?id:Id.t ->
       ?rng:Random.State.t ->
@@ -1440,7 +1438,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       in
       fun ?id upstream -> instanciate id (downcast upstream)
 
-    let normalisation group_size_per_axis ?stats =
+    let normalisation axes ?stats =
       let stats =
         Option.value
           ~default:(`Moving_exp (1e-5, 0.1))
@@ -1448,20 +1446,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
             :> [ `Batch of float | `Moving of float * float | `Moving_exp of float * float ] option
             )
       in
-      let group_size_per_axis = (group_size_per_axis :> (Pshape.Axis.t * int) list) in
+      let axes = (axes :> Pshape.Axis.t list) in
 
       (* Check: axes *)
-      let norm_axes, group_sizes = List.split group_size_per_axis in
-      if List.length norm_axes = 0 then
-        invalid_arg "In normalisation: group_size_per_axis should not be an empty list";
-      if List.length norm_axes <> List.length (List.sort_uniq compare norm_axes) then
+      if List.length axes = 0 then
+        invalid_arg "In normalisation: axes should not be an empty list";
+      if List.length axes <> List.length (List.sort_uniq compare axes) then
         invalid_arg "In normalisation: Axis provided twice";
-
-      (* Check: input sizes *)
-      List.iter
-        (fun group_size ->
-          if group_size <= 0 then invalid_arg "In normalisation: group_size can't be negative")
-        group_sizes;
 
       (* Check: algorithm *)
       ( match stats with
@@ -1485,27 +1476,22 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         in
 
         (* Extraction: axes *)
-        let shape = upstream#out_shape in
-        let all_axes = Pshape.axes shape in
-        if List.exists (fun ax -> not (List.mem ax all_axes)) norm_axes then
-          invalid_arg "In normalisation: bad axis in group_size_per_axis";
+
 
         (* Extraction: input sizes *)
-        let group_counts =
+        let shape = upstream#out_shape in
+        let dimensions =
           List.map
-            (fun (ax, group_size) ->
-              let size =
-                match Pshape.get shape ax with
-                | Pshape.Size.K i -> i
-                | Pshape.Size.U ->
-                    invalid_arg "In normalisation: can't normalize along an unknown axis"
-              in
-              if size mod group_size <> 0 then
-                invalid_arg "In normalisation: group_size doesn't divide axis size";
-              size / group_size)
-            group_size_per_axis
+          (fun ax ->
+            match Pshape.get_opt shape ax with
+            | Some (Pshape.Size.K i) -> i
+            | Some Pshape.Size.U ->
+               invalid_arg "In normalisation: can't normalize along an unknown axis"
+            | None ->
+               invalid_arg "In normalisation: bad axis in axes" )
+          axes
+          |> Array.of_list
         in
-        let dimensions = Array.of_list group_counts in
 
         (* Allocation: algorithm *)
         let algorithm =
@@ -1569,29 +1555,23 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method upstream = upstream
 
-          method axes = norm_axes
-
-          method group_sizes = group_sizes
-
-          method group_counts = group_counts
+          method axes = axes
 
           method algorithm = algorithm
 
-          method is_batch_norm = norm_axes = [ `C ] && group_sizes = [ 1 ]
+          method is_batch_norm = axes = [ `C ]
 
-          method is_layer_norm = norm_axes = [ `N ] && group_sizes = [ 1 ]
+          method is_layer_norm = axes = [ `N ]
 
           method is_instance_norm =
-            match (norm_axes, group_sizes) with
-            | [ `N; `C ], [ 1; 1 ] | [ `C; `N ], [ 1; 1 ] -> true
-            | _, _ -> false
+            match axes with
+            | [ `N; `C ] | [ `C; `N ] -> true
+            | _ -> false
 
           method is_group_norm =
-            match (norm_axes, group_sizes) with
-            | ([ `N; `C ], [ 1; chan_group_size ] | [ `C; `N ], [ chan_group_size; 1 ])
-              when chan_group_size <> 1 ->
-                true
-            | _, _ -> false
+            match axes with
+            | [ `N; `C ] | [ `C; `N ] -> true
+            | _ -> false
         end
       in
       fun ?id ?rng upstream -> instanciate None id rng (downcast upstream)
@@ -2310,8 +2290,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
       let upstream = downcast upstream in
       let id = match id with None -> Id.create_default () | Some id -> id in
-      if affine then normalisation ~id ~rng ~stats [ (`C, 1) ] upstream |> scale |> bias |> downcast
-      else normalisation ~id ~rng ~stats [ (`C, 1) ] upstream |> downcast
+      if affine then normalisation ~id ~rng ~stats [ `C ] upstream |> scale |> bias |> downcast
+      else normalisation ~id ~rng ~stats [ `C ] upstream |> downcast
   end
 
   module Builder = Make_builder (struct

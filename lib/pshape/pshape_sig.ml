@@ -230,6 +230,8 @@ module type PSHAPE = sig
 
   val get : (_, 'sz, 'ax) t -> 'ax -> 'sz Size.t
 
+  val get_opt : (_, 'sz, 'ax) t -> 'ax -> 'sz Size.t option
+
   (** MISC.  *)
 
   val numel : (_, 'sz, _) t -> 'sz Size.t

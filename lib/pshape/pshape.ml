@@ -722,6 +722,10 @@ module Pshape :
   let get (type len sz ax) : (len, sz, ax) t -> ax -> sz Size.t =
    fun shape axis -> to_list shape |> List.find (fun (axis', _) -> axis = axis') |> snd
 
+  let get_opt (type len sz ax) : (len, sz, ax) t -> ax -> sz Size.t option =
+    fun shape axis ->
+    to_list shape |> List.find_opt (fun (axis', _) -> axis = axis') |> Option.map snd
+
   (* Contract two shapes together. Useful to compute the resulting shape of a tensordot operation.
 
      The first element of a tuple in `mapping0` is an axis of `shape0`, the second element is either

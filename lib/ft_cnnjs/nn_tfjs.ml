@@ -171,16 +171,15 @@ let _unpack_normalisation_algorithm axes = function
      in
      forward, pack
   | `Global32 (epsilon, step, avg, var) ->
-     let forward x =
-       ignore x;
-       failwith "not implemented"
+     let normaliser =
+       Tfjs_api.create_global_normaliser epsilon step avg var true axes
      in
+     let forward = normaliser#normalise in
      let pack () =
-       `Global32 (epsilon, step, avg, var)
+       `Global32 (epsilon, normaliser#get_step, normaliser#get_avg, normaliser#get_var)
      in
      forward, pack
   | `Exp_moving32 (epsilon, momentum, avg, var) ->
-     (* TODO: What if different order? *)
      let normaliser =
        Tfjs_api.create_exp_moving32_normaliser epsilon momentum avg var true axes
      in

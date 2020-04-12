@@ -857,9 +857,107 @@ let create_local_normaliser : float -> int list -> _ =
       x_centered / (var + epsilon |> sqrt)
   end
 
-(* let create_global_normaliser : *)
-(*       float -> float32_ba -> float32_ba -> bool -> int list -> _ = *)
-(*   fun epsilon moving_avg moving_var update norm_axes -> *)
+let create_global_normaliser :
+      float -> int -> float32_ba -> float32_ba -> bool -> int list -> _ =
+  fun epsilon step moving_avg moving_var update norm_axes ->
+  let err_hd = "In create_global_normaliser" in
+
+  if epsilon < 0. then
+    invalid_arg (err_hd ^ ": epsilon should be >=0");
+  if List.length norm_axes = 0 then
+    invalid_arg (err_hd ^ ": norm_axes shouldn't be an empty list");
+  if Bigarray.Genarray.dims moving_avg <> Bigarray.Genarray.dims moving_var then
+    invalid_arg (err_hd ^ ": moving_avg and moving_var should have the same shape");
+  if Bigarray.Genarray.num_dims moving_avg <> List.length norm_axes then
+    invalid_arg (err_hd ^ ": norm_axes incompatible with moving_avg and moving_var");
+
+  let epsilon = float epsilon in
+  let norm_axes_original = norm_axes in
+  let norm_axes = List.sort compare norm_axes in
+  let transpose_to_sorted tensor =
+    let norm_axes = Array.of_list norm_axes in
+    let perm =
+      List.init (Array.length norm_axes) Fun.id
+      |> List.map (
+             fun dst_idx ->
+             let ax = norm_axes.(dst_idx) in
+             let src_idx =
+               List.mapi (fun i j -> (i, j)) norm_axes_original
+               |> List.find (fun (_, ax') -> ax = ax')
+               |> fst
+             in
+             src_idx
+           )
+    in
+    Ops.transpose ~perm tensor
+  in
+  let transpose_to_original tensor =
+    let norm_axes_original = Array.of_list norm_axes_original in
+    let perm =
+      List.init (Array.length norm_axes_original) Fun.id
+      |> List.map (
+             fun src_idx ->
+             let ax = norm_axes_original.(src_idx) in
+             let dst_idx =
+               List.mapi (fun i j -> (i, j)) norm_axes
+               |> List.find (fun (_, ax') -> ax = ax')
+               |> fst
+             in
+             dst_idx
+           )
+    in
+    Ops.transpose ~perm tensor
+  in
+
+  let moving_avg = tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false in
+  let moving_var = tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false in
+  let step = int step |> variable ~trainable:false in
+  object
+    method normalise x =
+      let dims = Ops.shape x in
+      let ndim = Array.length dims in
+      let axes = List.init ndim Fun.id in
+      let squeezed_axes = List.filter (fun i -> not (List.mem i norm_axes)) axes in
+      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
+      let dims' = Array.mapi (fun i s -> if List.mem i norm_axes then s else 1) dims in
+      let dims'' =
+        List.filter_map (fun i -> if List.mem i norm_axes then Some dims.(i) else None) axes
+        |> Array.of_list
+      in
+      if dims'' <> (Ops.shape moving_var) then
+        failwith (err_hd ^ "#normalise: Unexpected input tensor shape");
+      let open Ops in
+
+      if update then begin
+          step##assign (step + (int 1));
+          let momentum' = (float 1.) / (step##asType (Js.string "float32")) in
+          let momentum = ((float 1.) - momentum') in
+          Printf.eprintf "%d %10.6f %10.6f\n%!"
+                         (to_int step) (to_float momentum') (to_float momentum)
+          ;
+
+          let avg = avgpool ~b:`AssertFit kernel_sizes x in
+          let x_centered = x - avg in
+          let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
+          assert (shape avg = dims');
+
+          let avg = squeeze ~axes:squeezed_axes avg in
+          let var = squeeze ~axes:squeezed_axes var in
+          assert (shape avg = dims'');
+
+          moving_avg##assign (momentum * moving_avg + momentum' * avg);
+          moving_var##assign (momentum * moving_var + momentum' * var);
+        end;
+      let moving_avg = reshape dims' moving_avg in
+      let moving_var = reshape dims' moving_var in
+      (x - moving_avg) / (moving_var + epsilon |> sqrt)
+
+    method get_step = to_int step
+
+    method get_avg = moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+
+    method get_var = moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+  end
 
 let create_exp_moving32_normaliser : float -> float ->
                                      float32_ba -> float32_ba ->
@@ -954,9 +1052,9 @@ let create_exp_moving32_normaliser : float -> float ->
       let moving_var = reshape dims' moving_var in
       (x - moving_avg) / (moving_var + epsilon |> sqrt)
 
-    method get_avg = moving_avg |> transpose_to_original|> ba_of_tensor Bigarray.Float32
+    method get_avg = moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
 
-    method get_var = moving_var |> transpose_to_original|> ba_of_tensor Bigarray.Float32
+    method get_var = moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
   end
 
 let create_sgd_updater : variable Js.t -> _ =

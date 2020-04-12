@@ -134,7 +134,8 @@ let[@ocamlformat "disable"] encoder_oneconv (module Builder : Fnn.BUILDER) o : F
   input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
   (* |> conv2d ~o (`Full 50) (16, 16) ~s:(4, 4) ~b:`Assert_fit |> bias *)
   (* |> normalisation [ `C; `C ] *)
-  |> normalisation [ `S0; `C; `S1 ]
+  (* |> normalisation [ `S0; `C; `S1 ] *)
+  |> normalisation [ `S0; `C; `S1 ] ~stats:(`Global 1e-5)
 
   |> conv2d ~o (`Full 50) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias
   (* |> conv2d ~o (`Full 50) (16, 16) ~s:(3, 3) ~b:`Assert_fit |> bias *)

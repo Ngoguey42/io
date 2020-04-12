@@ -836,7 +836,59 @@ let create_batch_normaliser : float -> int list -> _ =
       let x_centered = x - avg in
       let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
       x_centered / (var + epsilon |> sqrt)
+  end
 
+let create_moving_exp32_normaliser : float -> float ->
+                                     float32_ba -> float32_ba ->
+                                     bool -> int list -> _ =
+  fun epsilon momentum moving_avg moving_var update norm_axes ->
+  let err_hd = "In create_moving_exp32_batch_normaliser" in
+
+  if epsilon < 0. then
+    invalid_arg (err_hd ^ ": epsilon should be >=0");
+  if momentum < 0. || momentum > 1. then
+    invalid_arg (err_hd ^ ": momentum should be >=0 and <=1");
+  if List.length norm_axes = 0 then
+    invalid_arg (err_hd ^ ": norm_axes shouldn't be an empty list");
+  if Bigarray.Genarray.dims moving_avg <> Bigarray.Genarray.dims moving_var then
+    invalid_arg (err_hd ^ ": moving_avg and moving_var should have the same shape");
+  if Bigarray.Genarray.num_dims moving_avg <> List.length norm_axes then
+    invalid_arg (err_hd ^ ": norm_axes incompatible with moving_avg and moving_var");
+
+  let epsilon = float epsilon in
+  let momentum = float momentum in
+  let size_per_norm_axis = List.combine norm_axes (Bigarray.Genarray.dims moving_avg |> Array.to_list) in
+  let moving_avg = tensor_of_ba moving_avg |> variable ~trainable:false in
+  let moving_var = tensor_of_ba moving_var |> variable ~trainable:false in
+  let moving_shape = Js.to_array moving_avg##.shape in
+
+  object
+    method normalise x =
+      let dims = x##.shape |> Js.to_array in
+      let ndim = Array.length dims in
+      let norm_axes = List.map (fun (ax, size) ->
+                     let ax = if ax < 0 then -(ax + 1) else ax in
+                     if ax >= ndim then
+                       failwith (err_hd ^ "#normalise: Input tensor is too small");
+                     if dims.(ax) <> size then
+                       failwith (err_hd ^ "#normalise: Unexpected input tensor shape");
+                     ax
+                   ) size_per_norm_axis in
+      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
+      let open Ops in
+      if update then begin
+          let avg = avgpool ~b:`AssertFit kernel_sizes x in
+          let x_centered = x - avg in
+          let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
+          let reshape x = reshape moving_shape x in
+          moving_avg##assign (momentum * moving_avg + (float 1. - momentum) * avg |> reshape);
+          moving_var##assign (momentum * moving_var + (float 1. - momentum) * var |> reshape);
+        end;
+      (x - moving_avg) / (moving_var + epsilon |> sqrt)
+
+    method get_avg = ba_of_tensor Bigarray.Float32 moving_avg
+
+    method get_var = ba_of_tensor Bigarray.Float32 moving_var
   end
 
 let create_sgd_updater : variable Js.t -> _ =

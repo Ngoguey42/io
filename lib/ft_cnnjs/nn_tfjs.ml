@@ -180,16 +180,12 @@ let _unpack_normalisation_algorithm axes = function
      in
      forward, pack
   | `Moving_exp32 (epsilon, momentum, avg, var) ->
-     let sizes = Bigarray.Genarray.dims avg |> Array.to_list in
-     let forward x =
-       let shape = x##.shape |> Js.to_array in
-       if sizes <> List.map (fun i -> shape.(i)) axes then
-         failwith "In normalisation@forward, invalid input tensor shape";
-       ignore x;
-       failwith "not implemented"
+     let normaliser =
+       Tfjs_api.create_moving_exp32_normaliser epsilon momentum avg var true axes
      in
+     let forward = normaliser#normalise in
      let pack () =
-       `Moving_exp32 (epsilon, momentum, avg, var)
+       `Moving_exp32 (epsilon, momentum, normaliser#get_avg, normaliser#get_var)
      in
      forward, pack
 

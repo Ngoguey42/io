@@ -1077,14 +1077,29 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let dilation = K dilation in
       let span = K 1 + ((kernel_size - K 1) * dilation) in
 
+      let fail why =
+        let bm =
+          match boundary_mode with
+          | `Valid -> "`Valid"
+          | `Pad_fit -> "`Pad_fit"
+          | `Assert_fit -> "`Assert_fit"
+          | `Same -> "`Same"
+        in
+        Printf.sprintf ("boundary_mode=%s, kernel_size=%s, dilation=%s, stride=%s " ^^
+                          "is incompatible with dimension-size=%s because %s")
+                       bm (to_string kernel_size) (to_string dilation) (to_string stride)
+                       (to_string size) why
+        |> invalid_arg
+      in
+
       let overflow, underflow =
         match (size, span) with
-        | K 0, _ -> invalid_arg "size 0 input is too small to apply a kernel"
+        | K 0, _ -> fail "size 0 input is too small to apply any kernel"
         | K size, K span when size < span -> (
             match boundary_mode with
             | `Same | `Pad_fit -> (K 0, K span - K size)
             | `Valid | `Assert_fit ->
-                invalid_arg "input size is too small to apply a kernel without padding" )
+                fail "input size is too small to apply this kernel without padding" )
         | _, _ ->
             let overflow = (size - span) mod stride in
             let underflow = (stride - overflow) mod stride in
@@ -1098,7 +1113,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
             let out_size = (size + stride - K 1) / stride in
             (((out_size - K 1) * stride) - size + span, K 0)
         | `Assert_fit ->
-            (match overflow with K 0 | U -> () | _ -> invalid_arg "boundary_mode=`Fit failed");
+            (match overflow with K 0 | U -> () | _ -> fail "kernel doesn't fit");
             (K 0, K 0)
       in
       let padding_start = div padding_total (K 2) in
@@ -1441,7 +1456,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let normalisation axes ?stats =
       let stats =
         Option.value
-          ~default:(`Moving_exp (1e-5, 0.1))
+          ~default:(`Moving_exp (1e-5, 0.99))
           ( stats
             :> [ `Batch of float | `Moving of float * float | `Moving_exp of float * float ] option
             )
@@ -2282,7 +2297,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let batch_norm ?id ?(rng = State.get_state ()) ?(affine = true) ?stats upstream =
       let stats =
         Option.value
-          ~default:(`Moving_exp (1e-5, 0.1))
+          ~default:(`Moving_exp (1e-5, 0.99))
           ( stats
             :> [ `Batch of float | `Moving of float * float | `Moving_exp of float * float ] option
             )

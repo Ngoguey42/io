@@ -163,29 +163,29 @@ let _derive_configuration_of_tensordot_layer net =
 
 (* Unpack functions ***************************************************************************** *)
 let _unpack_normalisation_algorithm axes = function
-  | `Batch epsilon ->
-     let normaliser = Tfjs_api.create_batch_normaliser epsilon axes in
+  | `Local epsilon ->
+     let normaliser = Tfjs_api.create_local_normaliser epsilon axes in
      let forward = normaliser#normalise in
      let pack () =
-       `Batch epsilon
+       `Local epsilon
      in
      forward, pack
-  | `Moving32 (epsilon, momentum, step, avg, var) ->
+  | `Global32 (epsilon, step, avg, var) ->
      let forward x =
        ignore x;
        failwith "not implemented"
      in
      let pack () =
-       `Moving32 (epsilon, momentum, step, avg, var)
+       `Global32 (epsilon, step, avg, var)
      in
      forward, pack
-  | `Moving_exp32 (epsilon, momentum, avg, var) ->
+  | `Exp_moving32 (epsilon, momentum, avg, var) ->
      let normaliser =
-       Tfjs_api.create_moving_exp32_normaliser epsilon momentum avg var true axes
+       Tfjs_api.create_exp_moving32_normaliser epsilon momentum avg var true axes
      in
      let forward = normaliser#normalise in
      let pack () =
-       `Moving_exp32 (epsilon, momentum, normaliser#get_avg, normaliser#get_var)
+       `Exp_moving32 (epsilon, momentum, normaliser#get_avg, normaliser#get_var)
      in
      forward, pack
 

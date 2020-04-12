@@ -812,13 +812,13 @@ let hinge : ?margin:float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
 (*       ?s:int list -> ?b:[< `Valid | `Same | `AssertFit ] -> int list -> #tensor Js.t -> *)
 (*       tensor Js.t = *)
 
-let create_batch_normaliser : float -> int list -> _ =
+let create_local_normaliser : float -> int list -> _ =
   fun epsilon norm_axes ->
   if epsilon < 0. then
-    invalid_arg "In create_batch_normaliser: epsilon should be >=0";
+    invalid_arg "In create_local_normaliser: epsilon should be >=0";
   let epsilon = float epsilon in
   if List.length norm_axes = 0 then
-    invalid_arg "In create_batch_normaliser: norm_axes shouldn't be an empty list";
+    invalid_arg "In create_local_normaliser: norm_axes shouldn't be an empty list";
   object
     method normalise x =
       let dims = x##.shape |> Js.to_array in
@@ -826,7 +826,7 @@ let create_batch_normaliser : float -> int list -> _ =
       let norm_axes = List.map (fun ax ->
                      let ax = if ax < 0 then -(ax + 1) else ax in
                      if ax >= ndim then
-                       failwith "In create_batch_normaliser#normalise: Input tensor is too small";
+                       failwith "In create_local_normaliser#normalise: Input tensor is too small";
                      ax
                    ) norm_axes in
       let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
@@ -838,11 +838,11 @@ let create_batch_normaliser : float -> int list -> _ =
       x_centered / (var + epsilon |> sqrt)
   end
 
-let create_moving_exp32_normaliser : float -> float ->
+let create_exp_moving32_normaliser : float -> float ->
                                      float32_ba -> float32_ba ->
                                      bool -> int list -> _ =
   fun epsilon momentum moving_avg moving_var update norm_axes ->
-  let err_hd = "In create_moving_exp32_batch_normaliser" in
+  let err_hd = "In create_exp_moving32_batch_normaliser" in
 
   if epsilon < 0. then
     invalid_arg (err_hd ^ ": epsilon should be >=0");

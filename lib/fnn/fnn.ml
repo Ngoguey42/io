@@ -457,9 +457,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> normalisation
     ; replicate :
         ?id:Id.t ->
-        [ `Batch of float
-        | `Moving32 of float * float * int * float32_tensor * float32_tensor
-        | `Moving_exp32 of float * float * float32_tensor * float32_tensor ] ->
+        [ `Local of float
+        | `Global32 of float * int * float32_tensor * float32_tensor
+        | `Exp_moving32 of float * float * float32_tensor * float32_tensor ] ->
         network ->
         normalisation
     ; id : Id.t
@@ -468,9 +468,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; upstream : network
     ; axes : Pshape.Axis.t list
     ; algorithm :
-        [ `Batch of float
-        | `Moving32 of float * float * int * float32_tensor * float32_tensor
-        | `Moving_exp32 of float * float * float32_tensor * float32_tensor ]
+        [ `Local of float
+        | `Global32 of float * int * float32_tensor * float32_tensor
+        | `Exp_moving32 of float * float * float32_tensor * float32_tensor ]
     ; is_batch_norm : bool
     ; is_layer_norm : bool
     ; is_instance_norm : bool
@@ -930,7 +930,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     val normalisation :
       [< Pshape.Axis.t ] list ->
-      ?stats:[< `Batch of float | `Moving of float * float | `Moving_exp of float * float ] ->
+      ?stats:[< `Local of float | `Global of float | `Exp_moving of float * float ] ->
       ?id:Id.t ->
       ?rng:Random.State.t ->
       _ any ->
@@ -1061,7 +1061,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?id:Id.t ->
       ?rng:Random.State.t ->
       ?affine:bool ->
-      ?stats:[< `Batch of float | `Moving of float * float | `Moving_exp of float * float ] ->
+      ?stats:[< `Local of float | `Global of float | `Exp_moving of float * float ] ->
       _ any ->
       network
   end
@@ -1456,9 +1456,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let normalisation axes ?stats =
       let stats =
         Option.value
-          ~default:(`Moving_exp (1e-5, 0.99))
+          ~default:(`Exp_moving (1e-5, 0.99))
           ( stats
-            :> [ `Batch of float | `Moving of float * float | `Moving_exp of float * float ] option
+            :> [ `Local of float | `Global of float | `Exp_moving of float * float ] option
             )
       in
       let axes = (axes :> Pshape.Axis.t list) in
@@ -1471,13 +1471,11 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
       (* Check: algorithm *)
       ( match stats with
-      | `Batch epsilon ->
+      | `Local epsilon ->
           if epsilon <= 0. then invalid_arg "In normalisation: epsilon should be > 0"
-      | `Moving (epsilon, momentum) ->
+      | `Global (epsilon) ->
           if epsilon <= 0. then invalid_arg "In normalisation: epsilon should be > 0";
-          if momentum <= 0. || momentum >= 1. then
-            invalid_arg "In normalisation: momentum should be > 0 and < 1"
-      | `Moving_exp (epsilon, momentum) ->
+      | `Exp_moving (epsilon, momentum) ->
           if epsilon <= 0. then invalid_arg "In normalisation: epsilon should be > 0";
           if momentum <= 0. || momentum >= 1. then
             invalid_arg "In normalisation: momentum should be > 0 and < 1" );
@@ -1512,32 +1510,32 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         let algorithm =
           let rng = match rng with None -> State.get_state () | Some rng -> rng in
           match (dtype, algorithm, stats) with
-          | #float_dtype, Some (`Batch _ as algorithm), _ -> algorithm
-          | `Float32, Some (`Moving32 (_, _, _, avg, var) as algorithm), _ ->
+          | #float_dtype, Some (`Local _ as algorithm), _ -> algorithm
+          | `Float32, Some (`Global32 (_, _, avg, var) as algorithm), _ ->
               if Tensor.dimensions avg <> dimensions then
                 invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
               if Tensor.dimensions var <> dimensions then
                 invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
               algorithm
-          | `Float32, Some (`Moving_exp32 (_, _, avg, var) as algorithm), _ ->
+          | `Float32, Some (`Exp_moving32 (_, _, avg, var) as algorithm), _ ->
               if Tensor.dimensions avg <> dimensions then
                 invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
               if Tensor.dimensions var <> dimensions then
                 invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
               algorithm
-          | #float_dtype, None, `Batch epsilon -> `Batch epsilon
-          | `Float32, None, `Moving (epsilon, momentum) ->
+          | #float_dtype, None, `Local epsilon -> `Local epsilon
+          | `Float32, None, `Global epsilon ->
               let avg = Init.run ~rng (`FloatConstant 0.) Bigarray.Float32 dimensions in
               let avg = Tensor.of_ba avg in
               let var = Init.run ~rng (`FloatConstant 1.) Bigarray.Float32 dimensions in
               let var = Tensor.of_ba var in
-              `Moving32 (epsilon, momentum, 0, avg, var)
-          | `Float32, None, `Moving_exp (epsilon, momentum) ->
+              `Global32 (epsilon, 0, avg, var)
+          | `Float32, None, `Exp_moving (epsilon, momentum) ->
               let avg = Init.run ~rng (`FloatConstant 0.) Bigarray.Float32 dimensions in
               let avg = Tensor.of_ba avg in
               let var = Init.run ~rng (`FloatConstant 1.) Bigarray.Float32 dimensions in
               let var = Tensor.of_ba var in
-              `Moving_exp32 (epsilon, momentum, avg, var)
+              `Exp_moving32 (epsilon, momentum, avg, var)
           | `Float64, _, _ -> failwith "In normalisation: `Float64 not implemented"
         in
 
@@ -2297,9 +2295,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let batch_norm ?id ?(rng = State.get_state ()) ?(affine = true) ?stats upstream =
       let stats =
         Option.value
-          ~default:(`Moving_exp (1e-5, 0.99))
+          ~default:(`Exp_moving (1e-5, 0.99))
           ( stats
-            :> [ `Batch of float | `Moving of float * float | `Moving_exp of float * float ] option
+            :> [ `Local of float | `Global of float | `Exp_moving of float * float ] option
             )
       in
 

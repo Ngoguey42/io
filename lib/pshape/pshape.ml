@@ -1,5 +1,6 @@
 include Misc
 include Pshape_sig
+
 (*
     A P(olymorphic)shape has length (a.k.a. ndim), has an axis type, and an dimension size type.
  *)
@@ -723,7 +724,7 @@ module Pshape :
    fun shape axis -> to_list shape |> List.find (fun (axis', _) -> axis = axis') |> snd
 
   let get_opt (type len sz ax) : (len, sz, ax) t -> ax -> sz Size.t option =
-    fun shape axis ->
+   fun shape axis ->
     to_list shape |> List.find_opt (fun (axis', _) -> axis = axis') |> Option.map snd
 
   (* Contract two shapes together. Useful to compute the resulting shape of a tensordot operation.

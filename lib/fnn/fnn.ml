@@ -551,7 +551,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; mapping1 : (Pshape.Axis.t * Pshape.Axis.t option) list
     ; contracted_axes0 : Pshape.Axis.t list
     ; contracted_axes1 : Pshape.Axis.t list
-    ; input_axis_of_output_axis : Pshape.Axis.t -> [ `Left of Pshape.Axis.t | `Right of Pshape.Axis.t ] >
+    ; input_axis_of_output_axis :
+        Pshape.Axis.t -> [ `Left of Pshape.Axis.t | `Right of Pshape.Axis.t ] >
 
   and conv2d =
     < upstreams : network list
@@ -1085,10 +1086,10 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           | `Assert_fit -> "`Assert_fit"
           | `Same -> "`Same"
         in
-        Printf.sprintf ("boundary_mode=%s, kernel_size=%s, dilation=%s, stride=%s " ^^
-                          "is incompatible with dimension-size=%s because %s")
-                       bm (to_string kernel_size) (to_string dilation) (to_string stride)
-                       (to_string size) why
+        Printf.sprintf
+          ( "boundary_mode=%s, kernel_size=%s, dilation=%s, stride=%s "
+          ^^ "is incompatible with dimension-size=%s because %s" )
+          bm (to_string kernel_size) (to_string dilation) (to_string stride) (to_string size) why
         |> invalid_arg
       in
 
@@ -1457,15 +1458,12 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let stats =
         Option.value
           ~default:(`Exp_moving (1e-5, 0.99))
-          ( stats
-            :> [ `Local of float | `Global of float | `Exp_moving of float * float ] option
-            )
+          (stats :> [ `Local of float | `Global of float | `Exp_moving of float * float ] option)
       in
       let axes = (axes :> Pshape.Axis.t list) in
 
       (* Check: axes *)
-      if List.length axes = 0 then
-        invalid_arg "In normalisation: axes should not be an empty list";
+      if List.length axes = 0 then invalid_arg "In normalisation: axes should not be an empty list";
       if List.length axes <> List.length (List.sort_uniq compare axes) then
         invalid_arg "In normalisation: Axis provided twice";
 
@@ -1473,8 +1471,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ( match stats with
       | `Local epsilon ->
           if epsilon <= 0. then invalid_arg "In normalisation: epsilon should be > 0"
-      | `Global (epsilon) ->
-          if epsilon <= 0. then invalid_arg "In normalisation: epsilon should be > 0";
+      | `Global epsilon ->
+          if epsilon <= 0. then invalid_arg "In normalisation: epsilon should be > 0"
       | `Exp_moving (epsilon, momentum) ->
           if epsilon <= 0. then invalid_arg "In normalisation: epsilon should be > 0";
           if momentum <= 0. || momentum >= 1. then
@@ -1492,14 +1490,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         let shape = upstream#out_shape in
         let dimensions =
           List.map
-          (fun ax ->
-            match Pshape.get_opt shape ax with
-            | Some (Pshape.Size.K i) -> i
-            | Some Pshape.Size.U ->
-               invalid_arg "In normalisation: can't normalize along an unknown axis"
-            | None ->
-               invalid_arg "In normalisation: bad axis in axes" )
-          axes
+            (fun ax ->
+              match Pshape.get_opt shape ax with
+              | Some (Pshape.Size.K i) -> i
+              | Some Pshape.Size.U ->
+                  invalid_arg "In normalisation: can't normalize along an unknown axis"
+              | None -> invalid_arg "In normalisation: bad axis in axes")
+            axes
           |> Array.of_list
         in
 
@@ -1573,15 +1570,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method is_layer_norm = axes = [ `N ]
 
-          method is_instance_norm =
-            match axes with
-            | [ `N; `C ] | [ `C; `N ] -> true
-            | _ -> false
+          method is_instance_norm = match axes with [ `N; `C ] | [ `C; `N ] -> true | _ -> false
 
-          method is_group_norm =
-            match axes with
-            | [ `N; `C ] | [ `C; `N ] -> true
-            | _ -> false
+          method is_group_norm = match axes with [ `N; `C ] | [ `C; `N ] -> true | _ -> false
         end
       in
       fun ?id ?rng upstream -> instanciate None id rng (downcast upstream)
@@ -2078,24 +2069,18 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method input_axis_of_output_axis ax =
             let find_opt_in_mapping mapping =
-              let f = function
-                | _, Some ax1 when ax1 = ax -> true
-                | _, _ -> false
-              in
-              match List.find_opt f mapping with
-              | Some (ax, _) -> Some ax
-              | None -> None
+              let f = function _, Some ax1 when ax1 = ax -> true | _, _ -> false in
+              match List.find_opt f mapping with Some (ax, _) -> Some ax | None -> None
             in
 
             match find_opt_in_mapping mapping0 with
             | Some ax -> `Left ax
-            | None ->
-               match find_opt_in_mapping mapping1 with
-               | Some ax -> `Right ax
-               | None ->
-                  "In tensordot#input_axis_of_output_axis: axis doesnt belon to output shape"
-                  |> invalid_arg
-
+            | None -> (
+                match find_opt_in_mapping mapping1 with
+                | Some ax -> `Right ax
+                | None ->
+                    "In tensordot#input_axis_of_output_axis: axis doesnt belon to output shape"
+                    |> invalid_arg )
         end
       in
       fun ?id x0 x1 -> instanciate id (downcast x0) (downcast x1)
@@ -2293,9 +2278,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let stats =
         Option.value
           ~default:(`Exp_moving (1e-5, 0.99))
-          ( stats
-            :> [ `Local of float | `Global of float | `Exp_moving of float * float ] option
-            )
+          (stats :> [ `Local of float | `Global of float | `Exp_moving of float * float ] option)
       in
 
       let upstream = downcast upstream in

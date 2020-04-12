@@ -119,7 +119,8 @@ struct
         let mean_iou = Tfjs_api.Ops.mean false ious |> Tfjs_api.to_float in
         ignore (mean_iou, mean_recall, mean_precision);
 
-        let layer = match (Fnn.find_id (Some "classif") [ decoder ])#classify_layer with
+        let layer =
+          match (Fnn.find_id (Some "classif") [ decoder ])#classify_layer with
           | `Conv2d node -> node#upstream0
           | `Tensordot node -> node#upstream1
           | _ -> failwith "unsupported `classif` layer"
@@ -137,9 +138,8 @@ struct
           "Step %5d done, lr:%6.1e, loss:%9.6f, classif-weights-grad-norm:%9.6f, iou:%5.1f%%, \
            recall:%5.1f%%, took:%.3fsec\n\
            %!"
-          i lr
-          (Tfjs_api.to_float loss)
-          classif_grad (mean_iou *. 100.) (mean_recall *. 100.) (time' -. time);
+          i lr (Tfjs_api.to_float loss) classif_grad (mean_iou *. 100.) (mean_recall *. 100.)
+          (time' -. time);
 
         Tfjs_api.dispose_tensor y'_1hot;
         () )

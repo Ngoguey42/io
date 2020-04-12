@@ -101,10 +101,7 @@ let _validate_output_tensor net tensor =
     |> failwith;
   tensor
 
-let _index_in_list l x =
-  List.mapi (fun i y -> i, y) l
-  |> List.find (fun (_, y) -> x = y)
-  |> fst
+let _index_in_list l x = List.mapi (fun i y -> (i, y)) l |> List.find (fun (_, y) -> x = y) |> fst
 
 let _axes_of_shape shape =
   let ndim = Pshape.ndim shape in
@@ -145,49 +142,40 @@ let _derive_configuration_of_tensordot_layer net =
   let kaxes1 = List.filter (fun ax -> not (List.mem ax caxes1)) axes1 in
   (* Compute tensordot argument *)
   let caxes01 =
-    List.combine
-      (List.map (_index_in_list axes0) caxes0)
-      (List.map (_index_in_list axes1) caxes1)
+    List.combine (List.map (_index_in_list axes0) caxes0) (List.map (_index_in_list axes1) caxes1)
   in
   (* Compute permute argument *)
   let shape2 = net#out_shape in
   let axes2 = _axes_of_shape shape2 in
   let perm =
-    List.map (fun ax ->
+    List.map
+      (fun ax ->
         match net#input_axis_of_output_axis ax with
         | `Left ax -> 0 + _index_in_list kaxes0 ax
-        | `Right ax -> kcount0 + _index_in_list kaxes1 ax
-      ) axes2
+        | `Right ax -> kcount0 + _index_in_list kaxes1 ax)
+      axes2
   in
-  caxes01, perm
+  (caxes01, perm)
 
 (* Unpack functions ***************************************************************************** *)
 let _unpack_normalisation_algorithm axes = function
   | `Local epsilon ->
-     let normaliser = Tfjs_api.create_local_normaliser epsilon axes in
-     let forward = normaliser#normalise in
-     let pack () =
-       `Local epsilon
-     in
-     forward, pack
+      let normaliser = Tfjs_api.create_local_normaliser epsilon axes in
+      let forward = normaliser#normalise in
+      let pack () = `Local epsilon in
+      (forward, pack)
   | `Global32 (epsilon, step, avg, var) ->
-     let normaliser =
-       Tfjs_api.create_global_normaliser epsilon step avg var true axes
-     in
-     let forward = normaliser#normalise in
-     let pack () =
-       `Global32 (epsilon, normaliser#get_step, normaliser#get_avg, normaliser#get_var)
-     in
-     forward, pack
+      let normaliser = Tfjs_api.create_global_normaliser epsilon step avg var true axes in
+      let forward = normaliser#normalise in
+      let pack () =
+        `Global32 (epsilon, normaliser#get_step, normaliser#get_avg, normaliser#get_var)
+      in
+      (forward, pack)
   | `Exp_moving32 (epsilon, momentum, avg, var) ->
-     let normaliser =
-       Tfjs_api.create_exp_moving32_normaliser epsilon momentum avg var true axes
-     in
-     let forward = normaliser#normalise in
-     let pack () =
-       `Exp_moving32 (epsilon, momentum, normaliser#get_avg, normaliser#get_var)
-     in
-     forward, pack
+      let normaliser = Tfjs_api.create_exp_moving32_normaliser epsilon momentum avg var true axes in
+      let forward = normaliser#normalise in
+      let pack () = `Exp_moving32 (epsilon, momentum, normaliser#get_avg, normaliser#get_var) in
+      (forward, pack)
 
 let _unpack_optimizer optim var =
   match optim with
@@ -307,19 +295,15 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
       let copy : Fnn.network list -> Fnn.network = (net :> Fnn.network)#copy in
       (forward, copy)
   | `Normalisation net ->
-     let shape = net#upstream#out_shape in
-     let axes = List.map (_tensor_axis_of_shape_axis shape) net#axes in
-     let norm_forward, norm_pack = _unpack_normalisation_algorithm axes net#algorithm in
-     let forward inputs =
-       up_forward inputs
-       |> norm_forward
-       |> _validate_output_tensor net
-     in
-     let copy = function
-       | [ upstream ] -> (net#replicate (norm_pack ()) upstream :> Fnn.network)
-       | _ -> failwith "unreachable: Normalisation.pack takes only 1 input"
-     in
-     (forward, copy)
+      let shape = net#upstream#out_shape in
+      let axes = List.map (_tensor_axis_of_shape_axis shape) net#axes in
+      let norm_forward, norm_pack = _unpack_normalisation_algorithm axes net#algorithm in
+      let forward inputs = up_forward inputs |> norm_forward |> _validate_output_tensor net in
+      let copy = function
+        | [ upstream ] -> (net#replicate (norm_pack ()) upstream :> Fnn.network)
+        | _ -> failwith "unreachable: Normalisation.pack takes only 1 input"
+      in
+      (forward, copy)
 
 let _unpack_layer21 (net : Fnn.node21) up0_forward up1_forward =
   match net#classify_layer with
@@ -342,13 +326,12 @@ let _unpack_layer21 (net : Fnn.node21) up0_forward up1_forward =
       in
       (forward, (net :> Fnn.network)#copy)
   | `Tensordot net ->
-     let mapping, perm = _derive_configuration_of_tensordot_layer net in
-     let forward inputs =
-       Tfjs_api.Ops.tensordot mapping (up0_forward inputs) (up1_forward inputs)
-       |> Tfjs_api.Ops.transpose ~perm
-       |> _validate_output_tensor net
-     in
-     (forward, (net :> Fnn.network)#copy)
+      let mapping, perm = _derive_configuration_of_tensordot_layer net in
+      let forward inputs =
+        Tfjs_api.Ops.tensordot mapping (up0_forward inputs) (up1_forward inputs)
+        |> Tfjs_api.Ops.transpose ~perm |> _validate_output_tensor net
+      in
+      (forward, (net :> Fnn.network)#copy)
 
 let _unpack_layern1 (net : Fnn.noden1) up_forwards =
   match net#classify_layer with

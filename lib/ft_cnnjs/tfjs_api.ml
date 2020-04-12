@@ -3,7 +3,7 @@
    It is not exhaustive, I implemented what I needed.
 
    It also contains helper functions to avoid using tensorflows' losses, optimizers, training loops
-   and layer/model abstraction.
+   and layer/model abstraction in order to create workflows as functional as possible.
    - Gradients can be computed using the `variable_grads` function.
    - Several optimizers are hard coded
    - Tensor normalisation is hard coded for several algorithms
@@ -179,16 +179,14 @@ module Ops = struct
   let reshape : int array -> #tensor Js.t -> tensor Js.t =
    fun shape x -> fun_call global##.tf##.reshape [| inject x; shape |> Js.array |> inject |]
 
-  let shape : #tensor Js.t -> int array =
-   fun x -> x##.shape |> Js.to_array
+  let shape : #tensor Js.t -> int array = fun x -> x##.shape |> Js.to_array
 
   let squeeze : ?axes:int list -> #tensor Js.t -> tensor Js.t =
-    fun ?axes x ->
-    let axes = match axes with
-      | Some axes ->
-         axes |> Array.of_list |> Js.array |> Js.Opt.return
-      | None ->
-         Js.Opt.empty
+   fun ?axes x ->
+    let axes =
+      match axes with
+      | Some axes -> axes |> Array.of_list |> Js.array |> Js.Opt.return
+      | None -> Js.Opt.empty
     in
     fun_call global##.tf##.squeeze [| inject x; inject axes |]
 
@@ -365,11 +363,10 @@ module Ops = struct
    fun x x' -> fun_call global##.tf##.dot [| inject x; inject x' |]
 
   let tensordot : (int * int) list -> #tensor Js.t -> #tensor Js.t -> tensor Js.t =
-    fun contract_axes x y ->
+   fun contract_axes x y ->
     let normalize_axis ndim i =
       let i = if i < 0 then -(i + 1) else i in
-      if i >= ndim then
-        invalid_arg "In tensordot: Index out of bound";
+      if i >= ndim then invalid_arg "In tensordot: Index out of bound";
       i
     in
     let none_if_mem l i = if List.mem i l then None else Some i in
@@ -397,21 +394,23 @@ module Ops = struct
     let y = transpose ~perm:(ycontract_axes @ ykeep_axes) y in
     let y = reshape [| prod ycontract_sizes; prod ykeep_sizes |] y in
     let z = dot x y in
-    let z = reshape ((xkeep_sizes @ ykeep_sizes) |> Array.of_list) z in
+    let z = reshape (xkeep_sizes @ ykeep_sizes |> Array.of_list) z in
     z
 
   let range : int list -> [< `Float32 | `Int32 ] -> tensor Js.t =
-    fun ints dtype ->
-    let start, stop, step = match ints with
-      | [ start; stop; step ] -> start, stop, step
-      | [ start; stop ] -> start, stop, 1
-      | [ stop ] -> 0, stop, 1
+   fun ints dtype ->
+    let start, stop, step =
+      match ints with
+      | [ start; stop; step ] -> (start, stop, step)
+      | [ start; stop ] -> (start, stop, 1)
+      | [ stop ] -> (0, stop, 1)
       | _ -> invalid_arg "In range: int list should have lenght 1, 2 or 3"
     in
     let dtype = Js.string (match dtype with `Float32 -> "float32" | `Int32 -> "int32") in
     fun_call global##.tf##.range [| inject start; inject stop; inject step; inject dtype |]
 
-  let maxpool2d : ?s:int * int -> ?b:[< `Valid | `Same ] -> int * int -> #tensor Js.t -> tensor Js.t =
+  let maxpool2d : ?s:int * int -> ?b:[< `Valid | `Same ] -> int * int -> #tensor Js.t -> tensor Js.t
+      =
    fun ?s:stride ?b:boundary_mode (ky, kx) x ->
     let filter_size = Js.array [| ky; kx |] in
     let stride = match stride with None -> filter_size | Some (sy, sx) -> Js.array [| sy; sx |] in
@@ -424,17 +423,13 @@ module Ops = struct
       [| inject x; inject filter_size; inject stride; inject boundary_mode |]
 
   let avgpool :
-        ?s:int list -> ?b:[< `Valid | `Same | `AssertFit ] -> int list -> #tensor Js.t ->
-        tensor Js.t =
-    fun ?s:strides ?b:boundary_mode kernel_sizes x ->
-    let boundary_mode = match boundary_mode with
-      | None -> `Same
-      | Some b -> (b :> [ `Valid | `Same | `AssertFit ])
+      ?s:int list -> ?b:[< `Valid | `Same | `AssertFit ] -> int list -> #tensor Js.t -> tensor Js.t
+      =
+   fun ?s:strides ?b:boundary_mode kernel_sizes x ->
+    let boundary_mode =
+      match boundary_mode with None -> `Same | Some b -> (b :> [ `Valid | `Same | `AssertFit ])
     in
-    let strides = match strides with
-      | None -> kernel_sizes
-      | Some s -> s
-    in
+    let strides = match strides with None -> kernel_sizes | Some s -> s in
 
     if List.length kernel_sizes <> x##.rank then
       invalid_arg "In avgpool: kernel_sizes length should match tensor's ndim";
@@ -446,10 +441,8 @@ module Ops = struct
     let strides = Array.of_list strides in
     let kernel_sizes = Array.of_list kernel_sizes in
     let b =
-      Js.string ( match boundary_mode with
-                  | `AssertFit -> "valid"
-                  | `Same -> "same"
-                  | `Valid -> "valid" )
+      Js.string
+        (match boundary_mode with `AssertFit -> "valid" | `Same -> "same" | `Valid -> "valid")
     in
     let axes = List.init x##.rank (fun idx -> idx) in
 
@@ -458,48 +451,34 @@ module Ops = struct
       let dim = dims.(idx) in
       let ks = kernel_sizes.(idx) in
       let s = strides.(idx) in
-      if ks = 1 && s = 1 then
-        x
+      if ks = 1 && s = 1 then x
       else
-        let fits =
-          float_of_int (dim - ks) /. (float_of_int s)
-          |> Float.is_integer
-        in
-        if boundary_mode = `AssertFit && not fits then
-          invalid_arg "In avgpool: `AssertFit failed";
+        let fits = float_of_int (dim - ks) /. float_of_int s |> Float.is_integer in
+        if boundary_mode = `AssertFit && not fits then invalid_arg "In avgpool: `AssertFit failed";
         let prod l = List.fold_left ( * ) 1 l in
         let sizes_before =
-          List.filter_map (fun i ->
-              if i < idx then Some (dims.(i)) else None) axes
+          List.filter_map (fun i -> if i < idx then Some dims.(i) else None) axes
         in
-        let sizes_after =
-          List.filter_map (fun i -> if i > idx then Some (dims.(i)) else None) axes
-        in
+        let sizes_after = List.filter_map (fun i -> if i > idx then Some dims.(i) else None) axes in
 
-        let ks = Js.array [| ks ; 1 |] in
-        let s = Js.array [| s ; 1 |] in
-        let f x =
-          fun_call global##.tf##.avgPool [| inject x; inject ks; inject s; inject b |]
-        in
+        let ks = Js.array [| ks; 1 |] in
+        let s = Js.array [| s; 1 |] in
+        let f x = fun_call global##.tf##.avgPool [| inject x; inject ks; inject s; inject b |] in
         x
         |> reshape [| prod sizes_before; dim; 1; prod sizes_after |]
         |> f
-        |> reshape ( sizes_before @ [ -1 ] @ sizes_after |> Array.of_list )
+        |> reshape (sizes_before @ [ -1 ] @ sizes_after |> Array.of_list)
     in
     List.fold_left aux x axes
 
   let maxpool :
-        ?s:int list -> ?b:[< `Valid | `Same | `AssertFit ] -> int list -> #tensor Js.t ->
-        tensor Js.t =
-    fun ?s:strides ?b:boundary_mode kernel_sizes x ->
-    let boundary_mode = match boundary_mode with
-      | None -> `Same
-      | Some b -> (b :> [ `Valid | `Same | `AssertFit ])
+      ?s:int list -> ?b:[< `Valid | `Same | `AssertFit ] -> int list -> #tensor Js.t -> tensor Js.t
+      =
+   fun ?s:strides ?b:boundary_mode kernel_sizes x ->
+    let boundary_mode =
+      match boundary_mode with None -> `Same | Some b -> (b :> [ `Valid | `Same | `AssertFit ])
     in
-    let strides = match strides with
-      | None -> kernel_sizes
-      | Some s -> s
-    in
+    let strides = match strides with None -> kernel_sizes | Some s -> s in
 
     if List.length kernel_sizes <> x##.rank then
       invalid_arg "In maxpool: kernel_sizes length should match tensor's ndim";
@@ -511,10 +490,8 @@ module Ops = struct
     let strides = Array.of_list strides in
     let kernel_sizes = Array.of_list kernel_sizes in
     let b =
-      Js.string ( match boundary_mode with
-                  | `AssertFit -> "valid"
-                  | `Same -> "same"
-                  | `Valid -> "valid" )
+      Js.string
+        (match boundary_mode with `AssertFit -> "valid" | `Same -> "same" | `Valid -> "valid")
     in
     let axes = List.init x##.rank (fun idx -> idx) in
 
@@ -523,38 +500,28 @@ module Ops = struct
       let dim = dims.(idx) in
       let ks = kernel_sizes.(idx) in
       let s = strides.(idx) in
-      if ks = 1 && s = 1 then
-        x
+      if ks = 1 && s = 1 then x
       else
-        let fits =
-          float_of_int (dim - ks) /. (float_of_int s)
-          |> Float.is_integer
-        in
-        if boundary_mode = `AssertFit && not fits then
-          invalid_arg "In maxpool: `AssertFit failed";
+        let fits = float_of_int (dim - ks) /. float_of_int s |> Float.is_integer in
+        if boundary_mode = `AssertFit && not fits then invalid_arg "In maxpool: `AssertFit failed";
         let prod l = List.fold_left ( * ) 1 l in
         let sizes_before =
-          List.filter_map (fun i ->
-              if i < idx then Some (dims.(i)) else None) axes
+          List.filter_map (fun i -> if i < idx then Some dims.(i) else None) axes
         in
-        let sizes_after =
-          List.filter_map (fun i -> if i > idx then Some (dims.(i)) else None) axes
-        in
+        let sizes_after = List.filter_map (fun i -> if i > idx then Some dims.(i) else None) axes in
 
-        let ks = Js.array [| ks ; 1 |] in
-        let s = Js.array [| s ; 1 |] in
-        let f x =
-          fun_call global##.tf##.maxPool [| inject x; inject ks; inject s; inject b |]
-        in
+        let ks = Js.array [| ks; 1 |] in
+        let s = Js.array [| s; 1 |] in
+        let f x = fun_call global##.tf##.maxPool [| inject x; inject ks; inject s; inject b |] in
         x
         |> reshape [| prod sizes_before; dim; 1; prod sizes_after |]
         |> f
-        |> reshape ( sizes_before @ [ -1 ] @ sizes_after |> Array.of_list )
+        |> reshape (sizes_before @ [ -1 ] @ sizes_after |> Array.of_list)
     in
     List.fold_left aux x axes
 
   let upsample : int list -> #tensor Js.t -> tensor Js.t =
-    fun expansion_factors x ->
+   fun expansion_factors x ->
     if List.length expansion_factors <> x##.rank then
       invalid_arg "In upsampling: expansion_factors length should match tensor's ndim";
     if List.exists (fun ks -> ks <= 0) expansion_factors then
@@ -567,25 +534,23 @@ module Ops = struct
       let dims = Js.to_array x##.shape in
       let dim = dims.(idx) in
       let fact = expansion_factors.(idx) in
-      if fact = 1 then
-        x
+      if fact = 1 then x
       else
         let prod l = List.fold_left ( * ) 1 l in
         let sizes_before =
-          List.filter_map (fun i -> if i < idx then Some (dims.(i)) else None) axes
+          List.filter_map (fun i -> if i < idx then Some dims.(i) else None) axes
         in
-        let sizes_after =
-          List.filter_map (fun i -> if i > idx then Some (dims.(i)) else None) axes
-        in
-        let fact = Js.array [| dim * fact ; 1 |] in
+        let sizes_after = List.filter_map (fun i -> if i > idx then Some dims.(i) else None) axes in
+        let fact = Js.array [| dim * fact; 1 |] in
         let f x =
-          fun_call global##.tf##.image##.resizeNearestNeighbor
-                   [| inject x; inject fact; inject false |]
+          fun_call
+            global##.tf##.image##.resizeNearestNeighbor
+            [| inject x; inject fact; inject false |]
         in
         x
         |> reshape [| prod sizes_before; dim; 1; prod sizes_after |]
         |> f
-        |> reshape ( sizes_before @ [ -1 ] @ sizes_after |> Array.of_list )
+        |> reshape (sizes_before @ [ -1 ] @ sizes_after |> Array.of_list)
     in
     List.fold_left aux x axes
 
@@ -598,7 +563,6 @@ module Ops = struct
   let ( - ) = sub
 
   let ( ** ) = pow
-
 end
 
 (* Constructors ********************************************************************************* *)
@@ -615,16 +579,14 @@ let tensor_of_ba (type a b) : (a, b, Bigarray.c_layout) Bigarray.Genarray.t -> t
       tensor_of_ta (Bigarray.Genarray.dims arr) (Ft_js.Conv.Uint8.ta_of_ba arr)
   | _ -> failwith "In tensor_of_ta: Unsopported dtype"
 
-let ba_of_tensor (type a b) : (a, b) Bigarray.kind -> #tensor Js.t ->
-                              (a, b, Bigarray.c_layout) Bigarray.Genarray.t =
-  fun kind tensor ->
-  let tensor_astype dtype =
-    tensor##asType (Js.string dtype)
-  in
-  let reshape arr =    Bigarray.reshape arr (Js.to_array tensor##.shape)  in
+let ba_of_tensor (type a b) :
+    (a, b) Bigarray.kind -> #tensor Js.t -> (a, b, Bigarray.c_layout) Bigarray.Genarray.t =
+ fun kind tensor ->
+  let tensor_astype dtype = tensor##asType (Js.string dtype) in
+  let reshape arr = Bigarray.reshape arr (Js.to_array tensor##.shape) in
   match kind with
   | Bigarray.Float32 ->
-     (tensor_astype "float32")##dataSync_float32 |> Ft_js.Conv.Float32.ba_of_ta |> reshape
+      (tensor_astype "float32")##dataSync_float32 |> Ft_js.Conv.Float32.ba_of_ta |> reshape
   | _ -> failwith "In ba_of_tensor: Kind not implemented"
 
 let variable :
@@ -817,7 +779,7 @@ module Layers = struct
     b##apply a
 end
 
-(* Hard coded losses / optimizers  ************************************************************** *)
+(* Hard coded algorithms  *********************************************************************** *)
 let categorical_crossentropy : float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
  fun epsilon softmaxed_pred truth ->
   (* a truth element must be 0. or 1. *)
@@ -830,279 +792,6 @@ let hinge : ?margin:float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
   (* a truth element must be -1. or 1. *)
   let open Ops in
   float margin - (truth * pred) |> maximum (float 0.) |> sum ~axis:(-1) true |> mean ~axis:0 true
-
-let create_local_normaliser : float -> int list -> _ =
-  fun epsilon norm_axes ->
-  if epsilon < 0. then
-    invalid_arg "In create_local_normaliser: epsilon should be >=0";
-  let epsilon = float epsilon in
-  if List.length norm_axes = 0 then
-    invalid_arg "In create_local_normaliser: norm_axes shouldn't be an empty list";
-  object
-    method normalise x =
-      let dims = x##.shape |> Js.to_array in
-      let ndim = Array.length dims in
-      let norm_axes = List.map (fun ax ->
-                     let ax = if ax < 0 then -(ax + 1) else ax in
-                     if ax >= ndim then
-                       failwith "In create_local_normaliser#normalise: Input tensor is too small";
-                     ax
-                   ) norm_axes in
-      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
-
-      let open Ops in
-      let avg = avgpool ~b:`AssertFit kernel_sizes x in
-      let x_centered = x - avg in
-      let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
-      x_centered / (var + epsilon |> sqrt)
-  end
-
-let create_global_normaliser :
-      float -> int -> float32_ba -> float32_ba -> bool -> int list -> _ =
-  fun epsilon step moving_avg moving_var update norm_axes ->
-  let err_hd = "In create_global_normaliser" in
-
-  if epsilon < 0. then
-    invalid_arg (err_hd ^ ": epsilon should be >=0");
-  if List.length norm_axes = 0 then
-    invalid_arg (err_hd ^ ": norm_axes shouldn't be an empty list");
-  if Bigarray.Genarray.dims moving_avg <> Bigarray.Genarray.dims moving_var then
-    invalid_arg (err_hd ^ ": moving_avg and moving_var should have the same shape");
-  if Bigarray.Genarray.num_dims moving_avg <> List.length norm_axes then
-    invalid_arg (err_hd ^ ": norm_axes incompatible with moving_avg and moving_var");
-
-  let epsilon = float epsilon in
-  let norm_axes_original = norm_axes in
-  let norm_axes = List.sort compare norm_axes in
-  let transpose_to_sorted tensor =
-    let norm_axes = Array.of_list norm_axes in
-    let perm =
-      List.init (Array.length norm_axes) Fun.id
-      |> List.map (
-             fun dst_idx ->
-             let ax = norm_axes.(dst_idx) in
-             let src_idx =
-               List.mapi (fun i j -> (i, j)) norm_axes_original
-               |> List.find (fun (_, ax') -> ax = ax')
-               |> fst
-             in
-             src_idx
-           )
-    in
-    Ops.transpose ~perm tensor
-  in
-  let transpose_to_original tensor =
-    let norm_axes_original = Array.of_list norm_axes_original in
-    let perm =
-      List.init (Array.length norm_axes_original) Fun.id
-      |> List.map (
-             fun src_idx ->
-             let ax = norm_axes_original.(src_idx) in
-             let dst_idx =
-               List.mapi (fun i j -> (i, j)) norm_axes
-               |> List.find (fun (_, ax') -> ax = ax')
-               |> fst
-             in
-             dst_idx
-           )
-    in
-    Ops.transpose ~perm tensor
-  in
-
-  let moving_avg = tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false in
-  let moving_var = tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false in
-  let step = int step |> variable ~trainable:false in
-  object
-    method normalise x =
-      let dims = Ops.shape x in
-      let ndim = Array.length dims in
-      let axes = List.init ndim Fun.id in
-      let squeezed_axes = List.filter (fun i -> not (List.mem i norm_axes)) axes in
-      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
-      let dims' = Array.mapi (fun i s -> if List.mem i norm_axes then s else 1) dims in
-      let dims'' =
-        List.filter_map (fun i -> if List.mem i norm_axes then Some dims.(i) else None) axes
-        |> Array.of_list
-      in
-      if dims'' <> (Ops.shape moving_var) then
-        failwith (err_hd ^ "#normalise: Unexpected input tensor shape");
-      let open Ops in
-
-      if update then begin
-          step##assign (step + (int 1));
-          let momentum' = (float 1.) / (step##asType (Js.string "float32")) in
-          let momentum = ((float 1.) - momentum') in
-          Printf.eprintf "%d %10.6f %10.6f\n%!"
-                         (to_int step) (to_float momentum') (to_float momentum)
-          ;
-
-          let avg = avgpool ~b:`AssertFit kernel_sizes x in
-          let x_centered = x - avg in
-          let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
-          assert (shape avg = dims');
-
-          let avg = squeeze ~axes:squeezed_axes avg in
-          let var = squeeze ~axes:squeezed_axes var in
-          assert (shape avg = dims'');
-
-          moving_avg##assign (momentum * moving_avg + momentum' * avg);
-          moving_var##assign (momentum * moving_var + momentum' * var);
-        end;
-      let moving_avg = reshape dims' moving_avg in
-      let moving_var = reshape dims' moving_var in
-      (x - moving_avg) / (moving_var + epsilon |> sqrt)
-
-    method get_step = to_int step
-
-    method get_avg = moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
-
-    method get_var = moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
-  end
-
-let create_exp_moving32_normaliser : float -> float ->
-                                     float32_ba -> float32_ba ->
-                                     bool -> int list -> _ =
-  fun epsilon momentum moving_avg moving_var update norm_axes ->
-  let err_hd = "In create_exp_moving32_normaliser" in
-
-  if epsilon < 0. then
-    invalid_arg (err_hd ^ ": epsilon should be >=0");
-  if momentum < 0. || momentum > 1. then
-    invalid_arg (err_hd ^ ": momentum should be >=0 and <=1");
-  if List.length norm_axes = 0 then
-    invalid_arg (err_hd ^ ": norm_axes shouldn't be an empty list");
-  if Bigarray.Genarray.dims moving_avg <> Bigarray.Genarray.dims moving_var then
-    invalid_arg (err_hd ^ ": moving_avg and moving_var should have the same shape");
-  if Bigarray.Genarray.num_dims moving_avg <> List.length norm_axes then
-    invalid_arg (err_hd ^ ": norm_axes incompatible with moving_avg and moving_var");
-
-  let epsilon = float epsilon in
-  let momentum = float momentum in
-  let momentum' = (Ops.sub (float 1.) momentum) in
-  let norm_axes_original = norm_axes in
-  let norm_axes = List.sort compare norm_axes in
-  let transpose_to_sorted tensor =
-    let norm_axes = Array.of_list norm_axes in
-    let perm =
-      List.init (Array.length norm_axes) Fun.id
-      |> List.map (
-             fun dst_idx ->
-             let ax = norm_axes.(dst_idx) in
-             let src_idx =
-               List.mapi (fun i j -> (i, j)) norm_axes_original
-               |> List.find (fun (_, ax') -> ax = ax')
-               |> fst
-             in
-             src_idx
-           )
-    in
-    Ops.transpose ~perm tensor
-  in
-  let transpose_to_original tensor =
-    let norm_axes_original = Array.of_list norm_axes_original in
-    let perm =
-      List.init (Array.length norm_axes_original) Fun.id
-      |> List.map (
-             fun src_idx ->
-             let ax = norm_axes_original.(src_idx) in
-             let dst_idx =
-               List.mapi (fun i j -> (i, j)) norm_axes
-               |> List.find (fun (_, ax') -> ax = ax')
-               |> fst
-             in
-             dst_idx
-           )
-    in
-    Ops.transpose ~perm tensor
-  in
-
-  let moving_avg = tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false in
-  let moving_var = tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false in
-
-  object
-    method normalise x =
-      let dims = Ops.shape x in
-      let ndim = Array.length dims in
-      let axes = List.init ndim Fun.id in
-      let squeezed_axes = List.filter (fun i -> not (List.mem i norm_axes)) axes in
-      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
-      let dims' = Array.mapi (fun i s -> if List.mem i norm_axes then s else 1) dims in
-      let dims'' =
-        List.filter_map (fun i -> if List.mem i norm_axes then Some dims.(i) else None) axes
-        |> Array.of_list
-      in
-      if dims'' <> (Ops.shape moving_var) then
-        failwith (err_hd ^ "#normalise: Unexpected input tensor shape");
-      let open Ops in
-
-      if update then begin
-          let avg = avgpool ~b:`AssertFit kernel_sizes x in
-          let x_centered = x - avg in
-          let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
-          assert (shape avg = dims');
-
-          let avg = squeeze ~axes:squeezed_axes avg in
-          let var = squeeze ~axes:squeezed_axes var in
-          assert (shape avg = dims'');
-
-          moving_avg##assign (momentum * moving_avg + momentum' * avg);
-          moving_var##assign (momentum * moving_var + momentum' * var);
-        end;
-      let moving_avg = reshape dims' moving_avg in
-      let moving_var = reshape dims' moving_var in
-      (x - moving_avg) / (moving_var + epsilon |> sqrt)
-
-    method get_avg = moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
-
-    method get_var = moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
-  end
-
-let create_sgd_updater : variable Js.t -> _ =
- fun weights ->
-  object
-    method update lr grad =
-      let open Ops in
-      weights##assign (grad |> mul (float lr) |> neg |> add weights)
-  end
-
-let create_adam32_updater :
-    float -> float -> float -> int -> float32_ba -> float32_ba -> variable Js.t -> _ =
- fun epsilon beta1 beta2 step rgrad rgrad_sq weights ->
-  let beta1 = beta1 |> float in
-  let beta2 = beta2 |> float in
-  let beta1' = Ops.sub (float 1.) beta1 in
-  let beta2' = Ops.sub (float 1.) beta2 in
-  let epsilon = float epsilon in
-
-  let step = step |> int |> variable ~dtype:`Int32 in
-  let rgrad =
-    tensor_of_ba rgrad
-    |> variable ~trainable:false
-  in
-  let rgrad_sq =
-    tensor_of_ba rgrad_sq
-    |> variable ~trainable:false
-  in
-
-  object
-    method update lr (grad : tensor Js.t) =
-      let open Ops in
-      step##assign (step + int 1);
-      let correction1 = float 1. - (beta1 ** step) in
-      let correction2 = float 1. - (beta2 ** step) in
-      rgrad##assign ((rgrad * beta1) + (grad * beta1'));
-      rgrad_sq##assign ((rgrad_sq * beta2) + (grad * grad * beta2'));
-      weights##assign
-        ( rgrad / correction1 / (sqrt (rgrad_sq / correction2) + epsilon)
-        |> mul (float lr)
-        |> neg |> add weights )
-
-    method get_step = to_int step
-
-    method get_rgrad = ba_of_tensor Bigarray.Float32 rgrad
-
-    method get_rgrad_sq = ba_of_tensor Bigarray.Float32 rgrad_sq
-  end
 
 let iou_recall_precision_of_cm : #tensor Js.t -> tensor Js.t =
  fun cm ->
@@ -1129,6 +818,281 @@ let iou_recall_precision_of_cm : #tensor Js.t -> tensor Js.t =
   let res = List.init w stats_of_cat |> Ops.concat 0 in
   assert (Js.to_array res##.shape = [| w; 3 |]);
   res
+
+(* Hard coded stateful algorithms *************************************************************** *)
+let create_local_normaliser : float -> int list -> < normalise : #tensor Js.t -> tensor Js.t > =
+ fun epsilon norm_axes ->
+  if epsilon < 0. then invalid_arg "In create_local_normaliser: epsilon should be >=0";
+  let epsilon = float epsilon in
+  if List.length norm_axes = 0 then
+    invalid_arg "In create_local_normaliser: norm_axes shouldn't be an empty list";
+  object
+    method normalise x =
+      let dims = x##.shape |> Js.to_array in
+      let ndim = Array.length dims in
+      let norm_axes =
+        List.map
+          (fun ax ->
+            let ax = if ax < 0 then -(ax + 1) else ax in
+            if ax >= ndim then
+              failwith "In create_local_normaliser#normalise: Input tensor is too small";
+            ax)
+          norm_axes
+      in
+      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
+
+      let open Ops in
+      let avg = avgpool ~b:`AssertFit kernel_sizes x in
+      let x_centered = x - avg in
+      let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
+      x_centered / (var + epsilon |> sqrt)
+  end
+
+let create_global_normaliser :
+    float ->
+    int ->
+    float32_ba ->
+    float32_ba ->
+    bool ->
+    int list ->
+    < normalise : #tensor Js.t -> tensor Js.t
+    ; get_step : int
+    ; get_avg : float32_ba
+    ; get_var : float32_ba > =
+ fun epsilon step moving_avg moving_var update norm_axes ->
+  let err_hd = "In create_global_normaliser" in
+
+  if epsilon < 0. then invalid_arg (err_hd ^ ": epsilon should be >=0");
+  if List.length norm_axes = 0 then invalid_arg (err_hd ^ ": norm_axes shouldn't be an empty list");
+  if Bigarray.Genarray.dims moving_avg <> Bigarray.Genarray.dims moving_var then
+    invalid_arg (err_hd ^ ": moving_avg and moving_var should have the same shape");
+  if Bigarray.Genarray.num_dims moving_avg <> List.length norm_axes then
+    invalid_arg (err_hd ^ ": norm_axes incompatible with moving_avg and moving_var");
+
+  let epsilon = float epsilon in
+  let norm_axes_original = norm_axes in
+  let norm_axes = List.sort compare norm_axes in
+  let transpose_to_sorted tensor =
+    let norm_axes = Array.of_list norm_axes in
+    let perm =
+      List.init (Array.length norm_axes) Fun.id
+      |> List.map (fun dst_idx ->
+             let ax = norm_axes.(dst_idx) in
+             let src_idx =
+               List.mapi (fun i j -> (i, j)) norm_axes_original
+               |> List.find (fun (_, ax') -> ax = ax')
+               |> fst
+             in
+             src_idx)
+    in
+    Ops.transpose ~perm tensor
+  in
+  let transpose_to_original tensor =
+    let norm_axes_original = Array.of_list norm_axes_original in
+    let perm =
+      List.init (Array.length norm_axes_original) Fun.id
+      |> List.map (fun src_idx ->
+             let ax = norm_axes_original.(src_idx) in
+             let dst_idx =
+               List.mapi (fun i j -> (i, j)) norm_axes
+               |> List.find (fun (_, ax') -> ax = ax')
+               |> fst
+             in
+             dst_idx)
+    in
+    Ops.transpose ~perm tensor
+  in
+
+  let moving_avg = tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false in
+  let moving_var = tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false in
+  let step = int step |> variable ~trainable:false in
+  object
+    method normalise x =
+      let dims = Ops.shape x in
+      let ndim = Array.length dims in
+      let axes = List.init ndim Fun.id in
+      let squeezed_axes = List.filter (fun i -> not (List.mem i norm_axes)) axes in
+      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
+      let dims' = Array.mapi (fun i s -> if List.mem i norm_axes then s else 1) dims in
+      let dims'' =
+        List.filter_map (fun i -> if List.mem i norm_axes then Some dims.(i) else None) axes
+        |> Array.of_list
+      in
+      if dims'' <> Ops.shape moving_var then
+        failwith (err_hd ^ "#normalise: Unexpected input tensor shape");
+      let open Ops in
+      if update then (
+        step##assign (step + int 1);
+        let momentum' = float 1. / step##asType (Js.string "float32") in
+        let momentum = float 1. - momentum' in
+        Printf.eprintf "%d %10.6f %10.6f\n%!" (to_int step) (to_float momentum') (to_float momentum);
+
+        let avg = avgpool ~b:`AssertFit kernel_sizes x in
+        let x_centered = x - avg in
+        let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
+        assert (shape avg = dims');
+
+        let avg = squeeze ~axes:squeezed_axes avg in
+        let var = squeeze ~axes:squeezed_axes var in
+        assert (shape avg = dims'');
+
+        moving_avg##assign ((momentum * moving_avg) + (momentum' * avg));
+        moving_var##assign ((momentum * moving_var) + (momentum' * var)) );
+      let moving_avg = reshape dims' moving_avg in
+      let moving_var = reshape dims' moving_var in
+      (x - moving_avg) / (moving_var + epsilon |> sqrt)
+
+    method get_step = to_int step
+
+    method get_avg = moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+
+    method get_var = moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+  end
+
+let create_exp_moving32_normaliser :
+    float ->
+    float ->
+    float32_ba ->
+    float32_ba ->
+    bool ->
+    int list ->
+    < normalise : #tensor Js.t -> tensor Js.t ; get_avg : float32_ba ; get_var : float32_ba > =
+ fun epsilon momentum moving_avg moving_var update norm_axes ->
+  let err_hd = "In create_exp_moving32_normaliser" in
+
+  if epsilon < 0. then invalid_arg (err_hd ^ ": epsilon should be >=0");
+  if momentum < 0. || momentum > 1. then invalid_arg (err_hd ^ ": momentum should be >=0 and <=1");
+  if List.length norm_axes = 0 then invalid_arg (err_hd ^ ": norm_axes shouldn't be an empty list");
+  if Bigarray.Genarray.dims moving_avg <> Bigarray.Genarray.dims moving_var then
+    invalid_arg (err_hd ^ ": moving_avg and moving_var should have the same shape");
+  if Bigarray.Genarray.num_dims moving_avg <> List.length norm_axes then
+    invalid_arg (err_hd ^ ": norm_axes incompatible with moving_avg and moving_var");
+
+  let epsilon = float epsilon in
+  let momentum = float momentum in
+  let momentum' = Ops.sub (float 1.) momentum in
+  let norm_axes_original = norm_axes in
+  let norm_axes = List.sort compare norm_axes in
+  let transpose_to_sorted tensor =
+    let norm_axes = Array.of_list norm_axes in
+    let perm =
+      List.init (Array.length norm_axes) Fun.id
+      |> List.map (fun dst_idx ->
+             let ax = norm_axes.(dst_idx) in
+             let src_idx =
+               List.mapi (fun i j -> (i, j)) norm_axes_original
+               |> List.find (fun (_, ax') -> ax = ax')
+               |> fst
+             in
+             src_idx)
+    in
+    Ops.transpose ~perm tensor
+  in
+  let transpose_to_original tensor =
+    let norm_axes_original = Array.of_list norm_axes_original in
+    let perm =
+      List.init (Array.length norm_axes_original) Fun.id
+      |> List.map (fun src_idx ->
+             let ax = norm_axes_original.(src_idx) in
+             let dst_idx =
+               List.mapi (fun i j -> (i, j)) norm_axes
+               |> List.find (fun (_, ax') -> ax = ax')
+               |> fst
+             in
+             dst_idx)
+    in
+    Ops.transpose ~perm tensor
+  in
+
+  let moving_avg = tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false in
+  let moving_var = tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false in
+
+  object
+    method normalise x =
+      let dims = Ops.shape x in
+      let ndim = Array.length dims in
+      let axes = List.init ndim Fun.id in
+      let squeezed_axes = List.filter (fun i -> not (List.mem i norm_axes)) axes in
+      let kernel_sizes = List.init ndim (fun i -> if List.mem i norm_axes then 1 else dims.(i)) in
+      let dims' = Array.mapi (fun i s -> if List.mem i norm_axes then s else 1) dims in
+      let dims'' =
+        List.filter_map (fun i -> if List.mem i norm_axes then Some dims.(i) else None) axes
+        |> Array.of_list
+      in
+      if dims'' <> Ops.shape moving_var then
+        failwith (err_hd ^ "#normalise: Unexpected input tensor shape");
+      let open Ops in
+      if update then (
+        let avg = avgpool ~b:`AssertFit kernel_sizes x in
+        let x_centered = x - avg in
+        let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
+        assert (shape avg = dims');
+
+        let avg = squeeze ~axes:squeezed_axes avg in
+        let var = squeeze ~axes:squeezed_axes var in
+        assert (shape avg = dims'');
+
+        moving_avg##assign ((momentum * moving_avg) + (momentum' * avg));
+        moving_var##assign ((momentum * moving_var) + (momentum' * var)) );
+      let moving_avg = reshape dims' moving_avg in
+      let moving_var = reshape dims' moving_var in
+      (x - moving_avg) / (moving_var + epsilon |> sqrt)
+
+    method get_avg = moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+
+    method get_var = moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+  end
+
+let create_sgd_updater : variable Js.t -> < update : float -> tensor Js.t -> unit > =
+ fun weights ->
+  object
+    method update lr grad =
+      let open Ops in
+      weights##assign (grad |> mul (float lr) |> neg |> add weights)
+  end
+
+let create_adam32_updater :
+    float ->
+    float ->
+    float ->
+    int ->
+    float32_ba ->
+    float32_ba ->
+    variable Js.t ->
+    < update : float -> tensor Js.t -> unit
+    ; get_step : int
+    ; get_rgrad : float32_ba
+    ; get_rgrad_sq : float32_ba > =
+ fun epsilon beta1 beta2 step rgrad rgrad_sq weights ->
+  let beta1 = beta1 |> float in
+  let beta2 = beta2 |> float in
+  let beta1' = Ops.sub (float 1.) beta1 in
+  let beta2' = Ops.sub (float 1.) beta2 in
+  let epsilon = float epsilon in
+
+  let step = step |> int |> variable ~dtype:`Int32 in
+  let rgrad = tensor_of_ba rgrad |> variable ~trainable:false in
+  let rgrad_sq = tensor_of_ba rgrad_sq |> variable ~trainable:false in
+
+  object
+    method update lr (grad : tensor Js.t) =
+      let open Ops in
+      step##assign (step + int 1);
+      let correction1 = float 1. - (beta1 ** step) in
+      let correction2 = float 1. - (beta2 ** step) in
+      rgrad##assign ((rgrad * beta1) + (grad * beta1'));
+      rgrad_sq##assign ((rgrad_sq * beta2) + (grad * grad * beta2'));
+      weights##assign
+        ( rgrad / correction1 / (sqrt (rgrad_sq / correction2) + epsilon)
+        |> mul (float lr)
+        |> neg |> add weights )
+
+    method get_step = to_int step
+
+    method get_rgrad = ba_of_tensor Bigarray.Float32 rgrad
+
+    method get_rgrad_sq = ba_of_tensor Bigarray.Float32 rgrad_sq
+  end
 
 (* MISC. **************************************************************************************** *)
 let variable_grads : (unit -> tensor Js.t) -> tensor Js.t * tensor Js.t Named_tensor_map.t =

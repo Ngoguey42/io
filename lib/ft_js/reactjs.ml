@@ -75,7 +75,7 @@ module Bind = struct
 
   type status = Building of builder | Built of (unit -> Jsx.t Js.t) * (unit -> unit) list
 
-  let constructor f =
+  let constructor f props =
     let status = ref (Building { render = ref None; hooks = ref [] }) in
     let make props =
       match !status with
@@ -97,7 +97,7 @@ module Bind = struct
           List.iter (fun f -> f ()) hooks;
           render ()
     in
-    Jsx.of_make make
+    Jsx.of_make make props
 
   let render builder f =
     match !(builder.render) with

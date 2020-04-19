@@ -386,7 +386,15 @@ let make =
 
 let lol () =
   let body = Dom_html.window##.document##.body in
-  let elt = Reactjs.Jsx.of_make make () in
+  let elt =
+    let open Reactjs.Jsx in
+    of_tag "div"
+      [
+        of_make make (); of_tag "br" [];
+        of_make make (); of_tag "br" [];
+        of_make make (); of_tag "br" [];
+      ]
+  in
   Reactjs.render elt body
 
 let main () =

@@ -10,7 +10,7 @@ module XmlHttpRequest = Js_of_ocaml_lwt.XmlHttpRequest
 module Idb = Irmin_indexeddb_raw_noutf
 
 module Conv = Conv
-module React = React
+module Reactjs = Reactjs
 
 module CryptoJs = struct
   class type js_hash =

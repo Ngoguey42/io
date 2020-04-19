@@ -337,7 +337,7 @@ let main () =
   let open Lwt.Infix in
   Dom.appendChild body @@ Ft_cnnjs.Mnist.status_div ();
 
-  Ft_js.React.lol ();
+  Ft_js.Reactjs.lol ();
 
   Ft_cnnjs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);

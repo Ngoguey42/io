@@ -70,10 +70,6 @@ let render : Jsx.t Js.t -> Dom_html.element Js.t -> unit =
   let open Js.Unsafe in
   fun_call global##._ReactDOM##.render [| inject elt; inject container |]
 
-type state = [ `Init | `Downloading | `Downloaded ]
-
-type action = [ `Click ]
-
 module Bind = struct
   type builder = { render : (unit -> Jsx.t Js.t) option ref; hooks : (unit -> unit) list ref }
 
@@ -84,20 +80,20 @@ module Bind = struct
     let make props =
       match !status with
       | Building builder ->
-          Printf.eprintf "!make initial\n%!";
           f builder props;
-
           let render =
-            match !(builder.render) with Some render -> render | None -> failwith "Missing render"
+            match !(builder.render) with
+            | Some render -> render
+            | None ->
+                failwith
+                  "Reacjs.Bind.render should be called exactly once per Reactjs.Bind.constructor"
           in
           let hooks = !(builder.hooks) in
-
           status := Built (render, hooks);
 
           List.iter (fun f -> f ()) hooks;
           render ()
       | Built (render, hooks) ->
-          Printf.eprintf "!make subsequent, %d hooks\n%!" (List.length hooks);
           List.iter (fun f -> f ()) hooks;
           render ()
     in
@@ -106,7 +102,8 @@ module Bind = struct
   let render builder f =
     match !(builder.render) with
     | None -> builder.render := Some f
-    | Some _ -> failwith "Multiple render"
+    | Some _ ->
+        failwith "Reacjs.Bind.render should be called exactly once per Reactjs.Bind.constructor"
 
   let mount builder f =
     let fetch () = use_effect ~deps:[||] f in
@@ -116,14 +113,21 @@ module Bind = struct
    fun builder init ->
     let ref_s, ref_set = (ref None, ref None) in
     let fetch () =
-      Printf.eprintf "!fetch state\n%!";
       let s, set = use_state init in
       ref_s := Some s;
       ref_set := Some set
     in
-    let get () = match !ref_s with None -> failwith "Calling get too early" | Some s -> s in
+    let get () =
+      match !ref_s with
+      | None ->
+          failwith "Can't call returned functions of Reactjs.Bind.state from within constructor"
+      | Some s -> s
+    in
     let set s =
-      match !ref_set with None -> failwith "Calling set too early" | Some set -> set s
+      match !ref_set with
+      | None ->
+          failwith "Can't call returned functions of Reactjs.Bind.state from within constructor"
+      | Some set -> set s
     in
     builder.hooks := !(builder.hooks) @ [ fetch ];
     (get, set)
@@ -132,15 +136,21 @@ module Bind = struct
    fun builder reduce init ->
     let ref_s, ref_set = (ref None, ref None) in
     let fetch () =
-      Printf.eprintf "!fetch rstate\n%!";
       let s, set = use_reducer reduce init in
       ref_s := Some s;
       ref_set := Some set
     in
-    let get () = match !ref_s with None -> failwith "Calling get too early" | Some s -> s in
+    let get () =
+      match !ref_s with
+      | None ->
+          failwith "Can't call returned functions of Reactjs.Bind.reducer from within constructor"
+      | Some s -> s
+    in
     let set a =
-      Printf.eprintf "!set rstate\n%!";
-      match !ref_set with None -> failwith "Calling set too early" | Some set -> set a
+      match !ref_set with
+      | None ->
+          failwith "Can't call returned functions of Reactjs.Bind.state from within constructor"
+      | Some set -> set a
     in
     builder.hooks := !(builder.hooks) @ [ fetch ];
     (get, set)
@@ -149,146 +159,9 @@ module Bind = struct
    fun builder s ->
     let _, set_state = state builder (fun () -> React.S.value s) in
 
+    (* TODO: Really necessary to retain? *)
     React.S.changes s
     |> React.E.map (fun s -> set_state (fun _ -> s))
     |> (fun _ () -> ())
     |> React.S.retain s |> ignore
 end
-
-let make' =
-  (fun builder on_finished_prop ->
-    Printf.eprintf ">>> Construct\n%!";
-    let to_string = function
-      | `Init -> "init"
-      | `Downloading -> "dl"
-      | `Downloaded -> "downloaded"
-    in
-    let reduce s a =
-      match (s, a) with
-      | `Init, `Click ->
-          Printf.eprintf ">>> Reduce from state %s to `Downloading\n%!" (s |> to_string);
-          `Downloading
-      | `Downloading, `Click ->
-          Printf.eprintf ">>> Reduce from state %s to `Downloaded\n%!" (s |> to_string);
-          `Downloaded
-      | `Downloaded, `Click ->
-          Printf.eprintf ">>> Reduce from state %s to same\n%!" (s |> to_string);
-          on_finished_prop ();
-          s
-    in
-    let events, act = React.E.create () in
-    let signal = React.S.fold reduce `Init events in
-    let onclick _ = act `Click in
-
-    let render () =
-      let open Jsx in
-      Printf.eprintf ">>> Render %s\n%!" (React.S.value signal |> to_string);
-      of_tag "div"
-        [
-          of_tag "button" ~disabled:false ~on_click:onclick [ of_string "click me" ];
-          of_string " coucou ";
-          of_string (React.S.value signal |> to_string);
-        ]
-    in
-    let unmount () = Printf.eprintf ">>> Unmount\n%!" in
-    let mount () =
-      Printf.eprintf ">>> Mount\n%!";
-      unmount
-    in
-
-    Bind.signal builder signal;
-    Bind.render builder render;
-    Bind.mount builder mount)
-  |> Bind.constructor
-
-let make =
-  (fun builder (_props : int) ->
-    Printf.eprintf "> Construct\n%!";
-
-    let get_state0, set_state0 = Bind.state builder (fun () -> true) in
-    let on_finished () =
-      Printf.eprintf "> On finished begin\n%!";
-      set_state0 (fun _ -> false);
-      Printf.eprintf "> On finished end\n%!"
-    in
-
-    let render () =
-      Printf.eprintf "> Render %b\n%!" (get_state0 ());
-      if get_state0 () then Jsx.of_make make' on_finished else Jsx.of_string "bye bye"
-    in
-
-    Bind.render builder render)
-  |> Bind.constructor
-
-(* let make' = *)
-
-(*   (fun builder on_finished -> *)
-(*     Printf.eprintf ">>> Construct\n%!"; *)
-(*     Firebug.console##log on_finished; *)
-(*     let to_string = function `Init -> "init" | `Downloading -> "dl" | `Downloaded -> "downloaded" in *)
-(*     let reduce_state1 s a = *)
-(*       match (s, a) with *)
-(*       | `Init, `Click -> *)
-(*          Printf.eprintf ">>> Reduce from state %s to `Downloading\n%!" (s |> to_string); *)
-(*          `Downloading *)
-(*       | `Downloading, `Click -> *)
-(*          Printf.eprintf ">>> Reduce from state %s to `Downloaded\n%!" (s |> to_string); *)
-(*           `Downloaded *)
-(*       | `Downloaded, `Click -> *)
-(*          Printf.eprintf ">>> Reduce from state %s to same\n%!" (s |> to_string); *)
-(*          on_finished (); *)
-(*          s *)
-(*     in *)
-
-(*     (\* let _get_state0, _set_state0 = Bind.state builder (fun () -> 0) in *\) *)
-(*     let get_state1, set_state1 = Bind.rstate builder reduce_state1 (fun () -> `Init) in *)
-(*     let onclick _ = set_state1 `Click in *)
-
-(*     let render () = *)
-(*       Printf.eprintf ">>> Render %s\n%!" (get_state1 () |> to_string); *)
-(*       Jsx.of_tag "div" *)
-(*         [ *)
-(*           Jsx.of_tag "button" ~disabled:false ~on_click:onclick [ Jsx.of_string "click me" ]; *)
-(*           Jsx.of_string " coucou "; *)
-(*           Jsx.of_string (get_state1 () |> to_string); *)
-(*         ] *)
-(*     in *)
-(*     let unmount () = *)
-(*       Printf.eprintf ">>> Unmount\n%!"; *)
-(*     in *)
-(*     let mount () = *)
-(*       Printf.eprintf ">>> Mount\n%!"; *)
-(*       unmount *)
-(*     in *)
-
-(*     Bind.render builder render; *)
-(*     Bind.mount builder mount; *)
-(*   ) *)
-(*   |> Bind.constructor *)
-
-(* let make _ = *)
-(*   (\* let open React in *\) *)
-(*   let to_string = function `Init -> "init" | `Downloading -> "dl" | `Downloaded -> "done" in *)
-(*   let reduce s a = *)
-(*     match (s, a) with *)
-(*     | `Init, `Click -> `Downloading *)
-(*     | `Downloading, `Click -> `Downloaded *)
-(*     | `Downloaded, `Click -> s *)
-(*   in *)
-(*   let state, act = use_reducer reduce (fun () -> `Init) in *)
-(*   let onclick _ = act `Click in *)
-
-(*   Jsx.of_tag "div" *)
-(*     [ *)
-(*       Jsx.of_tag "button" ~disabled:false ~on_click:onclick [ Jsx.of_string "click me" ]; *)
-(*       Jsx.of_string " coucou "; *)
-(*       Jsx.of_string (to_string state); *)
-(*     ] *)
-
-let lol () =
-  let body = Dom_html.window##.document##.body in
-  let elt = Jsx.of_make make 42 in
-  render elt body;
-
-  Firebug.console##log (Html.a_disabled ());
-  ()

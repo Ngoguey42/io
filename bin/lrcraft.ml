@@ -9,6 +9,7 @@ module Algodiff = Graph.Neuron.Optimise.Algodiff
 module Ft_neural = Ft_owlbase.Make_neural (Graph)
 module Ndarray = Owl_base_dense_ndarray_generic
 module Typed_array = Js_of_ocaml.Typed_array
+module Reactjs =  Ft_js.Reactjs
 
 let body = Dom_html.window##.document##.body
 
@@ -333,11 +334,66 @@ let _main_owld train_imgs train_labs test_imgs test_labs =
 
 (* ********************************************************************************************** *)
 
+
+let make' =
+  (fun builder on_finished_prop ->
+    let to_string = function
+      | `Init -> "init"
+      | `Downloading -> "dl"
+      | `Downloaded -> "downloaded"
+    in
+    let reduce s a =
+      match (s, a) with
+      | `Init, `Click -> `Downloading
+      | `Downloading, `Click -> `Downloaded
+      | `Downloaded, `Click ->
+          on_finished_prop ();
+          s
+    in
+    let events, act = React.E.create () in
+    let signal = React.S.fold reduce `Init events in
+    let onclick _ = act `Click in
+
+    let render () =
+      let open Reactjs.Jsx in
+      of_tag "div"
+        [
+          of_tag "button" ~disabled:false ~on_click:onclick [ of_string "click me" ];
+          of_string " coucou ";
+          of_string (React.S.value signal |> to_string);
+        ]
+    in
+    let unmount () = () in
+    let mount () = unmount in
+
+    Reactjs.Bind.signal builder signal;
+    Reactjs.Bind.render builder render;
+    Reactjs.Bind.mount builder mount)
+  |> Reactjs.Bind.constructor
+
+let make =
+  (fun builder () ->
+    let get_state0, set_state0 = Reactjs.Bind.state builder (fun () -> true) in
+    let on_finished () = set_state0 (fun _ -> false) in
+
+    let render () =
+      let open Reactjs.Jsx in
+      if get_state0 () then of_make make' on_finished else of_string "bye bye"
+    in
+
+    Reactjs.Bind.render builder render)
+  |> Reactjs.Bind.constructor
+
+let lol () =
+  let body = Dom_html.window##.document##.body in
+  let elt = Reactjs.Jsx.of_make make () in
+  Reactjs.render elt body
+
 let main () =
   let open Lwt.Infix in
   Dom.appendChild body @@ Ft_cnnjs.Mnist.status_div ();
 
-  Ft_js.Reactjs.lol ();
+  lol ();
 
   Ft_cnnjs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);

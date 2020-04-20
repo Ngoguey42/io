@@ -334,7 +334,6 @@ let _main_owld train_imgs train_labs test_imgs test_labs =
 
 (* ********************************************************************************************** *)
 
-
 let make' =
   (fun builder on_finished_prop ->
     let to_string = function
@@ -399,14 +398,21 @@ let lol () =
 
 let main () =
   let open Lwt.Infix in
-  Dom.appendChild body @@ Ft_cnnjs.Mnist.status_div ();
+  (* Dom.appendChild body @@ Ft_cnnjs.Mnist.status_div (); *)
 
-  lol ();
+  let container = Html.div [] |> Tyxml_js.To_dom.of_element in
+  Dom.appendChild body container;
 
-  Ft_cnnjs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
+  let events, send_event = React.E.create () in
+  Reactjs.render (Reactjs.Jsx.of_make Ft_cnnjs.Mnist.make send_event) container;
+
+  Lwt_react.E.next events >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
+
+  (* lol (); *)
+  (* Ft_cnnjs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) -> *)
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
-  (* _main_nn train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
+  _main_nn train_imgs train_labs test_imgs test_labs >>= fun _ ->
   (* _main_owld train_imgs train_labs test_imgs test_labs >>= fun _ -> *)
 
   (* Ft_cnnjs.Mnist_tfjs.main train_imgs train_labs test_imgs test_labs >>= fun _ -> *)

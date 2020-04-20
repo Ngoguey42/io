@@ -10,12 +10,21 @@ class type event = object end
 module Jsx = struct
   class type t = object end
 
-  let of_tag : string -> ?on_click:(event -> unit) -> ?disabled:bool -> t Js.t list -> t Js.t =
-   fun name ?on_click ?disabled children ->
+  let of_tag :
+      string ->
+      ?on_click:(event -> unit) ->
+      ?disabled:bool ->
+      ?colspan:string ->
+      ?class_:string ->
+      t Js.t list ->
+      t Js.t =
+   fun name ?on_click ?disabled ?colspan ?class_ children ->
     let open Js.Unsafe in
     let props = object end in
     Option.iter (fun fn -> set props (Js.string "onClick") (Js.wrap_callback fn)) on_click;
     Option.iter (fun v -> set props (Js.string "disabled") v) disabled;
+    Option.iter (fun v -> set props (Js.string "colSpan") v) colspan;
+    Option.iter (fun v -> set props (Js.string "class") v) class_;
 
     let args = [| name |> Js.string |> inject; inject props |] in
     let children = List.map inject children |> Array.of_list in
@@ -27,7 +36,7 @@ module Jsx = struct
     let open Js.Unsafe in
     let props =
       object%js
-        method data = props
+        val data = props
       end
     in
     let make props = make props##.data in
@@ -159,9 +168,10 @@ module Bind = struct
    fun builder s ->
     let _, set_state = state builder (fun () -> React.S.value s) in
 
-    (* TODO: Really necessary to retain? *)
+    (* TODO: retain? *)
     React.S.changes s
     |> React.E.map (fun s -> set_state (fun _ -> s))
-    |> (fun _ () -> ())
-    |> React.S.retain s |> ignore
+    (* |> (fun _ () -> ()) *)
+    (* |> React.S.retain s *)
+    |> ignore
 end

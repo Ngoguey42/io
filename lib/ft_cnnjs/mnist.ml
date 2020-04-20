@@ -6,6 +6,13 @@ module Firebug = Js_of_ocaml.Firebug
 module Ndarray = Owl_base_dense_ndarray_generic
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Typed_array = Js_of_ocaml.Typed_array
+module Reactjs = Ft_js.Reactjs
+
+type uint8_ba = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
+
+type entry = [ `Train_imgs | `Train_labs | `Test_imgs | `Test_labs ]
+
+type status = [ `Unknown | `Check | `Download of int * int | `Ready of uint8_ba | `Store | `Unzip ]
 
 let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
 
@@ -21,37 +28,12 @@ let url_of_entry entry =
   let suffix = ".gz" in
   Printf.sprintf "%s%s%s%s" prefix prefix' (filename_of_entry entry) suffix
 
-let _create_status_div () =
-  let open Html in
-  let rec aux = function
-    | [] -> []
-    | entry :: tl ->
-        let n = filename_of_entry entry in
-        [%html "<tr><th>" [ txt n ] "</th><th class=" [ n ] ">unknown</th></tr>"] :: aux tl
-  in
-  table
-    ~a:[ a_class [ "mnist-status" ] ]
-    ~thead:[%html "<thead><tr><th colspan='2'>MNIST dataset status</th></tr></thead>"] (aux entries)
-
-let _status_div = lazy (Tyxml_js.To_dom.of_element @@ _create_status_div ())
-
-let status_div () = Lazy.force _status_div
-
-let _entry_status_div entry =
-  let status_div = status_div () in
-  let n = filename_of_entry entry in
-  Ft_js.select status_div ("." ^ n) Dom_html.CoerceTo.th
-
-let _update_entry_status entry new_msg =
-  (* Printf.eprintf "> _update_entry_status %s -> %s\n%!" (filename_of_entry entry) new_msg; *)
-  let elt = _entry_status_div entry in
-  elt##.innerHTML := new_msg |> Js.string
-
-let _entry_data_of_idb entry store =
+let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
+ fun entry store launch_event ->
   let open Lwt.Infix in
   let n = filename_of_entry entry in
 
-  _update_entry_status entry "Checking...";
+  launch_event (entry, `Check);
   Lwt_js.sleep 0.1 >>= fun () ->
   let reshape arr =
     let sub i j a = Bigarray.Genarray.sub_left a i j in
@@ -73,27 +55,20 @@ let _entry_data_of_idb entry store =
     Ft_js.Idb.get store n >>= function
     | Some arr -> arr |> reshape |> Lwt.return
     | None ->
-        let progress i j =
-          let f = float_of_int i /. float_of_int j *. 100. in
-          Printf.sprintf "Downloading... (%.0f%%)" f |> _update_entry_status entry
-        in
-
-        _update_entry_status entry "Downloading... (0%)";
         Lwt_js.sleep 0.1 >>= fun () ->
+        let progress i j = launch_event (entry, `Download (i, j)) in
         Ft_js.array_of_url ~progress (url_of_entry entry) >>= fun arr ->
-        _update_entry_status entry "Unzipping...";
+        launch_event (entry, `Unzip);
         Lwt_js.sleep 0.1 >>= fun () ->
         let arr = Ft_js.decompress_array arr in
-
-        _update_entry_status entry "Storing...";
+        launch_event (entry, `Store);
         Lwt_js.sleep 0.1 >>= fun () ->
         Ft_js.Idb.set store n arr >>= fun _ -> arr |> reshape |> Lwt.return
   in
-  arr >>= fun _ ->
-  _update_entry_status entry "&#10003;";
-  Lwt_js.sleep 0.1 >>= fun () -> arr
+  arr >|= fun arr -> launch_event (entry, `Ready arr)
 
-let get () =
+let get : (entry * status -> unit) -> unit Lwt.t =
+ fun launch_event ->
   let open Lwt.Infix in
   let store_name = Js.string "mnist-store" in
   let init ~old_version upgrader =
@@ -105,15 +80,77 @@ let get () =
 
   let promises =
     [
-      _entry_data_of_idb `Train_imgs store;
-      _entry_data_of_idb `Train_labs store;
-      _entry_data_of_idb `Test_imgs store;
-      _entry_data_of_idb `Test_labs store;
+      _entry_data_of_idb `Train_imgs store launch_event;
+      _entry_data_of_idb `Train_labs store launch_event;
+      _entry_data_of_idb `Test_imgs store launch_event;
+      _entry_data_of_idb `Test_labs store launch_event;
     ]
   in
-  Lwt.all promises >|= fun l ->
-  Ft_js.Idb.close store.db;
-  match l with [ a; b; c; d ] -> (a, b, c, d) | _ -> assert false
+  Lwt.all promises >|= fun _ -> Ft_js.Idb.close store.db
+
+let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t =
+  (fun builder (entry, download_events) ->
+    let fname = filename_of_entry entry in
+
+    let sig_download =
+      download_events
+      |> React.E.filter (fun (entry', _) -> entry = entry')
+      |> React.E.map (fun (_, action) -> action)
+      |> React.S.hold `Unknown
+    in
+    let signal_to_string () =
+      match React.S.value sig_download with
+      | `Unknown -> "?"
+      | `Check -> "Checking..."
+      | `Download (i, j) ->
+          let f = float_of_int i /. float_of_int j *. 100. in
+          Printf.sprintf "Downloading... (%.0f%%)" f
+      | `Unzip -> "Unzipping..."
+      | `Store -> "Storing..."
+      | `Ready _ -> "\u{02713}"
+    in
+    let render () =
+      let open Reactjs.Jsx in
+      of_tag "tr"
+        [
+          of_tag "th" [ of_string fname ];
+          of_tag "th" ~class_:fname [ of_string (signal_to_string ()) ];
+        ]
+    in
+
+    Reactjs.Bind.signal builder sig_download;
+    Reactjs.Bind.render builder render)
+  |> Reactjs.Bind.constructor
+
+let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
+  (fun builder on_completion ->
+    let download_events, act = React.E.create () in
+    let reduce : (entry * uint8_ba) list -> entry * status -> (entry * uint8_ba) list =
+     fun s a ->
+      let s = match a with entry, `Ready arr -> (entry, arr) :: s | _ -> s in
+      ( if List.length s = List.length entries then
+        match List.map (fun entry -> List.find (fun (entry', _) -> entry = entry') s) entries with
+        | [ (_, a); (_, b); (_, c); (_, d) ] -> on_completion (a, b, c, d)
+        | _ -> failwith "unreachable" );
+      s
+    in
+    let _entries_ready = React.S.fold reduce [] download_events in
+
+    let render () =
+      let open Reactjs.Jsx in
+      let head = of_tag "tr" [ of_tag "th" ~colspan:"2" [ of_string "MNIST dataset status" ] ] in
+      let tails = List.map (fun entry -> of_make make_tr (entry, download_events)) entries in
+      of_tag "table" ~class_:"mnist-status" [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
+    in
+    let unmount () = () in
+    let mount () =
+      Js_of_ocaml_lwt.Lwt_js_events.async (fun () -> get act);
+      unmount
+    in
+
+    Reactjs.Bind.render builder render;
+    Reactjs.Bind.mount builder mount)
+  |> Reactjs.Bind.constructor
 
 let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
   let img =

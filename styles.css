@@ -31,9 +31,9 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 /* ************************************************************************** */
 .mnist-status { border: 1px solid black; border-radius: 3px; font-family: "Fira Sans", sans-serif; }
 .mnist-status > thead > tr { background: #EBEBEB; }
-.mnist-status > tr { height: 25px; }
-.mnist-status > tr > th:nth-child(1) { text-align: right; }
-.mnist-status > tr > th:nth-child(2) { text-align: center; width: 175px; }
+.mnist-status > tbody > tr { height: 25px; }
+.mnist-status > tbody > tr > th:nth-child(1) { text-align: right; }
+.mnist-status > tbody > tr > th:nth-child(2) { text-align: center; width: 175px; }
 .mnist-status > thead > tr { height: 33px; }
 /* ************************************************************************** */
 .mnist-pred {

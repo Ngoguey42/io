@@ -80,48 +80,30 @@ let render : Jsx.t Js.t -> Dom_html.element Js.t -> unit =
   fun_call global##._ReactDOM##.render [| inject elt; inject container |]
 
 module Bind = struct
-  type builder = { render : (unit -> Jsx.t Js.t) option ref; hooks : (unit -> unit) list ref }
-
-  type status = Building of builder | Built of (unit -> Jsx.t Js.t) * (unit -> unit) list
 
   let constructor f props =
-    let status = ref (Building { render = ref None; hooks = ref [] }) in
+    let status = ref `First in
     let make props =
       match !status with
-      | Building builder ->
-          f builder props;
-          let render =
-            match !(builder.render) with
-            | Some render -> render
-            | None ->
-                failwith
-                  "Reacjs.Bind.render should be called exactly once per Reactjs.Bind.constructor"
-          in
-          let hooks = !(builder.hooks) in
-          status := Built (render, hooks);
-
+      | `First ->
+          let render, hooks = f props in
+          status := `Subsequent (render, hooks);
           List.iter (fun f -> f ()) hooks;
           render ()
-      | Built (render, hooks) ->
+      | `Subsequent (render, hooks) ->
           List.iter (fun f -> f ()) hooks;
           render ()
     in
     Jsx.of_make make props
 
-  let render builder f =
-    match !(builder.render) with
-    | None -> builder.render := Some f
-    | Some _ ->
-        failwith "Reacjs.Bind.render should be called exactly once per Reactjs.Bind.constructor"
+  let mount f =
+    let hook () = use_effect ~deps:[||] f in
+    hook
 
-  let mount builder f =
-    let fetch () = use_effect ~deps:[||] f in
-    builder.hooks := !(builder.hooks) @ [ fetch ]
-
-  let state : builder -> (unit -> 's) -> (unit -> 's) * (('s -> 's) -> unit) =
-   fun builder init ->
+  let state : (unit -> 's) -> (unit -> 's) * (('s -> 's) -> unit) * (unit -> unit) =
+   fun init ->
     let ref_s, ref_set = (ref None, ref None) in
-    let fetch () =
+    let hook () =
       let s, set = use_state init in
       ref_s := Some s;
       ref_set := Some set
@@ -138,40 +120,17 @@ module Bind = struct
           failwith "Can't call returned functions of Reactjs.Bind.state from within constructor"
       | Some set -> set s
     in
-    builder.hooks := !(builder.hooks) @ [ fetch ];
-    (get, set)
+    (get, set, hook)
 
-  let reducer : _ -> ('s -> 'a -> 's) -> (unit -> 's) -> (unit -> 's) * ('a -> unit) =
-   fun builder reduce init ->
-    let ref_s, ref_set = (ref None, ref None) in
-    let fetch () =
-      let s, set = use_reducer reduce init in
-      ref_s := Some s;
-      ref_set := Some set
-    in
-    let get () =
-      match !ref_s with
-      | None ->
-          failwith "Can't call returned functions of Reactjs.Bind.reducer from within constructor"
-      | Some s -> s
-    in
-    let set a =
-      match !ref_set with
-      | None ->
-          failwith "Can't call returned functions of Reactjs.Bind.state from within constructor"
-      | Some set -> set a
-    in
-    builder.hooks := !(builder.hooks) @ [ fetch ];
-    (get, set)
-
-  let signal : _ -> 'a React.signal -> unit =
-   fun builder s ->
-    let _, set_state = state builder (fun () -> React.S.value s) in
+  let signal : 'a React.signal -> (unit -> unit) =
+   fun s ->
+    let _, set_state, hook = state (fun () -> React.S.value s) in
 
     (* TODO: retain? *)
     React.S.changes s
     |> React.E.map (fun s -> set_state (fun _ -> s))
     (* |> (fun _ () -> ()) *)
     (* |> React.S.retain s *)
-    |> ignore
+    |> ignore;
+    hook
 end

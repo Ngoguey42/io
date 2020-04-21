@@ -10,6 +10,7 @@ module Ft_neural = Ft_owlbase.Make_neural (Graph)
 module Ndarray = Owl_base_dense_ndarray_generic
 module Typed_array = Js_of_ocaml.Typed_array
 module Reactjs =  Ft_js.Reactjs
+module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 
 let body = Dom_html.window##.document##.body
 
@@ -345,6 +346,9 @@ let main () =
   Reactjs.render (Reactjs.Jsx.of_make Ft_cnnjs.Mnist.make send_event) container;
 
   Lwt_react.E.next events >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
+  Printf.eprintf "Data ready\n%!";
+
+  Lwt_js.sleep 0.01 >>= fun () ->
 
   (* Ft_cnnjs.Mnist.get () >>= fun (train_imgs, train_labs, test_imgs, test_labs) -> *)
   ignore (train_imgs, train_labs, test_imgs, test_labs);

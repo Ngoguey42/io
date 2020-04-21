@@ -23,17 +23,20 @@ let filename_of_entry = function
   | `Test_labs -> "t10k-labels-idx1-ubyte"
 
 let url_of_entry entry =
-  let prefix = "https://cors-anywhere.herokuapp.com/" in
-  let prefix' = "http://yann.lecun.com/exdb/mnist/" in
-  let suffix = ".gz" in
-  Printf.sprintf "%s%s%s%s" prefix prefix' (filename_of_entry entry) suffix
+  String.concat ""
+    [
+      "https://cors-anywhere.herokuapp.com/";
+      "http://yann.lecun.com/exdb/mnist/";
+      filename_of_entry entry;
+      ".gz";
+    ]
 
 let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
- fun entry store launch_event ->
+ fun entry store progress ->
   let open Lwt.Infix in
   let n = filename_of_entry entry in
 
-  launch_event (entry, `Check);
+  progress (entry, `Check);
   Lwt_js.sleep 0.1 >>= fun () ->
   let reshape arr =
     let sub i j a = Bigarray.Genarray.sub_left a i j in
@@ -56,19 +59,19 @@ let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
     | Some arr -> arr |> reshape |> Lwt.return
     | None ->
         Lwt_js.sleep 0.1 >>= fun () ->
-        let progress i j = launch_event (entry, `Download (i, j)) in
-        Ft_js.array_of_url ~progress (url_of_entry entry) >>= fun arr ->
-        launch_event (entry, `Unzip);
+        let f i j = progress (entry, `Download (i, j)) in
+        Ft_js.array_of_url ~progress:f (url_of_entry entry) >>= fun arr ->
+        progress (entry, `Unzip);
         Lwt_js.sleep 0.1 >>= fun () ->
         let arr = Ft_js.decompress_array arr in
-        launch_event (entry, `Store);
+        progress (entry, `Store);
         Lwt_js.sleep 0.1 >>= fun () ->
         Ft_js.Idb.set store n arr >>= fun _ -> arr |> reshape |> Lwt.return
   in
-  arr >|= fun arr -> launch_event (entry, `Ready arr)
+  arr >|= fun arr -> progress (entry, `Ready arr)
 
 let get : (entry * status -> unit) -> unit Lwt.t =
- fun launch_event ->
+ fun progress ->
   let open Lwt.Infix in
   let store_name = Js.string "mnist-store" in
   let init ~old_version upgrader =
@@ -80,10 +83,10 @@ let get : (entry * status -> unit) -> unit Lwt.t =
 
   let promises =
     [
-      _entry_data_of_idb `Train_imgs store launch_event;
-      _entry_data_of_idb `Train_labs store launch_event;
-      _entry_data_of_idb `Test_imgs store launch_event;
-      _entry_data_of_idb `Test_labs store launch_event;
+      _entry_data_of_idb `Train_imgs store progress;
+      _entry_data_of_idb `Train_labs store progress;
+      _entry_data_of_idb `Test_imgs store progress;
+      _entry_data_of_idb `Test_labs store progress;
     ]
   in
   Lwt.all promises >|= fun _ -> Ft_js.Idb.close store.db
@@ -116,12 +119,12 @@ let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t =
           of_tag "th" ~class_:fname [ of_string (signal_to_string ()) ];
         ]
     in
-    Reactjs.Bind.return ~signals:[sig_download] render)
+    Reactjs.Bind.return ~signals:[ sig_download ] render)
   |> Reactjs.Bind.constructor
 
 let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
   (fun on_completion ->
-    let download_events, act = React.E.create () in
+    let download_events, progress = React.E.create () in
     let reduce : (entry * uint8_ba) list -> entry * status -> (entry * uint8_ba) list =
      fun s a ->
       let s = match a with entry, `Ready arr -> (entry, arr) :: s | _ -> s in
@@ -140,10 +143,9 @@ let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
     in
     let unmount () = () in
     let mount () =
-      Js_of_ocaml_lwt.Lwt_js_events.async (fun () -> get act);
+      Js_of_ocaml_lwt.Lwt_js_events.async (fun () -> get progress);
       unmount
     in
-
     Reactjs.Bind.return ~mount render)
   |> Reactjs.Bind.constructor
 

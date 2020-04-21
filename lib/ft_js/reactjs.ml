@@ -24,7 +24,7 @@ module Jsx = struct
     Option.iter (fun fn -> set props (Js.string "onClick") (Js.wrap_callback fn)) on_click;
     Option.iter (fun v -> set props (Js.string "disabled") v) disabled;
     Option.iter (fun v -> set props (Js.string "colSpan") v) colspan;
-    Option.iter (fun v -> set props (Js.string "class") v) class_;
+    Option.iter (fun v -> set props (Js.string "className") v) class_;
 
     let args = [| name |> Js.string |> inject; inject props |] in
     let children = List.map inject children |> Array.of_list in
@@ -85,7 +85,23 @@ module Bind = struct
     let make props =
       match !status with
       | `First ->
-          let render, hooks = f props in
+          let mount, signals, render = f props in
+          let hook_of_mount f =
+            let hook () = use_effect ~deps:[||] f in
+            hook ();
+            hook
+          in
+          let hook_of_signal s =
+            let init () = React.S.value s in
+            let _, set_state = use_state init in
+            let hook () = use_state init |> ignore in
+            (* TODO: retain? *)
+            React.S.changes s |> React.E.map (fun s -> set_state (fun _ -> s)) |> ignore;
+            hook
+          in
+          let hooks =
+            (mount |> Option.to_list |> List.map hook_of_mount) @ List.map hook_of_signal signals
+          in
           status := `Subsequent (render, hooks);
           render ()
       | `Subsequent (render, hooks) ->
@@ -94,22 +110,5 @@ module Bind = struct
     in
     Jsx.of_make make props
 
-  let return ?mount ?(signals = []) render =
-    let hook_of_mount f =
-      let hook () = use_effect ~deps:[||] f in
-      hook ();
-      hook
-    in
-    let hook_of_signal s =
-      let init () = React.S.value s in
-      let _, set_state = use_state init in
-      let hook () = use_state init |> ignore in
-      (* TODO: retain? *)
-      React.S.changes s |> React.E.map (fun s -> set_state (fun _ -> s)) |> ignore;
-      hook
-    in
-    let hooks =
-      (mount |> Option.to_list |> List.map hook_of_mount) @ List.map hook_of_signal signals
-    in
-    (render, hooks)
+  let return ?mount ?(signals = []) render = mount, signals, render
 end

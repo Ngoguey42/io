@@ -80,7 +80,6 @@ let render : Jsx.t Js.t -> Dom_html.element Js.t -> unit =
   fun_call global##._ReactDOM##.render [| inject elt; inject container |]
 
 module Bind = struct
-
   let constructor f props =
     let status = ref `First in
     let make props =
@@ -88,7 +87,6 @@ module Bind = struct
       | `First ->
           let render, hooks = f props in
           status := `Subsequent (render, hooks);
-          List.iter (fun f -> f ()) hooks;
           render ()
       | `Subsequent (render, hooks) ->
           List.iter (fun f -> f ()) hooks;
@@ -96,41 +94,22 @@ module Bind = struct
     in
     Jsx.of_make make props
 
-  let mount f =
-    let hook () = use_effect ~deps:[||] f in
-    hook
-
-  let state : (unit -> 's) -> (unit -> 's) * (('s -> 's) -> unit) * (unit -> unit) =
-   fun init ->
-    let ref_s, ref_set = (ref None, ref None) in
-    let hook () =
-      let s, set = use_state init in
-      ref_s := Some s;
-      ref_set := Some set
+  let return ?mount ?(signals = []) render =
+    let hook_of_mount f =
+      let hook () = use_effect ~deps:[||] f in
+      hook ();
+      hook
     in
-    let get () =
-      match !ref_s with
-      | None ->
-          failwith "Can't call returned functions of Reactjs.Bind.state from within constructor"
-      | Some s -> s
+    let hook_of_signal s =
+      let init () = React.S.value s in
+      let _, set_state = use_state init in
+      let hook () = use_state init |> ignore in
+      (* TODO: retain? *)
+      React.S.changes s |> React.E.map (fun s -> set_state (fun _ -> s)) |> ignore;
+      hook
     in
-    let set s =
-      match !ref_set with
-      | None ->
-          failwith "Can't call returned functions of Reactjs.Bind.state from within constructor"
-      | Some set -> set s
+    let hooks =
+      (mount |> Option.to_list |> List.map hook_of_mount) @ List.map hook_of_signal signals
     in
-    (get, set, hook)
-
-  let signal : 'a React.signal -> (unit -> unit) =
-   fun s ->
-    let _, set_state, hook = state (fun () -> React.S.value s) in
-
-    (* TODO: retain? *)
-    React.S.changes s
-    |> React.E.map (fun s -> set_state (fun _ -> s))
-    (* |> (fun _ () -> ()) *)
-    (* |> React.S.retain s *)
-    |> ignore;
-    hook
+    (render, hooks)
 end

@@ -91,7 +91,6 @@ let get : (entry * status -> unit) -> unit Lwt.t =
 let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t =
   (fun (entry, download_events) ->
     let fname = filename_of_entry entry in
-
     let sig_download =
       download_events
       |> React.E.filter (fun (entry', _) -> entry = entry')
@@ -117,8 +116,7 @@ let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t =
           of_tag "th" ~class_:fname [ of_string (signal_to_string ()) ];
         ]
     in
-
-    render, [Reactjs.Bind.signal sig_download])
+    Reactjs.Bind.return ~signals:[sig_download] render)
   |> Reactjs.Bind.constructor
 
 let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
@@ -134,7 +132,6 @@ let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
       s
     in
     let _entries_ready = React.S.fold reduce [] download_events in
-
     let render () =
       let open Reactjs.Jsx in
       let head = of_tag "tr" [ of_tag "th" ~colspan:"2" [ of_string "MNIST dataset status" ] ] in
@@ -147,8 +144,7 @@ let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
       unmount
     in
 
-    render, [Reactjs.Bind.mount mount]
-    )
+    Reactjs.Bind.return ~mount render)
   |> Reactjs.Bind.constructor
 
 let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =

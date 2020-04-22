@@ -1,10 +1,10 @@
 module Js = Js_of_ocaml.Js
 module Typed_array = Js_of_ocaml.Typed_array
-module Nn = Nn
 module Mnist = Mnist
 module Tfjs_api = Tfjs_api
-module Nn_tfjs = Nn_tfjs
+module Fnn_tfjs = Fnn_tfjs
 module Mnist_tfjs = Mnist_tfjs
+module Fnn_archi = Fnn_archi
 
 type uint8_ba = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
 

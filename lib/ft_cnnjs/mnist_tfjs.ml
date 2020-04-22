@@ -42,12 +42,12 @@ struct
     let node0_decoder = Fnn.inputs [ decoder ] |> List.hd |> Fnn.downcast in
 
     let forward_encoders, o, pack_encoders =
-      List.map Nn_tfjs.unpack_for_training encoders |> Ft.List.split3
+      List.map Fnn_tfjs.unpack_for_training encoders |> Ft.List.split3
     in
-    let optimizations = Nn_tfjs.OptiMap.union_list_exn o in
+    let optimizations = Fnn_tfjs.OptiMap.union_list_exn o in
 
-    let forward_decoder, o, pack_decoder = Nn_tfjs.unpack_for_training decoder in
-    let optimizations = Nn_tfjs.OptiMap.union_exn optimizations o in
+    let forward_decoder, o, pack_decoder = Fnn_tfjs.unpack_for_training decoder in
+    let optimizations = Fnn_tfjs.OptiMap.union_exn optimizations o in
 
     let train_on_batch i =
       let time = (new%js Js.date_now)##valueOf /. 1000. in
@@ -95,12 +95,12 @@ struct
       in
       let loss, grads = Tfjs_api.variable_grads f in
       let y'_1hot = !y'_1hot in
-      ( match Nn_tfjs.OptiMap.key_disjunction optimizations grads with
+      ( match Fnn_tfjs.OptiMap.key_disjunction optimizations grads with
       | [], [] -> ()
       | name :: _, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
       | _, name :: _ -> Printf.sprintf "Missing at least the <%s> optimizer" name |> failwith );
 
-      Nn_tfjs.OptiMap.iter
+      Fnn_tfjs.OptiMap.iter
         (fun name optimization -> optimization lr (Tfjs_api.Named_tensor_map.find name grads))
         optimizations;
 

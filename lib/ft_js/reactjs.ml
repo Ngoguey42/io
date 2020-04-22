@@ -85,23 +85,7 @@ module Bind = struct
     let make props =
       match !status with
       | `First ->
-          let mount, signals, render = f props in
-          let hook_of_mount f =
-            let hook () = use_effect ~deps:[||] f in
-            hook ();
-            hook
-          in
-          let hook_of_signal s =
-            let init () = React.S.value s in
-            let _, set_state = use_state init in
-            let hook () = use_state init |> ignore in
-            (* TODO: retain? *)
-            React.S.changes s |> React.E.map (fun s -> set_state (fun _ -> s)) |> ignore;
-            hook
-          in
-          let hooks =
-            (mount |> Option.to_list |> List.map hook_of_mount) @ List.map hook_of_signal signals
-          in
+          let render, hooks = f props in
           status := `Subsequent (render, hooks);
           render ()
       | `Subsequent (render, hooks) ->
@@ -110,5 +94,32 @@ module Bind = struct
     in
     Jsx.of_make make props
 
-  let return ?mount ?(signals = []) render = mount, signals, render
+  let return ?mount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4 render =
+    let hook_of_mount f =
+      let hook () =
+        Printf.eprintf "> mount hook\n%!";
+
+        use_effect ~deps:[||] f in
+      hook ();
+      hook
+    in
+    let hook_of_signal s =
+      let init () = React.S.value s in
+      Printf.eprintf "> signal hook\n%!";
+      let _, set_state = use_state init in
+      let hook () =
+        Printf.eprintf "> signal hook\n%!";
+        use_state init |> ignore in
+      (* TODO: retain? *)
+      React.S.changes s |> React.E.map (fun s -> set_state (fun _ -> s)) |> ignore;
+      hook
+    in
+    let hooks = [] in
+    let hooks =  hooks @(mount |> Option.to_list |> List.map hook_of_mount) in
+    let hooks =  hooks @(s0 |> Option.to_list |> List.map hook_of_signal) in
+    let hooks =  hooks @(s1 |> Option.to_list |> List.map hook_of_signal) in
+    let hooks =  hooks @(s2 |> Option.to_list |> List.map hook_of_signal) in
+    let hooks =  hooks @(s3 |> Option.to_list |> List.map hook_of_signal) in
+    let hooks =  hooks @(s4 |> Option.to_list |> List.map hook_of_signal) in
+    render, hooks
 end

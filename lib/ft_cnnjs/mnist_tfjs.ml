@@ -25,7 +25,7 @@ struct
 
   type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray
 
-  let _train verbose progress batch_count get_lr get_data encoders decoder =
+  let _train verbose fire_event instructions batch_count get_lr get_data encoders decoder =
     let open Lwt.Infix in
     let node0 =
       let open Pshape.Size in
@@ -104,7 +104,9 @@ struct
         (fun name optimization -> optimization lr (Tfjs_api.Named_tensor_map.find name grads))
         optimizations;
 
-      progress i;
+      fire_event (`Batch_begin i);
+      ignore instructions;
+      (* progress i; *)
       if verbose then (
         let y'_top1 = Tfjs_api.Ops.topk 1 y'_1hot |> snd |> Tfjs_api.Ops.reshape [| batch_size |] in
         let confu = Tfjs_api.Ops.confusion_matrix 10 y_top1 y'_top1 in
@@ -153,21 +155,23 @@ struct
       (* Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1) ) *)
     in
 
-    aux 0 >>= fun _ -> Lwt.return (List.map (fun f -> f ()) pack_encoders, pack_decoder ())
+    ignore (List.map (fun f -> f ()) pack_encoders, pack_decoder ());
+    aux 0 >>= fun _ -> Lwt.return ()
 
   let train :
       ?verbose:bool ->
-      ?progress:(int -> unit) ->
+      fire_event:(_ -> unit) ->
+      instructions:(_ React.signal) ->
       batch_count:int ->
       get_lr:(int -> float) ->
       get_data:(int -> uint8_ba * uint8_ba) ->
       encoders:Fnn.network list ->
       decoder:Fnn.network ->
-      (Fnn.network list * Fnn.network) Lwt.t =
-   fun ?(verbose = true) ?(progress = fun _ -> ()) ~batch_count ~get_lr ~get_data ~encoders ~decoder ->
+      unit Lwt.t =
+   fun ?(verbose = true) ~fire_event ~instructions ~batch_count ~get_lr ~get_data ~encoders ~decoder ->
     let open Lwt.Infix in
     Tfjs_api.setup_backend Backend.v >>= fun _ ->
-    let f () = _train verbose progress batch_count get_lr get_data encoders decoder in
+    let f () = _train verbose fire_event instructions batch_count get_lr get_data encoders decoder in
     Tfjs_api.tidy_lwt f >>= fun res ->
     Tfjs_api.disposeVariables ();
     if verbose then Firebug.console##log (Tfjs_api.memory ());

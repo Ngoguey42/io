@@ -119,7 +119,7 @@ let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t =
           of_tag "th" ~class_:fname [ of_string (signal_to_string ()) ];
         ]
     in
-    Reactjs.Bind.return ~signals:[ sig_download ] render)
+    Reactjs.Bind.return ~signal:sig_download render)
   |> Reactjs.Bind.constructor
 
 let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =

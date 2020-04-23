@@ -11,8 +11,10 @@ module List = struct
     let len = String.length s in
     (String.sub s 0 idx, String.sub s idx (len - idx))
 
-  let split3 l = List.fold_right (fun (a, b, c) (la, lb, lc) -> a::la, b::lb, c::lc) l ([], [], [])
-  let _ = assert ( (split3 [(0, 2, 4); (1, 3, 5)]) = ([0; 1], [2; 3], [4; 5]))
+  let split3 l =
+    List.fold_right (fun (a, b, c) (la, lb, lc) -> (a :: la, b :: lb, c :: lc)) l ([], [], [])
+
+  let _ = assert (split3 [ (0, 2, 4); (1, 3, 5) ] = ([ 0; 1 ], [ 2; 3 ], [ 4; 5 ]))
 
   let rec chunk size = function
     | "" -> []
@@ -27,7 +29,7 @@ end
 module Color = struct
   (* From `matplotlib.color.LinearSegmentedColormap`
    * https://github.com/matplotlib/matplotlib/blob/e11582f56d69e9d9a32b7bf2d53af055fd1b1915/lib/matplotlib/colors.py#L684
-  *)
+   *)
   let _get_one xys x =
     let rec aux xys =
       match xys with
@@ -115,5 +117,4 @@ module Color = struct
 
     let get x = `RGB_percent (_get_one red x, _get_one green x, _get_one blue x)
   end
-
 end

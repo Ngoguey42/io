@@ -96,30 +96,24 @@ module Bind = struct
 
   let return ?mount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4 render =
     let hook_of_mount f =
-      let hook () =
-        Printf.eprintf "> mount hook\n%!";
-
-        use_effect ~deps:[||] f in
+      let hook () = use_effect ~deps:[||] f in
       hook ();
       hook
     in
     let hook_of_signal s =
       let init () = React.S.value s in
-      Printf.eprintf "> signal hook\n%!";
       let _, set_state = use_state init in
-      let hook () =
-        Printf.eprintf "> signal hook\n%!";
-        use_state init |> ignore in
+      let hook () = use_state init |> ignore in
       (* TODO: retain? *)
       React.S.changes s |> React.E.map (fun s -> set_state (fun _ -> s)) |> ignore;
       hook
     in
     let hooks = [] in
-    let hooks =  hooks @(mount |> Option.to_list |> List.map hook_of_mount) in
-    let hooks =  hooks @(s0 |> Option.to_list |> List.map hook_of_signal) in
-    let hooks =  hooks @(s1 |> Option.to_list |> List.map hook_of_signal) in
-    let hooks =  hooks @(s2 |> Option.to_list |> List.map hook_of_signal) in
-    let hooks =  hooks @(s3 |> Option.to_list |> List.map hook_of_signal) in
-    let hooks =  hooks @(s4 |> Option.to_list |> List.map hook_of_signal) in
-    render, hooks
+    let hooks = hooks @ (mount |> Option.to_list |> List.map hook_of_mount) in
+    let hooks = hooks @ (s0 |> Option.to_list |> List.map hook_of_signal) in
+    let hooks = hooks @ (s1 |> Option.to_list |> List.map hook_of_signal) in
+    let hooks = hooks @ (s2 |> Option.to_list |> List.map hook_of_signal) in
+    let hooks = hooks @ (s3 |> Option.to_list |> List.map hook_of_signal) in
+    let hooks = hooks @ (s4 |> Option.to_list |> List.map hook_of_signal) in
+    (render, hooks)
 end

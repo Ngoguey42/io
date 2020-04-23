@@ -8,7 +8,6 @@ module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Typed_array = Js_of_ocaml.Typed_array
 module XmlHttpRequest = Js_of_ocaml_lwt.XmlHttpRequest
 module Idb = Irmin_indexeddb_raw_noutf
-
 module Conv = Conv
 module Reactjs = Reactjs
 
@@ -38,10 +37,10 @@ module CryptoJs = struct
      fun () ->
       match Conf.algo with
       | `SHA256 ->
-          let ctor = Js.Unsafe.global##.CryptoJS##.algo##.SHA256 in
+          let ctor = Js.Unsafe.global ##. CryptoJS ##. algo ##. SHA256 in
           Js.Unsafe.meth_call ctor "create" [||]
       | `SHA1 ->
-          let ctor = Js.Unsafe.global##.CryptoJS##.algo##.SHA1 in
+          let ctor = Js.Unsafe.global ##. CryptoJS ##. algo ##. SHA1 in
           Js.Unsafe.meth_call ctor "create" [||]
 
     let short_hash : t -> int =
@@ -66,7 +65,8 @@ class type ['a] promise =
     method then_ : ('a -> bool Js.t) Js.callback -> Js.Unsafe.any Js.t Js.meth
   end
 
-let wrap_promise : 'a promise Js.t -> 'a Lwt.t = fun p ->
+let wrap_promise : 'a promise Js.t -> 'a Lwt.t =
+ fun p ->
   let lwt, lwt' = Lwt.wait () in
   let callback res =
     Lwt.wakeup lwt' res;
@@ -85,22 +85,20 @@ let decompress_array arr =
 
 let decompress_blob (way : string) b =
   (* Only implemented on chrome as of feb2020 *)
-  let ds = Js.Unsafe.global##.DecompressionStream in
+  let ds = Js.Unsafe.global ##. DecompressionStream in
   let ds = Js.Unsafe.new_obj ds [| Js.string way |> Js.Unsafe.inject |] in
 
   let rs = Js.Unsafe.meth_call b "stream" [||] in
   let rs = Js.Unsafe.meth_call rs "pipeThrough" [| ds |] in
 
-  let resp = Js.Unsafe.new_obj Js.Unsafe.global##.Response [| rs |] in
+  let resp = Js.Unsafe.new_obj Js.Unsafe.global ##. Response [| rs |] in
   let resp = Js.Unsafe.meth_call resp "blob" [||] in
 
   wrap_promise resp
 
 let blob_of_url ?progress url =
   let open Lwt.Infix in
-  let f =
-    XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob
-  in
+  let f = XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob in
   let future = match progress with Some progress -> f ~progress url | None -> f url in
   future >|= fun resp ->
   if resp.code <> 200 then failwith @@ Printf.sprintf "Download failed with code %d" resp.code;
@@ -110,7 +108,7 @@ let array_of_url ?progress url =
   let open Lwt.Infix in
   (match progress with None -> blob_of_url url | Some progress -> blob_of_url ~progress url)
   >>= fun blob ->
-  let resp = Js.Unsafe.new_obj Js.Unsafe.global##.Response [| blob |> Js.Unsafe.inject |] in
+  let resp = Js.Unsafe.new_obj Js.Unsafe.global ##. Response [| blob |> Js.Unsafe.inject |] in
   Js.Unsafe.meth_call resp "arrayBuffer" [||] |> wrap_promise
 
 let binary_string_of_blob b =
@@ -119,8 +117,8 @@ let binary_string_of_blob b =
 
 let to_dom_html cast html =
   Tyxml_js.To_dom.of_element html |> cast |> Js.Opt.to_option |> function
-   | None -> failwith "fail"
-   | Some elt -> elt
+  | None -> failwith "fail"
+  | Some elt -> elt
 
 let select elt query cast =
   let elt = elt##querySelector (Js.string query) in

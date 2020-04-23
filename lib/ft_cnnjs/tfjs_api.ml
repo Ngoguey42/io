@@ -587,6 +587,8 @@ let ba_of_tensor (type a b) :
   match kind with
   | Bigarray.Float32 ->
       (tensor_astype "float32")##dataSync_float32 |> Ft_js.Conv.Float32.ba_of_ta |> reshape
+  | Bigarray.Int32 ->
+      (tensor_astype "int32")##dataSync_int32 |> Ft_js.Conv.Int32.ba_of_ta |> reshape
   | _ -> failwith "In ba_of_tensor: Kind not implemented"
 
 let variable :

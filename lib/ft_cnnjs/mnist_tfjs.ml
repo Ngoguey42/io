@@ -104,13 +104,11 @@ struct
         (fun name optimization -> optimization lr (Tfjs_api.Named_tensor_map.find name grads))
         optimizations;
 
-      fire_event (`Batch_begin i);
+      let y'_top1 = Tfjs_api.Ops.topk 1 y'_1hot |> snd |> Tfjs_api.Ops.reshape [| batch_size |] in
+      let confusion_matrix = Tfjs_api.Ops.confusion_matrix 10 y_top1 y'_top1 in
       ignore instructions;
-      (* progress i; *)
       if verbose then (
-        let y'_top1 = Tfjs_api.Ops.topk 1 y'_1hot |> snd |> Tfjs_api.Ops.reshape [| batch_size |] in
-        let confu = Tfjs_api.Ops.confusion_matrix 10 y_top1 y'_top1 in
-        let stats = Tfjs_api.iou_recall_precision_of_cm confu in
+        let stats = Tfjs_api.iou_recall_precision_of_cm confusion_matrix in
         let ious = Tfjs_api.Ops.slice [ (1, 0, 1) ] stats in
         let recalls = Tfjs_api.Ops.slice [ (1, 1, 1) ] stats in
         let precisions = Tfjs_api.Ops.slice [ (1, 2, 1) ] stats in
@@ -144,24 +142,54 @@ struct
           (time' -. time);
 
         Tfjs_api.dispose_tensor y'_1hot;
-        () )
+        () );
+      (loss, confusion_matrix)
     in
 
+    let loss_sum = Tfjs_api.Ops.zeros [||] |> Tfjs_api.variable ~trainable:false ~dtype:`Float32 in
+    let confusion_matrix_sum =
+      Tfjs_api.Ops.zeros [| 10; 10 |] |> Tfjs_api.variable ~trainable:false ~dtype:`Float32
+    in
+    let fire_stop_event batch_count =
+      let encoders, decoder = (List.map (fun f -> f ()) pack_encoders, pack_decoder ()) in
+      let loss = Tfjs_api.to_float loss_sum in
+      let confusion_matrix = Tfjs_api.ba_of_tensor Bigarray.Int32 confusion_matrix_sum in
+      Training_types.(
+        fire_event (`End (encoders, decoder, { batch_count; loss; confusion_matrix })))
+    in
     let rec aux i =
-      if i >= batch_count then Lwt.return ()
-      else (
-        Tfjs_api.tidy (fun () -> train_on_batch i);
-        Lwt_js.sleep 0.01 >>= fun () -> aux (i + 1) )
-      (* Lwt_js.sleep 0.25 >>= fun () -> aux (i + 1) ) *)
+      Printf.eprintf "aux\n%!";
+      match React.S.value instructions with
+      | `Abort ->
+          fire_event `Abort;
+          Lwt.return ()
+      | `Train_to_end when i = batch_count ->
+          fire_stop_event i;
+          Lwt.return ()
+      | `Early_stop ->
+          fire_stop_event i;
+          Lwt.return ()
+      | `Train_to_end ->
+          fire_event (`Batch_begin i);
+          Tfjs_api.tidy (fun () ->
+              let loss, confusion_matrix = train_on_batch i in
+              loss_sum##assign (Tfjs_api.Ops.add loss_sum loss);
+              confusion_matrix_sum##assign (Tfjs_api.Ops.add confusion_matrix_sum confusion_matrix);
+              Training_types.(
+                let loss = Tfjs_api.to_float loss in
+                Firebug.console##log confusion_matrix;
+                let confusion_matrix = Tfjs_api.ba_of_tensor Bigarray.Int32 confusion_matrix in
+                let batch_count = 1 in
+                fire_event (`Batch_end (i, { batch_count; loss; confusion_matrix }))));
+          Lwt_js.sleep 0.01 >>= fun () -> aux (i + 1)
     in
 
-    ignore (List.map (fun f -> f ()) pack_encoders, pack_decoder ());
     aux 0 >>= fun _ -> Lwt.return ()
 
   let train :
       ?verbose:bool ->
-      fire_event:(_ -> unit) ->
-      instructions:(_ React.signal) ->
+      fire_event:(Training_types.routine_event -> unit) ->
+      instructions:Training_types.user_status React.signal ->
       batch_count:int ->
       get_lr:(int -> float) ->
       get_data:(int -> uint8_ba * uint8_ba) ->
@@ -170,10 +198,16 @@ struct
       unit Lwt.t =
    fun ?(verbose = true) ~fire_event ~instructions ~batch_count ~get_lr ~get_data ~encoders ~decoder ->
     let open Lwt.Infix in
-    Tfjs_api.setup_backend Backend.v >>= fun _ ->
-    let f () = _train verbose fire_event instructions batch_count get_lr get_data encoders decoder in
-    Tfjs_api.tidy_lwt f >>= fun res ->
-    Tfjs_api.disposeVariables ();
-    if verbose then Firebug.console##log (Tfjs_api.memory ());
-    Lwt.return res
+    Lwt.catch
+      (fun () ->
+        Tfjs_api.setup_backend Backend.v >>= fun _ ->
+        Tfjs_api.tidy_lwt (fun () ->
+            _train verbose fire_event instructions batch_count get_lr get_data encoders decoder)
+        >>= fun res ->
+        Tfjs_api.disposeVariables ();
+        if verbose then Firebug.console##log (Tfjs_api.memory ());
+        Lwt.return res)
+      (fun exn ->
+        fire_event (`Crash exn);
+        Lwt.return ())
 end

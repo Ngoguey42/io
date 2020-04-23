@@ -1,4 +1,3 @@
-
 (* ********************************************************************************************** *)
 (* Features:
     - Most classic way of tackling the problem, 3x3 stride:2 convolutions with batch_norm
@@ -137,7 +136,8 @@ let create_nn rng =
   let open Builder in
   let open Pshape.Size in
   Printf.eprintf "Building encoder(s)...\n%!";
-  let encoders = [
+  let encoders =
+    [
       (* encoder_padding_batchnorm builder o; *)
       (* encoder_pooling builder o; *)
       (* encoder_mobilenet builder o; *)
@@ -148,12 +148,10 @@ let create_nn rng =
 
   let decoder =
     let c =
-      List.map (fun net -> Pshape.get net#out_shape `C) encoders
-      |> List.fold_left add (K 0)
+      List.map (fun net -> Pshape.get net#out_shape `C) encoders |> List.fold_left add (K 0)
     in
     let w = 3 in
     input (Pshape.sym4d_partial ~n:U ~c ~s0:(K w) ~s1:(K w)) `Float32
-
     (* |> conv2d ~o ~id:(Some "classif") (`Full 10) (w, w) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
     (* |> conv2d ~o ~id:(Some "classif") (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> maxpool2d ~b:`Assert_fit (w, w) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
     (* |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias *)
@@ -162,9 +160,10 @@ let create_nn rng =
     (* |> maxpool2d ~b:`Assert_fit (w, w) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] |> dense ~o:`Sgd [`C, 10] ~id:(Some "classif") |> bias *)
 
     (* Classify and flatten using flatten and fully-connected *)
-    |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] |> dense ~o:`Sgd [`C, 10] ~id:(Some "classif") |> bias
-
+    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
+    |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif")
+    |> bias
     |> softmax `C
     |> Fnn.downcast
   in
-  encoders, decoder
+  (encoders, decoder)

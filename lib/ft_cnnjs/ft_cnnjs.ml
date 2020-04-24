@@ -4,4 +4,3 @@ module Fnn_tfjs = Fnn_tfjs
 module Mnist_tfjs = Mnist_tfjs
 module Fnn_archi = Fnn_archi
 module Training = Training
-module Panel = Panel

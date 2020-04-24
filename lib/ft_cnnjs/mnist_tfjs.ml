@@ -158,7 +158,6 @@ struct
         fire_event (`End (encoders, decoder, { batch_count; loss; confusion_matrix })))
     in
     let rec aux i =
-      Printf.eprintf "aux\n%!";
       match React.S.value instructions with
       | `Abort ->
           fire_event `Abort;
@@ -177,7 +176,6 @@ struct
               confusion_matrix_sum##assign (Tfjs_api.Ops.add confusion_matrix_sum confusion_matrix);
               Training_types.(
                 let loss = Tfjs_api.to_float loss in
-                Firebug.console##log confusion_matrix;
                 let confusion_matrix = Tfjs_api.ba_of_tensor Bigarray.Int32 confusion_matrix in
                 let batch_count = 1 in
                 fire_event (`Batch_end (i, { batch_count; loss; confusion_matrix }))));

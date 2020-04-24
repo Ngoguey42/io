@@ -927,7 +927,6 @@ let create_global_normaliser :
         step##assign (step + int 1);
         let momentum' = float 1. / step##asType (Js.string "float32") in
         let momentum = float 1. - momentum' in
-        Printf.eprintf "%d %10.6f %10.6f\n%!" (to_int step) (to_float momentum') (to_float momentum);
 
         let avg = avgpool ~b:`AssertFit kernel_sizes x in
         let x_centered = x - avg in

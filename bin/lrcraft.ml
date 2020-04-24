@@ -17,19 +17,13 @@ let main () =
   let open Lwt.Infix in
 
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
-  Dom.appendChild body container;
-
   let events, send_event = React.E.create () in
+  Dom.appendChild body container;
   Reactjs.render (Reactjs.Jsx.of_make Ft_cnnjs.Mnist.make send_event) container;
-
   Lwt_react.E.next events >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
-  (* Lwt_js.sleep 0.01 >>= fun () -> *)
-
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
-  Dom.appendChild body container;
-
   let events, send_event = React.E.create () in
   let send_event : 'a -> unit = send_event in
   let params =
@@ -38,7 +32,7 @@ let main () =
                         backend = `Tfjs_webgl;
                         lr = `Down (1e-3, 0.);
                         batch_count = 100;
-                        batch_size = 500;
+                        batch_size = 5000;
                         seed = 42;
                         verbose = true;
 
@@ -46,16 +40,9 @@ let main () =
     Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]),
     send_event
   in
-  Reactjs.render (Reactjs.Jsx.of_make Ft_cnnjs.Panel.make params) container;
+  Dom.appendChild body container;
+  Reactjs.render (Reactjs.Jsx.of_make Ft_cnnjs.Training.make params) container;
   Lwt_react.E.next events >|= function
   | `Crash exn -> raise exn
   | `End -> ()
   | `Abort -> ()
-
-
-  (* ignore events; *)
-
-  (* (\* _main_nn train_imgs train_labs test_imgs test_labs >>= fun _ -> *\) *)
-
-  (* Printf.eprintf "Done\n%!"; *)
-  (* Lwt.return () *)

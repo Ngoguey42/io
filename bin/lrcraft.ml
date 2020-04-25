@@ -20,7 +20,7 @@ let main () =
   let send_event res = Lwt.wakeup lwt' res in
 
   Dom.appendChild body container;
-  Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Mnist.make send_event) container;
+  Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Mnist.construct send_event) container;
   lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
@@ -44,7 +44,7 @@ let main () =
   in
 
   Dom.appendChild body container;
-  Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Training.make params) container;
+  Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Training.construct params) container;
   lwt >|= function
   | `Crash exn -> raise exn
   | `End -> ()

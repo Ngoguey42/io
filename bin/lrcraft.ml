@@ -11,27 +11,29 @@ module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 
 let body = Dom_html.window##.document##.body
 
-let display x = Dom.appendChild body (Tyxml_js.To_dom.of_element x)
-
 let main () =
   let open Lwt.Infix in
 
+  (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
-  let events, send_event = React.E.create () in
+  let lwt, lwt' = Lwt.wait () in
+  let send_event res = Lwt.wakeup lwt' res in
+
   Dom.appendChild body container;
-  Reactjs.render (Reactjs.Jsx.of_make Ft_cnnjs.Mnist.make send_event) container;
-  Lwt_react.E.next events >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
+  Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Mnist.make send_event) container;
+  lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
+  (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
-  let events, send_event = React.E.create () in
-  let send_event : 'a -> unit = send_event in
+  let lwt, lwt' = Lwt.wait () in
+  let send_event res = Lwt.wakeup lwt' res in
   let params =
     (train_imgs, train_labs, test_imgs, test_labs),
     Ft_cnnjs.Training.({
                         backend = `Tfjs_webgl;
                         lr = `Down (1e-3, 0.);
-                        batch_count = 100;
+                        batch_count = 25;
                         batch_size = 5000;
                         seed = 42;
                         verbose = true;
@@ -40,9 +42,12 @@ let main () =
     Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]),
     send_event
   in
+
   Dom.appendChild body container;
-  Reactjs.render (Reactjs.Jsx.of_make Ft_cnnjs.Training.make params) container;
-  Lwt_react.E.next events >|= function
+  Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Training.make params) container;
+  lwt >|= function
   | `Crash exn -> raise exn
   | `End -> ()
   | `Abort -> ()
+
+  (* ************************************************************************ *)

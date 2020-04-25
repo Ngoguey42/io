@@ -91,7 +91,8 @@ let get : (entry * status -> unit) -> unit Lwt.t =
   in
   Lwt.all promises >|= fun _ -> Ft_js.Idb.close store.db
 
-let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t =
+let make_tr : _ Reactjs.component_class Js.t =
+  (* let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t = *)
   (fun (entry, download_events) ->
     let fname = filename_of_entry entry in
     let sig_download =
@@ -111,7 +112,7 @@ let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t =
       | `Store -> "Storing..."
       | `Ready _ -> "\u{02713}"
     in
-    let render () =
+    let render _ =
       let open Reactjs.Jsx in
       of_tag "tr"
         [
@@ -122,7 +123,7 @@ let make_tr : entry * (entry * status) React.event -> Reactjs.Jsx.t Js.t =
     Reactjs.Bind.return ~signal:sig_download render)
   |> Reactjs.Bind.constructor
 
-let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
+let make : _ Reactjs.component_class Js.t =
   (fun on_completion ->
     let download_events, progress = React.E.create () in
     let reduce : (entry * uint8_ba) list -> entry * status -> (entry * uint8_ba) list =
@@ -135,17 +136,15 @@ let make : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
       s
     in
     let _entries_ready = React.S.fold reduce [] download_events in
-    let render () =
+    let render _ =
       let open Reactjs.Jsx in
       let head = of_tag "tr" [ of_tag "th" ~colspan:"2" [ of_string "MNIST dataset status" ] ] in
-      let tails = List.map (fun entry -> of_make make_tr (entry, download_events)) entries in
+      let tails =
+        List.map (fun entry -> of_constructor ~key:entry make_tr (entry, download_events)) entries
+      in
       of_tag "table" ~class_:"mnist-status" [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
     in
-    let unmount () = () in
-    let mount () =
-      Js_of_ocaml_lwt.Lwt_js_events.async (fun () -> get progress);
-      unmount
-    in
+    let mount () = Js_of_ocaml_lwt.Lwt_js_events.async (fun () -> get progress) (* unmount *) in
     Reactjs.Bind.return ~mount render)
   |> Reactjs.Bind.constructor
 

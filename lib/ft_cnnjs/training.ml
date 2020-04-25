@@ -40,55 +40,62 @@ let routine (train_imgs, train_labs, test_imgs, test_labs) config (encoders, dec
   in
   Backend.train ~fire_event ~instructions ~verbose ~batch_count ~get_lr ~get_data ~encoders ~decoder
 
-type props' = user_status * routine_status * (user_event -> unit)
-
-let make_instructions : props' -> Reactjs.Jsx.t Js.t =
-  (fun (props : props') ->
-    Printf.eprintf "make_instructions\n%!";
-    let user_status, routine_status, fire_user_event = props in
-    let render () =
+let make_instructions =
+  (fun _ ->
+    let render props =
+      let user_status, routine_status, fire_user_event = props in
       let open Reactjs.Jsx in
-      match user_status, routine_status with
+      let button ?event ?(style = []) txt =
+        match event with
+        | None -> of_tag "button" ~style ~disabled:true [ of_string txt ]
+        | Some event ->
+            of_tag "button" ~style ~on_click:(fun _ -> fire_user_event event) [ of_string txt ]
+      in
+      let green =
+        [ ("color", "green")
+        ; ("border-color", "transparent")
+        ; ("background-color", "transparent")
+        ; ("font-weight", "bold") ]
+      in
+      let gray =
+        [ ("border-color", "transparent"); ("background-color", "transparent") ]
+      in
+      match (user_status, routine_status) with
       | `Train_to_end, `Running ->
           of_tag "div"
             [
-              of_tag "button" ~disabled:true ~on_click:(fun _ -> ()) [ of_string "Train to end" ];
+              button ~style:green "Train to end";
               of_string " | ";
-              of_tag "button"
-                ~on_click:(fun _ -> fire_user_event `Early_stop)
-                [ of_string "Early stop" ];
+              button ~event:`Early_stop "Early stop";
               of_string " | ";
-              of_tag "button" ~on_click:(fun _ ->
-                       Printf.eprintf "onclick abort\n%!";
-                       fire_user_event `Abort) [ of_string "Abort" ];
+              button ~event:`Abort "Abort";
             ]
       | `Train_to_end, _ ->
           of_tag "div"
             [
-              of_tag "button" ~disabled:true ~on_click:(fun _ -> ()) [ of_string "Train to end" ];
+              button ~style:green "Train to end";
               of_string " | ";
-              of_tag "button" ~disabled:true ~on_click:(fun _ -> ()) [ of_string "Early stop" ];
+              button ~style:gray "Early stop";
               of_string " | ";
-              of_tag "button" ~disabled:true ~on_click:(fun _ -> ()) [ of_string "Abort" ];
-              (* of_string "Abort"; *)
+              button ~style:gray "Abort";
             ]
       | `Early_stop, _ ->
           of_tag "div"
             [
-              of_string "Train to end";
+              button ~style:gray "Train to end";
               of_string " | ";
-              of_string ">Early stop<";
+              button ~style:green "Early stop";
               of_string " | ";
-              of_string "Abort";
+              button ~style:gray "Abort";
             ]
       | `Abort, _ ->
           of_tag "div"
             [
-              of_string "Train to end";
+              button ~style:gray "Train to end";
               of_string " | ";
-              of_string "Early stop";
+              button ~style:gray "Early stop";
               of_string " | ";
-              of_string ">Abort<";
+              button ~style:green "Abort";
             ]
     in
     Reactjs.Bind.return render)
@@ -100,7 +107,7 @@ type props =
   * (Fnn.network list * Fnn.network)
   * (outcome -> unit)
 
-let make : props -> Reactjs.Jsx.t Js.t =
+let make =
   (fun (props : props) ->
     let db, config, networks, on_completion = props in
 
@@ -137,36 +144,37 @@ let make : props -> Reactjs.Jsx.t Js.t =
       React.S.fold reduce `Train_to_end user_events
     in
 
-    let render () =
+    let render _ =
       let open Reactjs.Jsx in
-      ignore fire_user_event;
+      let routine_status = React.S.value routine_status in
+      let routine_progress = React.S.value routine_progress in
+      let user_status = React.S.value user_status in
+
       of_tag "div"
         [
-          of_make make_instructions (React.S.value user_status, React.S.value routine_status, fire_user_event);
+          of_constructor make_instructions
+            (user_status, routine_status, fire_user_event);
           of_tag "div"
             [
               of_string "Routine: ";
-              ( match React.S.value routine_status with
-                | `Running -> "Running"
-                | `Ended -> "Ended"
-                | `Aborted -> "Aborted"
-                | `Crashed -> "Crashed" )
+              ( match routine_status with
+              | `Running -> "Running"
+              | `Ended -> "Ended"
+              | `Aborted -> "Aborted"
+              | `Crashed -> "Crashed" )
               |> of_string;
             ];
           of_tag "div"
             [
               of_string "Progress: ";
-              (React.S.value routine_progress |> float_of_int)
-              /. (config.batch_count |> float_of_int)
-                 *. 100.
+              (routine_progress |> float_of_int) /. (config.batch_count |> float_of_int) *. 100.
               |> Printf.sprintf "%.0f%%" |> of_string;
             ];
         ]
     in
     let mount () =
       let routine () = routine db config networks fire_routine_event user_status in
-      Js_of_ocaml_lwt.Lwt_js_events.async routine;
-      (fun () -> ())
+      Js_of_ocaml_lwt.Lwt_js_events.async routine
     in
     Reactjs.Bind.return ~mount ~signal:routine_progress ~signal:user_status ~signal:routine_status
       render)

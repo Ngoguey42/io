@@ -118,7 +118,7 @@ let construct_tr (entry, download_events) =
         of_tag "th" ~class_:fname [ of_string (signal_to_string ()) ];
       ]
   in
-  Reactjs.Bind.return ~signal:sig_download render
+  Reactjs.construct ~signal:sig_download render
 
 let construct on_completion =
   let download_events, progress = React.E.create () in
@@ -143,7 +143,7 @@ let construct on_completion =
     of_tag "table" ~class_:"mnist-status" [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
   in
   let mount () = Js_of_ocaml_lwt.Lwt_js_events.async (fun () -> get progress) (* unmount *) in
-  Reactjs.Bind.return ~mount render
+  Reactjs.construct ~mount render
 
 let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
   let img =

@@ -169,5 +169,5 @@ let construct (props : props) =
     let routine () = routine db config networks fire_routine_event user_status in
     Js_of_ocaml_lwt.Lwt_js_events.async routine
   in
-  Reactjs.Bind.return ~mount ~signal:routine_progress ~signal:user_status ~signal:routine_status
+  Reactjs.construct ~mount ~signal:routine_progress ~signal:user_status ~signal:routine_status
     render

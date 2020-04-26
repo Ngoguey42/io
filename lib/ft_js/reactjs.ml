@@ -24,34 +24,32 @@ class type jsx = object end
 type 'props construction =
   ('props -> jsx Js.t) * (unit -> unit) * (unit -> unit) * (component Js.t -> unit) list
 
-module Bind = struct
-  let return ?mount ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4 render :
+let construct ?mount ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4 render :
       'props construction =
-    let mount = match mount with None -> fun () -> () | Some mount -> mount in
-    let unmount = match unmount with None -> fun () -> () | Some unmount -> unmount in
+  let mount = match mount with None -> fun () -> () | Some mount -> mount in
+  let unmount = match unmount with None -> fun () -> () | Some unmount -> unmount in
 
-    let setup_signal signal idx self =
-      Js.Unsafe.set (Js.Unsafe.get self (Js.string "state")) idx (React.S.value signal);
-      let update_state value =
-        let o = object%js end in
-        Js.Unsafe.set o idx value;
-        Js.Unsafe.meth_call self "setState" [| Js.Unsafe.inject o |]
-      in
-      React.S.changes signal |> React.E.map update_state |> ignore
+  let setup_signal signal idx self =
+    Js.Unsafe.set (Js.Unsafe.get self (Js.string "state")) idx (React.S.value signal);
+    let update_state value =
+      let o = object%js end in
+      Js.Unsafe.set o idx value;
+      Js.Unsafe.meth_call self "setState" [| Js.Unsafe.inject o |]
     in
+    React.S.changes signal |> React.E.map update_state |> ignore
+  in
 
-    let setup_signals =
-      List.concat
-        [
-          s0 |> Option.to_list |> List.map (fun s -> setup_signal s 0);
-          s1 |> Option.to_list |> List.map (fun s -> setup_signal s 1);
-          s2 |> Option.to_list |> List.map (fun s -> setup_signal s 2);
-          s3 |> Option.to_list |> List.map (fun s -> setup_signal s 3);
-          s4 |> Option.to_list |> List.map (fun s -> setup_signal s 4);
-        ]
-    in
-    (render, mount, unmount, setup_signals)
-end
+  let setup_signals =
+    List.concat
+      [
+        s0 |> Option.to_list |> List.map (fun s -> setup_signal s 0);
+        s1 |> Option.to_list |> List.map (fun s -> setup_signal s 1);
+        s2 |> Option.to_list |> List.map (fun s -> setup_signal s 2);
+        s3 |> Option.to_list |> List.map (fun s -> setup_signal s 3);
+        s4 |> Option.to_list |> List.map (fun s -> setup_signal s 4);
+      ]
+  in
+  (render, mount, unmount, setup_signals)
 
 module Jsx = struct
   external _ft_js_create_component_type :
@@ -144,7 +142,7 @@ module Jsx = struct
       | None ->
           let cls =
             let g self _ =
-              let render, mount, unmount, setup_signals = Bind.return render in
+              let render, mount, unmount, setup_signals = construct render in
               (Js.Unsafe.coerce self)##.ftJsRender := Js.wrap_callback render;
               (Js.Unsafe.coerce self)##.ftJsMount := Js.wrap_callback mount;
               (Js.Unsafe.coerce self)##.ftJsUnmount := Js.wrap_callback unmount;

@@ -1,23 +1,35 @@
 (executable
- (name page_builder)
- (modes js)
- ; (js_of_ocaml (flags --opt=3 --no-sourcemap --pretty --no-inline --debug-info))
+  (name page_builder)
+  (modes js)
 
-  (js_of_ocaml (javascript_files
-                ../vendored/irmin-indexeddb-helpers.js
-                ../vendored/pako_inflate.min.js
-                ../vendored/core.min.js
-                ../vendored/sha256.min.js
-                ../vendored/sha1.min.js
-;                ../vendored/tf.js
-                ../lib/ft_js/stubs.js
-                )
-                (flags --pretty --source-map-inline --debug-info)
-                ; (flags --opt=3 --no-sourcemap)
+  (js_of_ocaml
+    (javascript_files
+      ../vendored/irmin-indexeddb-helpers.js
+      ; ../vendored/pako_inflate.min.js
+      ; ../vendored/core.min.js
+      ; ../vendored/sha256.min.js
+      ; ../vendored/sha1.min.js
+      ; ../vendored/tf.js
+      ../lib/ft_js/stubs.js
+    )
+    (flags --pretty --source-map-inline --debug-info)
+    ; (flags --opt=3 --no-sourcemap)
+  )
+
+  ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
+  ; picked otherwise and makes js crash.
+  (libraries
+    js_of_ocaml
+    js_of_ocaml-tyxml
+    js_of_ocaml-lwt
+    tyxml
+    owl-base
+    digestif.ocaml
+    ft
+    ft_js
+    ft_owlbase
+    ft_cnnjs
+    lwt_react
+  )
+  (preprocess (pps js_of_ocaml-ppx tyxml-ppx))
 )
-
- ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
- ; picked otherwise and makes js crash.
- (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base digestif.ocaml ft ft_js ft_owlbase ft_cnnjs lwt_react)
- (preprocess (pps js_of_ocaml-ppx tyxml-ppx))
- )

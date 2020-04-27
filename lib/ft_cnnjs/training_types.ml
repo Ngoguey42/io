@@ -4,7 +4,7 @@ type float32_ba = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Gena
 
 type int32_ba = (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
-type backend = [ `Tfjs_webgl | `Tfjs_cpu ]
+type backend = [ `Tfjs_webgl | `Tfjs_cpu | `Tfjs_wasm ]
 
 type training_config = {
   backend : backend;

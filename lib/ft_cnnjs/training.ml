@@ -8,6 +8,7 @@ let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = funct
   (* | `Owl_cpu -> (module Mnist_owl) *)
   | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end))
   | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
+  | `Tfjs_wasm -> (module Mnist_tfjs.Make_backend (struct let v = `Wasm end))
 
 let routine (train_imgs, train_labs, test_imgs, test_labs) config (encoders, decoder) fire_event
     instructions =
@@ -52,12 +53,12 @@ let render_instructions props =
   let green =
     [
       ("color", "green");
-      ("border-color", "transparent");
-      ("background-color", "transparent");
-      ("font-weight", "bold");
+      ("borderColor", "transparent");
+      ("backgroundColor", "transparent");
+      ("fontWeight", "bold");
     ]
   in
-  let gray = [ ("border-color", "transparent"); ("background-color", "transparent") ] in
+  let gray = [ ("borderColor", "transparent"); ("backgroundColor", "transparent") ] in
   match (user_status, routine_status) with
   | `Train_to_end, `Running ->
       of_tag "div"

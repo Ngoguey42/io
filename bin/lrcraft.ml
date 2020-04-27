@@ -31,10 +31,13 @@ let main () =
   let params =
     (train_imgs, train_labs, test_imgs, test_labs),
     Ft_cnnjs.Training.({
+                        (* backend = `Tfjs_cpu; *)
+                        (* batch_size = 50; *)
                         backend = `Tfjs_webgl;
+                        batch_size = 5000;
+
                         lr = `Down (1e-3, 0.);
                         batch_count = 25;
-                        batch_size = 5000;
                         seed = 42;
                         verbose = true;
 

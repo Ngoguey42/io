@@ -11,7 +11,10 @@
                 ../vendored/sha1.min.js
 ;                ../vendored/tf.js
                 ../lib/ft_js/stubs.js
-                ))
+                )
+                (flags --pretty --source-map-inline --debug-info)
+                ; (flags --opt=3 --no-sourcemap)
+)
 
  ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
  ; picked otherwise and makes js crash.

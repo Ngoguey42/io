@@ -13,6 +13,13 @@ let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
 
+  Printf.printf "loading\n%!";
+  Ft_js.Scripts.import `Tfjs >>= fun () ->
+  Printf.printf "loaded tfjs\n%!";
+  Ft_js.Scripts.import `Cryptojs >>= fun () ->
+  Ft_js.Scripts.import `Pako >>= fun () ->
+  Ft_js.Scripts.import `Reactjs >>= fun () ->
+
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
   let lwt, lwt' = Lwt.wait () in

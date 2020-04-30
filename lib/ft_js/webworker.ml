@@ -11,7 +11,7 @@ module type SPEC = sig
 
   type out_msg
 
-  val on_in_message : in_msg -> unit
+  val create_on_in_message : unit -> in_msg -> unit
 end
 
 module type S = sig
@@ -45,7 +45,7 @@ struct
     Printf.eprintf "> Both : Allocated idx:%d for new worker type\n%!" idx;
     Hashtbl.add store idx (fun () ->
         Printf.eprintf "> Worker : Setting up new on_in_message\n%!";
-        Worker.set_onmessage Spec.on_in_message;
+        Worker.set_onmessage (Spec.create_on_in_message ());
         ());
     idx
 

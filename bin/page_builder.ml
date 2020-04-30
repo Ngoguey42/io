@@ -5,6 +5,7 @@ module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
 module Webworker = Ft_js.Webworker
+module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 
 let display x =
   let body = Dom_html.window##.document##.body in
@@ -16,10 +17,38 @@ Webworker.Make (struct
 
   type out_msg = string
 
-  let on_in_message _msg =
-    Printf.eprintf "> Worker : got in message \n%!";
-    (* List.hd [] |> ignore; *)
-    Stringifier.post_out_message "out messagge"
+  let create_on_in_message () =
+    let open Lwt.Infix in
+    Printf.eprintf "> Worker-routine : init \n%!";
+    let events, fire_event = React.E.create () in
+    let fire_event : 'a -> 'b = fire_event in
+    let next_event = Lwt_react.E.next events in
+
+    let routine () =
+
+      Ft_js.Scripts.import `Tfjs >>= fun () ->
+      Printf.eprintf "> Worker-routine : imported tfjs \n%!";
+      Ft_js.Scripts.import `Cryptojs >>= fun () ->
+      Printf.eprintf "> Worker-routine : imported cryp\n%!";
+      Ft_js.Scripts.import `Pako >>= fun () ->
+      Printf.eprintf "> Worker-routine : imported pako\n%!";
+      Ft_js.Scripts.import `Reactjs >>= fun () ->
+      Printf.eprintf "> Worker-routine : imported react\n%!";
+
+      next_event >>= fun _ev ->
+      Printf.eprintf "> Worker-routine : on message async\n%!";
+      Stringifier.post_out_message "coucou";
+
+      Lwt.return ()
+    in
+    Lwt_js_events.async routine;
+
+    (* let on_in_msg msg = *)
+    (*   Printf.eprintf "> Worker-routine : on message \n%!"; *)
+    (*   fire_event msg *)
+    (* in *)
+    (* on_in_msg *)
+    fire_event
 
 end)
 
@@ -33,15 +62,15 @@ let main () =
         "<a href='about.html'>&#128196; Making-of (wip)</a>" "</div>"]
   in
 
-  let ww =
-    Stringifier.create
-      (fun msg -> Printf.eprintf "> Main : got out message <%s>\n%!" msg)
-      (fun err ->
-        let msg = (Js.Unsafe.coerce err)##.message |> Js.to_string in
-        Printf.eprintf "> Main : got error msg:%s\n%!" msg)
-  in
-  Stringifier.post_in_message ww `A;
-  Stringifier.post_in_message ww `B;
+  (* let ww = *)
+  (*   Stringifier.create *)
+  (*     (fun msg -> Printf.eprintf "> Main : got out message <%s>\n%!" msg) *)
+  (*     (fun err -> *)
+  (*       let msg = (Js.Unsafe.coerce err)##.message |> Js.to_string in *)
+  (*       Printf.eprintf "> Main : got error msg:%s\n%!" msg) *)
+  (* in *)
+  (* Stringifier.post_in_message ww `A; *)
+  (* Stringifier.post_in_message ww `B; *)
 
   let error exn =
     let msg = Printexc.to_string exn in

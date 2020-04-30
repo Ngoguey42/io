@@ -9,10 +9,9 @@ module Typed_array = Js_of_ocaml.Typed_array
 module Reactjs =  Ft_js.Reactjs
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 
-let body = Dom_html.window##.document##.body
-
 let main () =
   let open Lwt.Infix in
+  let body = Dom_html.window##.document##.body in
 
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
@@ -37,7 +36,7 @@ let main () =
                         batch_size = 5000;
 
                         lr = `Down (1e-3, 0.);
-                        batch_count = 25;
+                        batch_count = 15;
                         seed = 42;
                         verbose = true;
 

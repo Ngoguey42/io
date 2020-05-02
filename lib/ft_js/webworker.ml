@@ -32,6 +32,10 @@ end
 
 let store : (int, unit -> unit) Hashtbl.t = Hashtbl.create 10
 
+let is_web_worker = not (Js.Unsafe.global##.window == Js.Unsafe.global##.self)
+
+let current_script = Js.Unsafe.global##.document##.currentScript |> Js.Opt.to_option
+
 module Make (Spec : SPEC) : S with type in_msg = Spec.in_msg and type out_msg = Spec.out_msg =
 struct
   type in_msg = Spec.in_msg
@@ -51,6 +55,7 @@ struct
 
   let create on_out_message on_error =
     Printf.eprintf "> Main : creating web worker\n%!";
+    Firebug.console##log Js.Unsafe.global##.document##.currentScript;
     let on_out_message =
       Dom.handler (fun ev ->
           on_out_message ev##.data;
@@ -62,7 +67,10 @@ struct
           Js._true)
     in
 
-    let url = Js.Unsafe.global##.document##.currentScript##.src |> Js.to_string in
+    let url = match current_script with
+      | None -> failwith "In Webworker.Make(...).create: No target url"
+      | Some tag -> Js.to_string tag##.src
+    in
     Printf.eprintf "    url: %s\n%!" url;
     let w = Worker.create url in
     w##.onmessage := on_out_message;
@@ -73,6 +81,7 @@ struct
 
   let post_in_message w msg =
     Printf.eprintf "> Main : post in message\n%!";
+    Firebug.console##log msg;
     w##postMessage msg;
     ()
 
@@ -85,8 +94,6 @@ struct
     w##terminate;
     ()
 end
-
-let is_web_worker = not (Js.Unsafe.global##.window == Js.Unsafe.global##.self)
 
 let _on_initial_in_message idx =
   Printf.eprintf "> Worker : On initial message idx:%d\n%!" idx;

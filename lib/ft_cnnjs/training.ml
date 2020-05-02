@@ -1,8 +1,11 @@
 include Training_types
-module Reactjs = Ft_js.Reactjs
-module Firebug = Js_of_ocaml.Firebug
-module Js = Js_of_ocaml.Js
-module Ndarray = Owl_base_dense_ndarray_generic
+open struct
+  module Reactjs = Ft_js.Reactjs
+  module Firebug = Js_of_ocaml.Firebug
+  module Js = Js_of_ocaml.Js
+  module Ndarray = Owl_base_dense_ndarray_generic
+  module Webworker = Ft_js.Webworker
+end
 
 let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = function
   (* | `Owl_cpu -> (module Mnist_owl) *)
@@ -10,9 +13,8 @@ let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = funct
   | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
   | `Tfjs_wasm -> (module Mnist_tfjs.Make_backend (struct let v = `Wasm end))
 
-let routine (train_imgs, train_labs, test_imgs, test_labs) config (encoders, decoder) fire_event
-    instructions =
-  ignore (train_imgs, train_labs, test_imgs, test_labs);
+let routine {db = (train_imgs, train_labs, _, _); networks=(encoders, decoder); config}
+            fire_event instructions =
   let module Backend = (val create_backend config.backend) in
   let verbose = config.verbose in
   let rng = Random.State.make [| config.seed |] in
@@ -40,6 +42,63 @@ let routine (train_imgs, train_labs, test_imgs, test_labs) config (encoders, dec
     (imgs, labs)
   in
   Backend.train ~fire_event ~instructions ~verbose ~batch_count ~get_lr ~get_data ~encoders ~decoder
+
+type msg = [ `Prime of training_parameters | user_status ]
+type msg' = routine_event
+module rec Webworker_routine : (Webworker.S with type in_msg := msg and type out_msg := msg') =
+Webworker.Make (struct
+  type in_msg = msg
+
+  type out_msg = msg'
+
+  let create_on_in_message () =
+    (* let open Lwt.Infix in *)
+    let routine_events, fire_routine_event = React.E.create () in
+    let user_status, set_user_status = React.S.create `Train_to_end in
+
+    React.E.map Webworker_routine.post_out_message routine_events |> ignore;
+
+    let on_in_message = function
+      | `Prime params ->
+         Ft_js.Scripts.import_sync `Tfjs;
+         let routine () = routine params fire_routine_event user_status in
+         Js_of_ocaml_lwt.Lwt_js_events.async routine
+      | #user_status as msg -> set_user_status msg
+    in
+    on_in_message
+
+
+
+(*     let fire_event : 'a -> 'b = fire_event in *)
+(*     let next_event = Lwt_react.E.next events in *)
+
+(*     let routine () = *)
+
+(*       Ft_js.Scripts.import `Tfjs >>= fun () -> *)
+(*       Printf.eprintf "> Worker-routine : imported tfjs \n%!"; *)
+(*       Ft_js.Scripts.import `Cryptojs >>= fun () -> *)
+(*       Printf.eprintf "> Worker-routine : imported cryp\n%!"; *)
+(*       Ft_js.Scripts.import `Pako >>= fun () -> *)
+(*       Printf.eprintf "> Worker-routine : imported pako\n%!"; *)
+(*       Ft_js.Scripts.import `Reactjs >>= fun () -> *)
+(*       Printf.eprintf "> Worker-routine : imported react\n%!"; *)
+
+(*       next_event >>= fun _ev -> *)
+(*       Printf.eprintf "> Worker-routine : on message async\n%!"; *)
+(*       Webworker_routine.post_out_message "coucou"; *)
+
+(*       Lwt.return () *)
+(*     in *)
+(*     Lwt_js_events.async routine; *)
+
+(*     (\* let on_in_msg msg = *\) *)
+(*     (\*   Printf.eprintf "> Worker-routine : on message \n%!"; *\) *)
+(*     (\*   fire_event msg *\) *)
+(*     (\* in *\) *)
+(*     (\* on_in_msg *\) *)
+(*     fire_event *)
+
+end)
 
 let render_instructions props =
   let user_status, routine_status, fire_user_event = props in
@@ -97,14 +156,10 @@ let render_instructions props =
           button ~style:green "Abort";
         ]
 
-type props =
-  (uint8_ba * uint8_ba * uint8_ba * uint8_ba)
-  * training_config
-  * (Fnn.network list * Fnn.network)
-  * (outcome -> unit)
+type props = training_parameters * (outcome -> unit)
 
 let construct (props : props) =
-  let db, config, networks, on_completion = props in
+  let params, on_completion = props in
 
   let routine_events, fire_routine_event = React.E.create () in
   let routine_progress =
@@ -161,14 +216,84 @@ let construct (props : props) =
         of_tag "div"
           [
             of_string "Progress: ";
-            (routine_progress |> float_of_int) /. (config.batch_count |> float_of_int) *. 100.
+            (routine_progress |> float_of_int) /. (params.config.batch_count |> float_of_int) *. 100.
             |> Printf.sprintf "%.0f%%" |> of_string;
           ];
       ]
   in
   let mount () =
-    let routine () = routine db config networks fire_routine_event user_status in
-    Js_of_ocaml_lwt.Lwt_js_events.async routine
+    let ww = Webworker_routine.create fire_routine_event (fun _err ->
+                                       Printf.eprintf "Webworker err\n%!"
+                                      ) in
+    React.S.changes user_status
+    |> React.E.map (fun s -> Webworker_routine.post_in_message ww (s :> msg))
+    |> ignore;
+    Webworker_routine.post_in_message ww (React.S.value user_status :> msg);
+    Webworker_routine.post_in_message ww (`Prime params);
+
+    (* let test : 'a -> 'a  = fun v -> *)
+    (* (\* let test : type a. a -> a  = fun v -> *\) *)
+    (*   Printf.printf "test on\n%!"; *)
+    (*   Firebug.console##log (snd v); *)
+    (*   let v = Js_of_ocaml.Json.output v in *)
+    (*   Js_of_ocaml.Json.unsafe_input v *)
+
+    (*   (\* { v with *\) *)
+    (*   (\*   config = ( *\) *)
+    (*   (\*   Printf.eprintf "aa\n%!"; *\) *)
+    (*   (\*   let v = Js_of_ocaml.Json.output v.config in *\) *)
+    (*   (\*   Firebug.console##log v; *\) *)
+    (*   (\*   (\\* let v = Marshal.to_string v.config [] in *\\) *\) *)
+    (*   (\*   Printf.eprintf "bb\n%!"; *\) *)
+    (*   (\*   (\\* Marshal.from_string v 0 *\\) *\) *)
+    (*   (\*   Js_of_ocaml.Json.unsafe_input v *\) *)
+    (*   (\*   ) *\) *)
+    (*   (\* } *\) *)
+
+    (* in *)
+    (* Printf.eprintf "a\n%!"; *)
+    (* let params = { *)
+    (*     params with *)
+    (*     (\* db = test params.db; *\) *)
+    (*     (\* config = test params.config; *\) *)
+    (*     networks = test params.networks; *)
+    (*   } in *)
+    (* Printf.eprintf "b\n%!"; *)
+    (* Firebug.console##log (snd params.networks); *)
+
+    (* let routine () = routine params fire_routine_event user_status in *)
+    (* Js_of_ocaml_lwt.Lwt_js_events.async routine *)
+
   in
   Reactjs.construct ~mount ~signal:routine_progress ~signal:user_status ~signal:routine_status
     render
+
+(* class lol = *)
+(* object *)
+(*   method tamere = 42 *)
+(* end [@@deriving yojson] *)
+
+(* type lol = int [@@deriving yojson] *)
+
+
+(* (\* let test : 'a -> 'a  = fun v -> *\) *)
+(* (\*   (\\* let test : type a. a -> a  = fun v -> *\\) *\) *)
+(* (\*   let v = Js_of_ocaml.Json.output v in *\) *)
+(* (\*   Js_of_ocaml.Json.unsafe_input v *\) *)
+
+(* let test' : 'a -> 'a = fun v -> *)
+(*   Printf.eprintf "\n%!"; *)
+(*   Firebug.console##log v; *)
+(*   let v = Marshal.to_string v [Marshal.Closures] in *)
+(*   Firebug.console##log v; *)
+(*   let v = Marshal.from_string v 0 in *)
+(*   Firebug.console##log v; *)
+(*   v *)
+
+(* let () = *)
+(*   print_endline lol_of_yojson; *)
+(*   ignore (test' 42); *)
+(*   ignore (test' 10.); *)
+(*   ignore (test' "salut"); *)
+(*   ignore (test' `Test); *)
+(*   (\* ignore (test' (new lol)); *\) *)

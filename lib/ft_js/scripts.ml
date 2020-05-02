@@ -42,3 +42,8 @@ let import entry =
        aux tl
   in
   aux (List.assoc entry urls)
+
+let import_sync entry =
+  if not Webworker.is_web_worker then
+    failwith "From import_sync: Only works from webworker";
+  Worker.import_scripts (List.assoc entry urls)

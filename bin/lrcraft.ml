@@ -34,9 +34,10 @@ let main () =
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
   let lwt, lwt' = Lwt.wait () in
   let send_event res = Lwt.wakeup lwt' res in
-  let params =
-    (train_imgs, train_labs, test_imgs, test_labs),
-    Ft_cnnjs.Training.({
+  let params = Ft_cnnjs.Training.({
+    db = (train_imgs, train_labs, test_imgs, test_labs);
+    networks = Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]);
+    config = {
                         (* backend = `Tfjs_cpu; *)
                         (* batch_size = 50; *)
                         backend = `Tfjs_webgl;
@@ -47,13 +48,14 @@ let main () =
                         seed = 42;
                         verbose = true;
 
-                    }),
-    Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]),
-    send_event
+                 }});
   in
 
   Dom.appendChild body container;
-  Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Training.construct params) container;
+  Reactjs.(
+    Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event)
+    |> Fun.flip render container
+  );
   lwt >|= function
   | `Crash exn -> raise exn
   | `End -> ()

@@ -15,6 +15,12 @@ type training_config = {
   verbose : bool;
 }
 
+type training_parameters = {
+  db: (uint8_ba * uint8_ba * uint8_ba * uint8_ba);
+  networks: (Fnn.network list) * Fnn.network;
+  config: training_config;
+}
+
 type stats = { batch_count : int; loss : float; confusion_matrix : int32_ba }
 
 type user_event = [ `Early_stop | `Abort ]

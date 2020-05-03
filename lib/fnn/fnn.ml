@@ -208,6 +208,9 @@ module String_option_id : ID with type t = string option = struct
 end
 
 module Make (Tensor : TENSOR) (Id : ID) = struct
+  module Tensor = Tensor
+  module Id = Id
+
   type 'b float_tensor = (float, 'b) Tensor.t
 
   type float32_tensor = Bigarray.float32_elt float_tensor

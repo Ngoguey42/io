@@ -115,7 +115,9 @@ let[@ocamlformat "disable"] encoder_oneconv (module Builder : Fnn.BUILDER) o : F
   (* |> conv2d ~o (`Full 50) (16, 16) ~s:(4, 4) ~b:`Assert_fit |> bias *)
   (* |> normalisation [ `C; `C ] *)
   (* |> normalisation [ `S0; `C; `S1 ] *)
-  |> normalisation [ `S0; `C; `S1 ] ~stats:(`Global 1e-5)
+
+  (* |> normalisation [ `S0; `C; `S1 ] ~stats:(`Global 1e-5) (\* TODO: Header of all branches *\) *)
+  (* |> normalisation [ `S0; `C; `S1 ] ~stats:(`Local 1e-5) (\* TODO: Header of all branches *\) *)
 
   |> conv2d ~o (`Full 50) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias
   (* |> conv2d ~o (`Full 50) (16, 16) ~s:(3, 3) ~b:`Assert_fit |> bias *)
@@ -126,7 +128,7 @@ let[@ocamlformat "disable"] encoder_oneconv (module Builder : Fnn.BUILDER) o : F
 
 (* ********************************************************************************************** *)
 
-let create_nn rng =
+let[@ocamlformat "disable"] create_nn rng =
   let builder = Fnn.create_builder ~rng () in
 
   (* let o = `Sgd in *)
@@ -145,6 +147,7 @@ let create_nn rng =
       encoder_oneconv builder o;
     ]
   in
+  Printf.eprintf "encoder: %s\n%!" (List.hd encoders)#to_string;
 
   let decoder =
     let c =
@@ -152,18 +155,19 @@ let create_nn rng =
     in
     let w = 3 in
     input (Pshape.sym4d_partial ~n:U ~c ~s0:(K w) ~s1:(K w)) `Float32
-    (* |> conv2d ~o ~id:(Some "classif") (`Full 10) (w, w) ~b:`Assert_fit |> bias |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
+
+    (* |> conv2d ~o ~id:(Some "classif") (`Full 10) (w, w) ~b:`Assert_fit |> bias |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ] *)
+
     (* |> conv2d ~o ~id:(Some "classif") (`Full 10) (1, 1) ~b:`Assert_fit |> bias |> maxpool2d ~b:`Assert_fit (w, w) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] *)
+
     (* |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias *)
 
-    (* Classify usingg a maxpool and a fully connected layer *)
+    (* Classify using a maxpool and a fully connected layer *)
     (* |> maxpool2d ~b:`Assert_fit (w, w) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] |> dense ~o:`Sgd [`C, 10] ~id:(Some "classif") |> bias *)
 
     (* Classify and flatten using flatten and fully-connected *)
-    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
-    |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif")
-    |> bias
-    |> softmax `C
-    |> Fnn.downcast
+    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ] |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif") |> bias
+
+    |> softmax `C |> Fnn.downcast
   in
   (encoders, decoder)

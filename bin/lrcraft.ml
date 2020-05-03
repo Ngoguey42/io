@@ -41,10 +41,10 @@ let main () =
                         (* backend = `Tfjs_cpu; *)
                         (* batch_size = 50; *)
                         backend = `Tfjs_webgl;
-                        batch_size = 5000;
+                        batch_size = 500;
 
                         lr = `Down (1e-3, 0.);
-                        batch_count = 15;
+                        batch_count = 200;
                         seed = 42;
                         verbose = true;
 

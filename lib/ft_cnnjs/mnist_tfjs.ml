@@ -67,13 +67,10 @@ struct
         |> Tfjs_api.Ops.reshape [| batch_size |]
       in
       let y_1hot =
-        Tfjs_api.Ops.zeros [| batch_size; 10 |]
+        Tfjs_api.Ops.one_hot 10 y_top1
+        |> Tfjs_api.Ops.astype `Float32
+        |> Tfjs_api.Ops.reshape [| batch_size; 10 |]
       in
-      (* let y_1hot = *)
-      (*   Tfjs_api.Ops.one_hot 10 y_top1 *)
-      (*   |> Tfjs_api.Ops.astype `Float32 *)
-      (*   |> Tfjs_api.Ops.reshape [| batch_size; 10 |] *)
-      (* in *)
 
       ignore (verbose, x, y_1hot, lr, forward_decoder, forward_encoders, optimizations);
       let y'_1hot = ref y_1hot in
@@ -182,8 +179,9 @@ struct
                 let confusion_matrix = Tfjs_api.ba_of_tensor Bigarray.Int32 confusion_matrix in
                 let batch_count = 1 in
                 fire_event (`Batch_end (i, { batch_count; loss; confusion_matrix }))));
-          Lwt_js.sleep 0.01 >>= fun () -> aux (i + 1)
-          (* aux (i + 1) *)
+          (* Lwt_js.sleep 0.01 >>= fun () -> aux (i + 1) *)
+          Lwt_js.yield () >>= fun () -> aux (i + 1)
+      (* aux (i + 1) *)
     in
 
     aux 0 >>= fun _ -> Lwt.return ()
@@ -210,6 +208,8 @@ struct
         if verbose then Firebug.console##log (Tfjs_api.memory ());
         Lwt.return res)
       (fun exn ->
+        let msg = Printexc.to_string exn in
+        Printf.eprintf "Train fire error %s\n%!" msg;
         fire_event (`Crash exn);
         Lwt.return ())
 end

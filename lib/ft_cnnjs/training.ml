@@ -1,4 +1,3 @@
-include Training_types
 open struct
   module Reactjs = Ft_js.Reactjs
   module Firebug = Js_of_ocaml.Firebug
@@ -7,14 +6,16 @@ open struct
   module Webworker = Ft_js.Webworker
 end
 
+include Training_types
+
 let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = function
   (* | `Owl_cpu -> (module Mnist_owl) *)
   | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end))
   | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
   | `Tfjs_wasm -> (module Mnist_tfjs.Make_backend (struct let v = `Wasm end))
 
-let routine {db = (train_imgs, train_labs, _, _); networks=(encoders, decoder); config}
-            fire_event instructions =
+let routine { db = train_imgs, train_labs, _, _; networks = encoders, decoder; config } fire_event
+    instructions =
   let module Backend = (val create_backend config.backend) in
   let verbose = config.verbose in
   let rng = Random.State.make [| config.seed |] in
@@ -43,62 +44,84 @@ let routine {db = (train_imgs, train_labs, _, _); networks=(encoders, decoder); 
   in
   Backend.train ~fire_event ~instructions ~verbose ~batch_count ~get_lr ~get_data ~encoders ~decoder
 
-type msg = [ `Prime of training_parameters | user_status ]
-type msg' = routine_event
-module rec Webworker_routine : (Webworker.S with type in_msg := msg and type out_msg := msg') =
-Webworker.Make (struct
-  type in_msg = msg
+module Webworker_routine = struct
+  type training_parameters = {
+    db : uint8_ba * uint8_ba * uint8_ba * uint8_ba;
+    networks : Misc.storable_nn list * Misc.storable_nn;
+    config : training_config;
+  }
 
-  type out_msg = msg'
+  type _in_msg = [ `Prime of training_parameters | user_status ]
 
-  let create_on_in_message () =
-    (* let open Lwt.Infix in *)
-    let routine_events, fire_routine_event = React.E.create () in
-    let user_status, set_user_status = React.S.create `Train_to_end in
+  type routine_event =
+    [ `Init
+    | `Batch_begin of int
+    | `Batch_end of int * stats
+    | `End of Misc.storable_nn list * Misc.storable_nn * stats
+    | `Abort
+    | `Crash of exn ]
 
-    React.E.map Webworker_routine.post_out_message routine_events |> ignore;
+  type _out_msg = routine_event
 
-    let on_in_message = function
-      | `Prime params ->
-         Ft_js.Scripts.import_sync `Tfjs;
-         let routine () = routine params fire_routine_event user_status in
-         Js_of_ocaml_lwt.Lwt_js_events.async routine
-      | #user_status as msg -> set_user_status msg
-    in
-    on_in_message
+  let preprocess_in_msg : _ -> _in_msg = function
+    | `Prime Training_types.{ db; networks = encoders, decoder; config } ->
+        let f = Misc.storable_of_fnn in
+        let networks = (List.map f encoders, f decoder) in
+        `Prime { networks; db; config }
+    | #user_status as msg -> msg
 
+  let postprocess_in_msg : _in_msg -> _ = function
+    | `Prime { db; networks = encoders, decoder; config } ->
+        let f = Misc.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
+        let networks = (List.map f encoders, f decoder) in
+        `Prime Training_types.{ networks; db; config }
+    | #user_status as msg -> msg
 
+  let preprocess_out_msg : Training_types.routine_event -> routine_event = function
+    | `End (encoders, decoder, stats) ->
+        let f = Misc.storable_of_fnn in
+        `End (List.map f encoders, f decoder, stats)
+    | `Init as ev -> (ev :> routine_event)
+    | `Batch_begin _ as ev -> (ev :> routine_event)
+    | `Batch_end _ as ev -> (ev :> routine_event)
+    | `Abort as ev -> (ev :> routine_event)
+    | `Crash _ as ev -> (ev :> routine_event)
 
-(*     let fire_event : 'a -> 'b = fire_event in *)
-(*     let next_event = Lwt_react.E.next events in *)
+  let postprocess_out_msg : _out_msg -> Training_types.routine_event = function
+    | `End (encoders, decoder, stats) ->
+        let f = Misc.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
+        `End (List.map f encoders, f decoder, stats)
+    | `Init as ev -> (ev :> Training_types.routine_event)
+    | `Batch_begin _ as ev -> (ev :> Training_types.routine_event)
+    | `Batch_end _ as ev -> (ev :> Training_types.routine_event)
+    | `Abort as ev -> (ev :> Training_types.routine_event)
+    | `Crash _ as ev -> (ev :> Training_types.routine_event)
 
-(*     let routine () = *)
+  module rec Ww : (Webworker.S with type in_msg = _in_msg and type out_msg = _out_msg) =
+  Webworker.Make (struct
+    type in_msg = _in_msg
 
-(*       Ft_js.Scripts.import `Tfjs >>= fun () -> *)
-(*       Printf.eprintf "> Worker-routine : imported tfjs \n%!"; *)
-(*       Ft_js.Scripts.import `Cryptojs >>= fun () -> *)
-(*       Printf.eprintf "> Worker-routine : imported cryp\n%!"; *)
-(*       Ft_js.Scripts.import `Pako >>= fun () -> *)
-(*       Printf.eprintf "> Worker-routine : imported pako\n%!"; *)
-(*       Ft_js.Scripts.import `Reactjs >>= fun () -> *)
-(*       Printf.eprintf "> Worker-routine : imported react\n%!"; *)
+    type out_msg = _out_msg
 
-(*       next_event >>= fun _ev -> *)
-(*       Printf.eprintf "> Worker-routine : on message async\n%!"; *)
-(*       Webworker_routine.post_out_message "coucou"; *)
+    let create_on_in_message () =
+      let routine_events, fire_routine_event = React.E.create () in
+      let user_status, set_user_status = React.S.create `Train_to_end in
 
-(*       Lwt.return () *)
-(*     in *)
-(*     Lwt_js_events.async routine; *)
+      routine_events |> React.E.map preprocess_out_msg |> React.E.map Ww.post_out_message |> ignore;
 
-(*     (\* let on_in_msg msg = *\) *)
-(*     (\*   Printf.eprintf "> Worker-routine : on message \n%!"; *\) *)
-(*     (\*   fire_event msg *\) *)
-(*     (\* in *\) *)
-(*     (\* on_in_msg *\) *)
-(*     fire_event *)
+      let on_in_message msg =
+        match postprocess_in_msg msg with
+        | `Prime params ->
+            Ft_js.Scripts.import_sync `Tfjs;
+            let routine () = routine params fire_routine_event user_status in
+            Js_of_ocaml_lwt.Lwt_js_events.async routine
+        | #user_status as msg -> set_user_status msg
+      in
+      on_in_message
+  end)
 
-end)
+  include Ww
+end
 
 let render_instructions props =
   let user_status, routine_status, fire_user_event = props in
@@ -216,84 +239,25 @@ let construct (props : props) =
         of_tag "div"
           [
             of_string "Progress: ";
-            (routine_progress |> float_of_int) /. (params.config.batch_count |> float_of_int) *. 100.
+            (routine_progress |> float_of_int)
+            /. (params.config.batch_count |> float_of_int)
+            *. 100.
             |> Printf.sprintf "%.0f%%" |> of_string;
           ];
       ]
   in
   let mount () =
-    let ww = Webworker_routine.create fire_routine_event (fun _err ->
-                                       Printf.eprintf "Webworker err\n%!"
-                                      ) in
-    React.S.changes user_status
-    |> React.E.map (fun s -> Webworker_routine.post_in_message ww (s :> msg))
-    |> ignore;
-    Webworker_routine.post_in_message ww (React.S.value user_status :> msg);
-    Webworker_routine.post_in_message ww (`Prime params);
-
-    (* let test : 'a -> 'a  = fun v -> *)
-    (* (\* let test : type a. a -> a  = fun v -> *\) *)
-    (*   Printf.printf "test on\n%!"; *)
-    (*   Firebug.console##log (snd v); *)
-    (*   let v = Js_of_ocaml.Json.output v in *)
-    (*   Js_of_ocaml.Json.unsafe_input v *)
-
-    (*   (\* { v with *\) *)
-    (*   (\*   config = ( *\) *)
-    (*   (\*   Printf.eprintf "aa\n%!"; *\) *)
-    (*   (\*   let v = Js_of_ocaml.Json.output v.config in *\) *)
-    (*   (\*   Firebug.console##log v; *\) *)
-    (*   (\*   (\\* let v = Marshal.to_string v.config [] in *\\) *\) *)
-    (*   (\*   Printf.eprintf "bb\n%!"; *\) *)
-    (*   (\*   (\\* Marshal.from_string v 0 *\\) *\) *)
-    (*   (\*   Js_of_ocaml.Json.unsafe_input v *\) *)
-    (*   (\*   ) *\) *)
-    (*   (\* } *\) *)
-
-    (* in *)
-    (* Printf.eprintf "a\n%!"; *)
-    (* let params = { *)
-    (*     params with *)
-    (*     (\* db = test params.db; *\) *)
-    (*     (\* config = test params.config; *\) *)
-    (*     networks = test params.networks; *)
-    (*   } in *)
-    (* Printf.eprintf "b\n%!"; *)
-    (* Firebug.console##log (snd params.networks); *)
-
+    let fire_routine_event ev = ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event in
+    let ww =
+      Webworker_routine.create fire_routine_event (fun _err -> Printf.eprintf "Webworker err\n%!")
+    in
+    let user_status = React.S.map Webworker_routine.preprocess_in_msg user_status in
+    React.S.changes user_status |> React.E.map (Webworker_routine.post_in_message ww) |> ignore;
+    Webworker_routine.post_in_message ww (React.S.value user_status);
+    Webworker_routine.post_in_message ww (Webworker_routine.preprocess_in_msg (`Prime params))
     (* let routine () = routine params fire_routine_event user_status in *)
     (* Js_of_ocaml_lwt.Lwt_js_events.async routine *)
-
   in
+
   Reactjs.construct ~mount ~signal:routine_progress ~signal:user_status ~signal:routine_status
     render
-
-(* class lol = *)
-(* object *)
-(*   method tamere = 42 *)
-(* end [@@deriving yojson] *)
-
-(* type lol = int [@@deriving yojson] *)
-
-
-(* (\* let test : 'a -> 'a  = fun v -> *\) *)
-(* (\*   (\\* let test : type a. a -> a  = fun v -> *\\) *\) *)
-(* (\*   let v = Js_of_ocaml.Json.output v in *\) *)
-(* (\*   Js_of_ocaml.Json.unsafe_input v *\) *)
-
-(* let test' : 'a -> 'a = fun v -> *)
-(*   Printf.eprintf "\n%!"; *)
-(*   Firebug.console##log v; *)
-(*   let v = Marshal.to_string v [Marshal.Closures] in *)
-(*   Firebug.console##log v; *)
-(*   let v = Marshal.from_string v 0 in *)
-(*   Firebug.console##log v; *)
-(*   v *)
-
-(* let () = *)
-(*   print_endline lol_of_yojson; *)
-(*   ignore (test' 42); *)
-(*   ignore (test' 10.); *)
-(*   ignore (test' "salut"); *)
-(*   ignore (test' `Test); *)
-(*   (\* ignore (test' (new lol)); *\) *)

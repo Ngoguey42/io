@@ -25,7 +25,7 @@ type 'props construction =
   ('props -> jsx Js.t) * (unit -> unit) * (unit -> unit) * (component Js.t -> unit) list
 
 let construct ?mount ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4 render :
-      'props construction =
+    'props construction =
   let mount = match mount with None -> fun () -> () | Some mount -> mount in
   let unmount = match unmount with None -> fun () -> () | Some unmount -> unmount in
 

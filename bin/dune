@@ -12,8 +12,8 @@
       ; ../vendored/tf.js
       ../lib/ft_js/stubs.js
     )
-    (flags --pretty --source-map-inline --debug-info)
-    ; (flags --opt=3 --no-sourcemap)
+    ; (flags --pretty --source-map-inline --debug-info)
+    (flags --opt=3 --no-sourcemap)
   )
 
   ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically

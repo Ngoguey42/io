@@ -30,6 +30,7 @@
     ft_owlbase
     ft_cnnjs
     lwt_react
+    ocamlgraph
   )
   (preprocess (pps js_of_ocaml-ppx tyxml-ppx))
 )

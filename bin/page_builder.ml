@@ -25,7 +25,6 @@ Webworker.Make (struct
     let next_event = Lwt_react.E.next events in
 
     let routine () =
-
       Ft_js.Scripts.import `Tfjs >>= fun () ->
       Printf.eprintf "> Worker-routine : imported tfjs \n%!";
       Ft_js.Scripts.import `Cryptojs >>= fun () ->
@@ -49,15 +48,13 @@ Webworker.Make (struct
     (* in *)
     (* on_in_msg *)
     fire_event
-
 end)
 
 let main () =
   let open Lwt.Infix in
   let header =
     [%html
-        "<div id='header'>"
-        "<a href='index.html'>&#127968; Homepage</a> | "
+      "<div id='header'>" "<a href='index.html'>&#127968; Homepage</a> | "
         "<a href='lrcraft-game.html'>&#x1f3ae; Learning Rate Craft (wip)</a> | "
         "<a href='about.html'>&#128196; Making-of (wip)</a>" "</div>"]
   in
@@ -71,7 +68,6 @@ let main () =
   (* in *)
   (* Stringifier.post_in_message ww `A; *)
   (* Stringifier.post_in_message ww `B; *)
-
   let error exn =
     let msg = Printexc.to_string exn in
     let stack = Printexc.get_backtrace () in
@@ -104,8 +100,4 @@ let main () =
   in
   Lwt.catch main error |> ignore
 
-let () =
-  if not Ft_js.Webworker.is_web_worker then
-    main ()
-  else
-    Webworker.prime ()
+let () = if not Ft_js.Webworker.is_web_worker then main () else Webworker.prime ()

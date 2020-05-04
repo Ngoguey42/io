@@ -91,60 +91,6 @@ let get : (entry * status -> unit) -> unit Lwt.t =
   in
   Lwt.all promises >|= fun _ -> Ft_js.Idb.close store.db
 
-let construct_tr (entry, download_events) =
-  let fname = filename_of_entry entry in
-  let sig_download =
-    download_events
-    |> React.E.filter (fun (entry', _) -> entry = entry')
-    |> React.E.map (fun (_, action) -> action)
-    |> React.S.hold `Unknown
-  in
-  let signal_to_string () =
-    match React.S.value sig_download with
-    | `Unknown -> "?"
-    | `Check -> "Checking..."
-    | `Download (i, j) ->
-        let f = float_of_int i /. float_of_int j *. 100. in
-        Printf.sprintf "Downloading... (%.0f%%)" f
-    | `Unzip -> "Unzipping..."
-    | `Store -> "Storing..."
-    | `Ready _ -> "\u{02713}"
-  in
-  let render _ =
-    let open Reactjs.Jsx in
-    of_tag "tr"
-      [
-        of_tag "th" [ of_string fname ];
-        of_tag "th" ~class_:fname [ of_string (signal_to_string ()) ];
-      ]
-  in
-  Reactjs.construct ~signal:sig_download render
-
-let construct on_completion =
-  let download_events, progress = React.E.create () in
-  let reduce : (entry * uint8_ba) list -> entry * status -> (entry * uint8_ba) list =
-   fun s a ->
-    let s = match a with entry, `Ready arr -> (entry, arr) :: s | _ -> s in
-    ( if List.length s = List.length entries then
-      match List.map (fun entry -> List.find (fun (entry', _) -> entry = entry') s) entries with
-      | [ (_, a); (_, b); (_, c); (_, d) ] -> on_completion (a, b, c, d)
-      | _ -> failwith "unreachable" );
-    s
-  in
-  let _entries_ready = React.S.fold reduce [] download_events in
-  let render _ =
-    let open Reactjs.Jsx in
-    let head = of_tag "tr" [ of_tag "th" ~colspan:"2" [ of_string "MNIST dataset status" ] ] in
-    let tails =
-      List.map
-        (fun entry -> of_constructor ~key:entry construct_tr (entry, download_events))
-        entries
-    in
-    of_tag "table" ~class_:"mnist-status" [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
-  in
-  let mount () = Js_of_ocaml_lwt.Lwt_js_events.async (fun () -> get progress) (* unmount *) in
-  Reactjs.construct ~mount render
-
 let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
   let img =
     img |> Ft_js.Conv.Uint8.ba_of_ta

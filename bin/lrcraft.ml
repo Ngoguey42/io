@@ -6,59 +6,71 @@ module Js = Js_of_ocaml.Js
 module Firebug = Js_of_ocaml.Firebug
 module Ndarray = Owl_base_dense_ndarray_generic
 module Typed_array = Js_of_ocaml.Typed_array
-module Reactjs =  Ft_js.Reactjs
+module Reactjs = Ft_js.Reactjs
 module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 
 let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
 
-  Printf.printf "loading\n%!";
-  Ft_js.Scripts.import `Tfjs >>= fun () ->
-  Printf.printf "loaded tfjs\n%!";
-  Ft_js.Scripts.import `Cryptojs >>= fun () ->
-  Ft_js.Scripts.import `Pako >>= fun () ->
+  Printf.printf "loading reactjs\n%!";
   Ft_js.Scripts.import `Reactjs >>= fun () ->
-
+  Printf.printf "loaded tfjs\n%!";
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
   let lwt, lwt' = Lwt.wait () in
-  let send_event res = Lwt.wakeup lwt' res in
+  let send_event res =
+    Printf.eprintf "send event!!\n%!";
+    Lwt.wakeup lwt' res
+  in
 
   Dom.appendChild body container;
-  Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Mnist.construct send_event) container;
+  Reactjs.render (Reactjs.Jsx.of_constructor Ressources.construct send_event) container;
   lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
+  (* Printf.printf "loading\n%!"; *)
+  (* Ft_js.Scripts.import `Tfjs >>= fun () -> *)
+  (* Printf.printf "loaded tfjs\n%!"; *)
+  (* Ft_js.Scripts.import `Cryptojs >>= fun () -> *)
+  (* Ft_js.Scripts.import `Pako >>= fun () -> *)
+  (* Ft_js.Scripts.import `Reactjs >>= fun () -> *)
+  (* (\* ************************************************************************ *\) *)
+  (* let container = Html.div [] |> Tyxml_js.To_dom.of_element in *)
+  (* let lwt, lwt' = Lwt.wait () in *)
+  (* let send_event res = Lwt.wakeup lwt' res in *)
+
+  (* Dom.appendChild body container; *)
+  (* Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Mnist.construct send_event) container; *)
+  (* lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) -> *)
+  (* ignore (train_imgs, train_labs, test_imgs, test_labs); *)
+
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
   let lwt, lwt' = Lwt.wait () in
   let send_event res = Lwt.wakeup lwt' res in
-  let params = Ft_cnnjs.Training.({
-    db = (train_imgs, train_labs, test_imgs, test_labs);
-    networks = Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]);
-    config = {
-                        (* backend = `Tfjs_cpu; *)
-                        (* batch_size = 50; *)
-                        backend = `Tfjs_webgl;
-                        batch_size = 500;
-
-                        lr = `Down (1e-3, 0.);
-                        batch_count = 200;
-                        seed = 42;
-                        verbose = true;
-
-                 }});
+  let params =
+    Ft_cnnjs.Training.
+      {
+        db = (train_imgs, train_labs, test_imgs, test_labs);
+        networks = Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]);
+        config =
+          {
+            (* backend = `Tfjs_cpu; *)
+            (* batch_size = 50; *)
+            backend = `Tfjs_webgl;
+            batch_size = 500;
+            lr = `Down (1e-3, 0.);
+            batch_count = 15;
+            seed = 42;
+            verbose = true;
+          };
+      }
   in
 
   Dom.appendChild body container;
   Reactjs.(
-    Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event)
-    |> Fun.flip render container
-  );
-  lwt >|= function
-  | `Crash exn -> raise exn
-  | `End -> ()
-  | `Abort -> ()
+    Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event) |> Fun.flip render container);
+  lwt >|= function `Crash exn -> raise exn | `End -> () | `Abort -> ()
 
-  (* ************************************************************************ *)
+(* ************************************************************************ *)

@@ -1,0 +1,40 @@
+perspectives:
+  # ft and ft_js
+  "7": [[ lib/ft/dune, lib/ft/ft.ml ]]
+  "8":
+    - [ lib/ft_js/dune,     lib/ft_js/stubs.js ]
+    - [ lib/ft_js/ft_js.ml, lib/ft_js/fake_stubs.c ]
+  "+8": [[ lib/ft_js/misc.ml, lib/ft_js/conv.ml ]]
+  "9": [[ lib/ft_js/reactjs.ml, lib/ft_js/scripts.ml, lib/ft_js/webworker.ml ]]
+  "+9": [[ lib/ft/irmin_mem.ml, lib/ft_js/irmin_indexeddb_js_api.ml, lib/ft_js/irmin_indexeddb_raw_noutf.ml ]]
+
+  # pshape and fnn
+  "17": [[ lib/pshape/pshape.ml, lib/pshape/pshape_sig.ml ]]
+  "+17": [[ lib/pshape/dune, lib/pshape/misc.ml ]]
+  "18": [[ lib/fnn/fnn.ml, lib/fnn/fnn.ml, lib/fnn/fnn.ml ]]
+  "+18": [[ lib/fnn/dune, lib/fnn/init.ml ]]
+
+  # root and bin
+  "0":
+    - [ ./index.html,        ./styles.css ]
+    - [ ./about.html,        <up> ]
+    - [ ./lrcraft-game.html, <up> ]
+  "+0":
+    - [ ./persp.yaml, ./README.md,    ./build.sh ]
+    - [ <up>,         ./.ocamlformat, ./dune-project ]
+  "++0":
+    - [./ft.opam, ./, ./fnn.opam]
+    - [./ft_js.opam, ./, ./pshape.opam]
+    - [./ft_cnnjs.opam, ./, ./]
+  "1": [[ bin/dune, bin/page_builder.ml ]]
+  "+1": [[ bin/index.ml, bin/about.ml ]]
+  "2": [[ bin/lrcraft.ml, bin/ressources.ml ]]
+
+  # ft_cnnjs
+  "4": [[ lib/ft_cnnjs/dune, lib/ft_cnnjs/ft_cnnjs.ml, lib/ft_cnnjs/misc.ml ]]
+  "5": [[ lib/ft_cnnjs/training_types.ml, lib/ft_cnnjs/training.ml ]]
+  "+5": [[lib/ft_cnnjs/fnn_archi.ml, lib/ft_cnnjs/mnist.ml]]
+  "6": [[lib/ft_cnnjs/tfjs_api.ml, lib/ft_cnnjs/fnn_tfjs.ml, lib/ft_cnnjs/mnist_tfjs.ml]]
+
+# lib/ft_owlbase/dune
+# lib/ft_owlbase/ft_owlbase.ml

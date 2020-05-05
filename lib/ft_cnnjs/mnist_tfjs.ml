@@ -179,9 +179,7 @@ struct
                 let confusion_matrix = Tfjs_api.ba_of_tensor Bigarray.Int32 confusion_matrix in
                 let batch_count = 1 in
                 fire_event (`Batch_end (i, { batch_count; loss; confusion_matrix }))));
-          (* Lwt_js.sleep 0.01 >>= fun () -> aux (i + 1) *)
           Lwt_js.yield () >>= fun () -> aux (i + 1)
-      (* aux (i + 1) *)
     in
 
     aux 0 >>= fun _ -> Lwt.return ()

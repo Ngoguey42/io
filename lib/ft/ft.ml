@@ -1,20 +1,16 @@
 module Irmin_mem = Irmin_mem
-module StdList = List
 
 module List = struct
-  let rec string_join sep = function
-    | a :: (_ :: _ as tail) -> a ^ sep ^ string_join sep tail
-    | [ a ] -> a
-    | [] -> ""
-
-  let split s idx =
-    let len = String.length s in
-    (String.sub s 0 idx, String.sub s idx (len - idx))
-
   let split3 l =
     List.fold_right (fun (a, b, c) (la, lb, lc) -> (a :: la, b :: lb, c :: lc)) l ([], [], [])
 
   let _ = assert (split3 [ (0, 2, 4); (1, 3, 5) ] = ([ 0; 1 ], [ 2; 3 ], [ 4; 5 ]))
+end
+
+module String = struct
+  let split s idx =
+    let len = String.length s in
+    (String.sub s 0 idx, String.sub s idx (len - idx))
 
   let rec chunk size = function
     | "" -> []
@@ -57,7 +53,7 @@ module Color = struct
       | `r, (x, v, _, _) | `g, (x, _, v, _) | `b, (x, _, _, v) -> (x, v)
       | _, _ -> failwith "unreachable"
     in
-    let map = StdList.map in
+    let map = Stdlib.List.map in
     (map (pick `r) l, map (pick `g) l, map (pick `b) l)
 
   module Jet = struct

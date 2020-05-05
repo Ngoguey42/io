@@ -98,11 +98,13 @@ let _fnn_of_storable builder store upstreams : Fnn.network =
   match (store, upstreams) with
   | `Input (id, shape, dtype), [] ->
       Builder.input ~id:(repair id) (pshape_of_storable shape) dtype |> Fnn.downcast
+  | `Input _, _ -> failwith "corrupted upstreams"
   | `Parameter32 (id, init, optimizer, tensor), [] ->
       let o = match optimizer with `Sgd -> `Sgd | `Adam (a, b, c, _, _, _) -> `Adam (a, b, c) in
       let nn = Builder.parameter32 ~id:(repair id) (Bigarray.Genarray.dims tensor) init o in
       let nn = nn#replicate tensor optimizer in
       nn |> Fnn.downcast
+  | `Parameter32 _, _ -> failwith "corrupted upstreams"
   | `Normalisation (id, axes, algorithm), [ up ] ->
       let stats =
         match algorithm with
@@ -113,31 +115,29 @@ let _fnn_of_storable builder store upstreams : Fnn.network =
       let nn = Builder.normalisation ~id:(repair id) axes ~stats up in
       let nn = nn#replicate algorithm up in
       nn |> Fnn.downcast
+  | `Normalisation _, _ -> failwith "corrupted upstreams"
   | `Sum id, ups -> Builder.sum ~id:(repair id) ups |> Fnn.downcast
   | `Prod id, ups -> Builder.prod ~id:(repair id) ups |> Fnn.downcast
   | `Concatenate (id, axis), ups -> Builder.concatenate ~id:(repair id) axis ups |> Fnn.downcast
   | `Softmax (id, axis), [ up ] -> Builder.softmax ~id:(repair id) axis up |> Fnn.downcast
+  | `Softmax _, _ -> failwith "corrupted upstreams"
   | `Relu id, [ up ] -> Builder.relu ~id:(repair id) up |> Fnn.downcast
+  | `Relu _, _ -> failwith "corrupted upstreams"
   | `Astype (id, dtype), [ up ] -> Builder.astype ~id:(repair id) dtype up |> Fnn.downcast
+  | `Astype _, _ -> failwith "corrupted upstreams"
   | `Conv2d (id, g, s, d, b), [ w; up ] ->
       Builder.conv2d2 ~id:(repair id) ~g ~s ~d ~b w up |> Fnn.downcast
+  | `Conv2d _, _ -> failwith "corrupted upstreams"
   | `Transpose (id, ndim, mapping), [ up ] ->
       Builder.transpose ~id:(repair id) ~ndim ~mapping up |> Fnn.downcast
+  | `Transpose _, _ -> failwith "corrupted upstreams"
   | `Maxpool2d (id, b, s, k), [ up ] -> Builder.maxpool2d ~id:(repair id) ~b ~s k up |> Fnn.downcast
+  | `Maxpool2d _, _ -> failwith "corrupted upstreams"
   | `Padding (id, v, l), [ up ] -> Builder.padding ~id:(repair id) ~v l up |> Fnn.downcast
+  | `Padding _, _ -> failwith "corrupted upstreams"
   | `Tensordot (id, l, l'), [ up; up' ] ->
       Builder.tensordot ~id:(repair id) l l' up up' |> Fnn.downcast
-  | `Input _, _ -> failwith "corrupted upstreams"
-  | `Parameter32 _, _ -> failwith "corrupted upstreams"
-  | `Softmax _, _ -> failwith "corrupted upstreams"
-  | `Relu _, _ -> failwith "corrupted upstreams"
-  | `Astype _, _ -> failwith "corrupted upstreams"
-  | `Conv2d _, _ -> failwith "corrupted upstreams"
-  | `Transpose _, _ -> failwith "corrupted upstreams"
-  | `Maxpool2d _, _ -> failwith "corrupted upstreams"
-  | `Padding _, _ -> failwith "corrupted upstreams"
   | `Tensordot _, _ -> failwith "corrupted upstreams"
-  | `Normalisation _, _ -> failwith "corrupted upstreams"
 
 let fnn_of_storable : _ -> storable_nn -> Fnn.network =
  fun builder (ids, graph, layers) ->

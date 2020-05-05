@@ -3,7 +3,7 @@ module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 module Worker = Js_of_ocaml.Worker
 
-type entry = [ `Tfjs | `Cryptojs | `Pako | `Reactjs ]
+type entry = [ `Pagebuilder | `Tfjs | `Cryptojs | `Pako | `Reactjs ]
 
 external import_js : Js.js_string Js.t -> unit Misc.promise Js.t = "ft_js_import"
 

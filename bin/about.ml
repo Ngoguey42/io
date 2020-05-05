@@ -1,10 +1,17 @@
 module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 
 let url_repo = "https://github.com/ngoguey42/ngoguey42.github.io"
+
 let url_bin = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/bin"
+
 let url_lib = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib"
-let url_ftreact = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/reactjs.ml"
-let url_entrypoint = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/bin/page_builder.ml"
+
+let url_ftreact =
+  "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/reactjs.ml"
+
+let url_entrypoint =
+  "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/bin/page_builder.ml"
+
 let url_jsooppx = "https://ocsigen.org/js_of_ocaml/3.1.0/manual/ppx"
 
 let create_content () =
@@ -17,7 +24,9 @@ let create_content () =
       This website is hosted by <cite>github</cite> as a
       <a href="https://pages.github.com/"><cite>GitHub Pages</cite></a>,
       the source code is publicly available on
-      <a href="|} url_repo {|"><cite>github</cite></a>.
+      <a href="|}
+      url_repo
+      {|"><cite>github</cite></a>.
 
       <br/><br/>
 
@@ -43,7 +52,9 @@ let create_content () =
       <cite>OCaml</cite> library or using the
       <a href="https://reactjs.org/"><cite>React</cite></a> <cite>JavaScript</cite> library
       when complex interactions are required. This small
-      <a href="|} url_ftreact {|">wrapper</a>
+      <a href="|}
+      url_ftreact
+      {|">wrapper</a>
       enhances the <cite>React (js)</cite> experience in <cite>OCaml</cite> by hidding most of the
       boilerplate and hiding the <cite>states</cite> behind the functionnal reactive primitives of
       <cite>React (ml)</cite>.
@@ -53,17 +64,25 @@ let create_content () =
       The
       <a href="https://ocsigen.org/tyxml/4.3.0/manual/ppx"><cite>TyXML-ppx</cite></a>
       and
-      <a href="|} url_jsooppx {|"><cite>Js_of_ocaml-ppx</cite></a>
+      <a href="|}
+      url_jsooppx
+      {|"><cite>Js_of_ocaml-ppx</cite></a>
       <cite>OCaml</cite> syntax extensions are used throughout the project.
 
       <h3>Code organization</h3>
 
       All the pages share a single entry point:
-      <a href="|} url_entrypoint {|">bin/page_builder.ml</a>,
+      <a href="|}
+      url_entrypoint
+      {|">bin/page_builder.ml</a>,
       the rest of the code is scattered between the
-      <a href="|} url_bin {|">bin</a>
+      <a href="|}
+      url_bin
+      {|">bin</a>
       directory and a collection of libraries living in the
-      <a href="|} url_lib {|">lib</a>
+      <a href="|}
+      url_lib
+      {|">lib</a>
       directory. The entry point and all its <cite>OCaml</cite> dependencies are transpiled to
       a single <cite>.js</cite> file living in the
       <cite>build</cite> directory (the usual <cite>_build</cite> directory name could not be used

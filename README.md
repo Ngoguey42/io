@@ -1,7 +1,7 @@
 # TODO
-- Fix dune build (no opt, dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files, ocamlformat)
+- Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files, ocamlformat)
 - Test (?)
+- Update js_of_ocaml for new bigarray conversions
+- Ensure good propagation of exceptions throughout reactml/reactjs/webworker/lwt
 - Handle the case of corrupted cache/indexeddb
-- give better names to js vendored stubs
-- find a way to reference the js stubs in their owl library
 - constrain the dependencies (with >=)

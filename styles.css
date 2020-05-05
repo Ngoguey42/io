@@ -32,8 +32,10 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 .ressources { border: 1px solid black; border-radius: 3px; font-family: "Fira Sans", sans-serif; }
 .ressources > thead > tr { background: #EBEBEB; }
 .ressources > tbody > tr { height: 25px; }
-.ressources > tbody > tr > th:nth-child(1) { text-align: right; }
-.ressources > tbody > tr > th:nth-child(2) { text-align: center; width: 175px; }
+.ressources .entry-info { text-align: right; }
+.ressources div { display: inline-block; }
+.ressources .entry-size { font-size: small; }
+.ressources .entry-status { text-align: center; width: 175px; }
 .ressources > thead > tr { height: 33px; }
 /* ************************************************************************** */
 .mnist-pred {
@@ -45,12 +47,12 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 }
 .mnist-pred > div {
     font-family: "Fira Sans", sans-serif;
+    font-size: small;
     text-shadow: -1px -1px 0 .000, 1px -1px 0 .000, -1px 1px 0 .000, 1px 1px 0 .000;
     width: 40px;
     height: 40px;
     text-align: center;
     color: black;
-    font-size: small;
     overflow: hidden;
     display: inline-block;
     margin: 1px;
@@ -61,3 +63,20 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 .mnist-pred .highest-one { font-weight: bold; }
 .mnist-pred .not-highest-one { font-style: italic; }
 /* ************************************************************************** */
+.tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; }
+.tooltip .tooltiptext {
+  visibility: hidden;
+  font-family: "Fira Sans", sans-serif;
+  font-size: small;
+  width: 200px;
+  word-wrap:break-word;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 7px;
+  position: absolute;
+  z-index: 1;
+  text-align: left;
+}
+.tooltip:hover .tooltiptext { visibility: visible; }

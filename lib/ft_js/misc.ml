@@ -44,7 +44,7 @@ module CryptoJs = struct
 
     let short_hash : t -> int =
      fun h ->
-      let l = Ft.List.chunk 8 h in
+      let l = Ft.String.chunk 8 h in
       let l = List.map (fun x -> Scanf.sscanf x "%x" (fun x -> x)) l in
       let i = List.fold_left ( lxor ) 0 l in
       i
@@ -97,7 +97,10 @@ let decompress_blob (way : string) b =
 
 let blob_of_url ?progress url =
   let open Lwt.Infix in
-  let f = XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob in
+  let f = XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob ~headers:[
+                                       "X-Requested-With", "XMLHttpRequest"
+                                     ] in
+  (* let f = XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob in *)
   let future = match progress with Some progress -> f ~progress url | None -> f url in
   future >|= fun resp ->
   if resp.code <> 200 then failwith @@ Printf.sprintf "Download failed with code %d" resp.code;

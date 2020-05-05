@@ -13,37 +13,15 @@ let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
 
-  Printf.printf "loading reactjs\n%!";
   Ft_js.Scripts.import `Reactjs >>= fun () ->
-  Printf.printf "loaded tfjs\n%!";
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
   let lwt, lwt' = Lwt.wait () in
-  let send_event res =
-    Printf.eprintf "send event!!\n%!";
-    Lwt.wakeup lwt' res
-  in
-
+  let send_event res = Lwt.wakeup lwt' res in
   Dom.appendChild body container;
   Reactjs.render (Reactjs.Jsx.of_constructor Ressources.construct send_event) container;
   lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
-
-  (* Printf.printf "loading\n%!"; *)
-  (* Ft_js.Scripts.import `Tfjs >>= fun () -> *)
-  (* Printf.printf "loaded tfjs\n%!"; *)
-  (* Ft_js.Scripts.import `Cryptojs >>= fun () -> *)
-  (* Ft_js.Scripts.import `Pako >>= fun () -> *)
-  (* Ft_js.Scripts.import `Reactjs >>= fun () -> *)
-  (* (\* ************************************************************************ *\) *)
-  (* let container = Html.div [] |> Tyxml_js.To_dom.of_element in *)
-  (* let lwt, lwt' = Lwt.wait () in *)
-  (* let send_event res = Lwt.wakeup lwt' res in *)
-
-  (* Dom.appendChild body container; *)
-  (* Reactjs.render (Reactjs.Jsx.of_constructor Ft_cnnjs.Mnist.construct send_event) container; *)
-  (* lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) -> *)
-  (* ignore (train_imgs, train_labs, test_imgs, test_labs); *)
 
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
@@ -67,7 +45,6 @@ let main () =
           };
       }
   in
-
   Dom.appendChild body container;
   Reactjs.(
     Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event) |> Fun.flip render container);

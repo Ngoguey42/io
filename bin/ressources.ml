@@ -22,6 +22,8 @@ module Vset = Set.Make (Vertex)
 
 let dependencies =
   [
+    (`Pagebuilder, []);
+    (`Reactjs, []);
     (`Pako, []);
     (`Tfjs, []);
     (`Cryptojs, []);
@@ -33,10 +35,52 @@ let dependencies =
 
 let name_of_entry : Vertex.t -> string = function
   | #Mnist.entry as entry -> Mnist.filename_of_entry entry
-  | `Tfjs -> "Tensorflow JS"
-  | `Pako -> "Pako JS"
-  | `Cryptojs -> "Crypto JS"
-  | `Reactjs -> "React JS"
+  | `Pagebuilder -> "OCaml code"
+  | `Reactjs -> "ReactJS"
+  | `Tfjs -> "TensorFlow.js"
+  | `Pako -> "pako"
+  | `Cryptojs -> "CryptoJS"
+
+let description_of_entry : Vertex.t -> string = function
+  | `Pagebuilder -> "Webpage source code and OCaml external libraries transpiled to one JavaScript file"
+  | `Reactjs -> "User interface js library"
+  | `Tfjs -> "Tensor computations js library running on cpu or gpu using WebGL"
+  | `Pako -> "Compression js library"
+  | `Cryptojs -> "Cryptography js library"
+  | `Train_imgs -> "MNIST train-set images"
+  | `Train_labs -> "MNIST train-set labels"
+  | `Test_imgs -> "MNIST test-set images"
+  | `Test_labs -> "MNIST test-set labels"
+
+let size_of_entry : Vertex.t -> int = function
+  | `Pagebuilder -> 987654321
+  | `Reactjs -> 98765432
+  | `Tfjs -> 9876543
+  | `Pako -> 987654
+  | `Cryptojs -> 98765
+  | `Train_imgs -> 9876
+  | `Train_labs -> 987
+  | `Test_imgs -> 98
+  | `Test_labs -> 9
+
+let string_of_byte_count count =
+  assert (count >= 0);
+  let suffix, count =
+    if count < 1000 then ("B", float_of_int count)
+    else if count < 1000 * 1000 then ("KB", (float_of_int count) /. 1000.)
+    else if count < 1000 * 1000 * 1000 then ("MB", (float_of_int (count / 1000)) /. 1000.)
+    else ("GB", (float_of_int (count / 1000 / 1000)) /. 1000.)
+  in
+  let right_digit_count =
+    if suffix = "B" then `Zero
+    else if count < 10. then `Two
+    else if count < 100. then `One
+    else `Zero
+  in
+  match right_digit_count with
+  | `Two -> Printf.sprintf "%.2f %s" count suffix
+  | `One -> Printf.sprintf "%.1f %s" count suffix
+  | `Zero -> Printf.sprintf "%.0f %s" count suffix
 
 let initial_graph =
   List.fold_left
@@ -52,6 +96,8 @@ let get_leaf_vertices g =
 
 let construct_tr (entry, events) =
   let name = name_of_entry entry in
+  let description = description_of_entry entry in
+  let size = Printf.sprintf "\u{00a0}(%s)" (size_of_entry entry |> string_of_byte_count) in
   let signal =
     events
     |> React.E.filter (fun (entry', _) -> entry = entry')
@@ -61,7 +107,18 @@ let construct_tr (entry, events) =
   let render _ =
     let open Reactjs.Jsx in
     let s = match React.S.value signal with `Ongoing s -> s | `Done -> "\u{02713}" in
-    of_tag "tr" [ of_tag "th" [ of_string name ]; of_tag "th" [ of_string s ] ]
+    let tt = of_tag "span" ~class_:"tooltiptext" [ of_string description ] in
+    ignore size;
+    of_tag "tr"
+      [
+        of_tag "th" ~class_:"entry-info" [ of_tag "div" [
+                               of_tag "div" ~class_:"tooltip" [ of_string name; tt ]
+                             ; of_tag "div" ~class_:"entry-size" [ of_string size ]
+                             (* ; tt *)
+
+                    ] ];
+        of_tag "th" ~class_:"entry-status" [ of_string s ];
+      ]
   in
   Reactjs.construct ~signal render
 
@@ -90,10 +147,12 @@ let construct : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
   in
 
   let launch_script_fetch entry =
-    Lwt_js_events.async (fun () ->
-        let open Lwt.Infix in
-        fire_event (entry, `Ongoing "Downloading...");
-        Scripts.import entry >|= fun () -> fire_event (entry, `Done))
+    if entry = `Reactjs || entry = `Pagebuilder then fire_event (entry, `Done)
+    else
+      Lwt_js_events.async (fun () ->
+          let open Lwt.Infix in
+          fire_event (entry, `Ongoing "Downloading...");
+          Scripts.import entry >|= fun () -> fire_event (entry, `Done))
   in
 
   let launch_some_tasks (g, ongoing) =

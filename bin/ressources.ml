@@ -60,7 +60,9 @@ let urls_of_entry : Vertex.t -> string list = function
 (* Some hard-coded compressed file sizes that I couldn't retrieve through XHR *)
 let byte_count_of_url_opt : string -> Int64.t option = function
   | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" -> Some 204294L
-  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js" -> Some 11545L
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js"
+    ->
+      Some 11545L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js" -> Some 1463L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js" -> Some 700L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js" -> Some 830L
@@ -79,12 +81,6 @@ let string_of_byte_count count =
     else if Int64.compare count g < 0 then ("MB", Int64.to_float (Int64.div count k) /. 1000.)
     else ("GB", Int64.to_float (Int64.div count m) /. 1000.)
   in
-  (* let suffix, count = *)
-  (*   if count < 1000 then ("B", float_of_int count) *)
-  (*   else if count < 1000 * 1000 then ("KB", float_of_int count /. 1000.) *)
-  (*   else if count < 1000 * 1000 * 1000 then ("MB", float_of_int (count / 1000) /. 1000.) *)
-  (*   else ("GB", float_of_int (count / 1000 / 1000) /. 1000.) *)
-  (* in *)
   let right_digit_count =
     if suffix = "B" then `Zero
     else if count < 10. then `Two
@@ -113,14 +109,6 @@ let construct_tr (entry, events) =
   let description = description_of_entry entry in
   let urls = urls_of_entry entry in
   let size_fetch_events, fire_size_fetch_event = React.E.create () in
-
-  React.E.map
-    (fun (url, res) ->
-      match res with
-      | Error err -> Printf.eprintf "%s for %s\n%!" err url
-      | Ok v -> Printf.eprintf "%Ld for %s\n%!" v url)
-    size_fetch_events
-  |> ignore;
 
   let size_option_signal =
     size_fetch_events
@@ -167,8 +155,7 @@ let construct_tr (entry, events) =
       (fun url ->
         match byte_count_of_url_opt url with
         | Some size -> fire_size_fetch_event (url, Ok size)
-        | None -> Ft_js.size_of_urls [url] fire_size_fetch_event
-      )
+        | None -> Ft_js.size_of_urls [ url ] fire_size_fetch_event)
       urls
   in
   Reactjs.construct ~signal ~signal:size_option_signal ~mount render

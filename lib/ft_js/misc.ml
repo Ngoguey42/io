@@ -76,7 +76,6 @@ let wrap_promise : 'a promise Js.t -> 'a Lwt.t =
 
 let decompress_array arr =
   (* Has a JavaScript dependency *)
-  (* let open Lwt.Infix in *)
   let arr : Typed_array.uint8Array Js.t =
     Js.Unsafe.fun_call Js.Unsafe.global##.pako##.ungzip [| arr |> Js.Unsafe.inject |]
   in
@@ -123,13 +122,9 @@ let size_of_url : string -> (int64, string) result Lwt.t =
      fun m f -> match m with Error _ as m -> m | Ok v -> f v
     in
     let status xhr =
-      (* Printf.eprintf "Status\n%!"; *)
-      (* Firebug.console##log xhr; *)
       if xhr##.status = 200 then Ok xhr else Error (Printf.sprintf "Error code %d" xhr##.status)
     in
     let size xhr =
-      (* Printf.eprintf "Size\n%!"; *)
-      (* Firebug.console##log xhr; *)
       match xhr##getResponseHeader (Js.string "content-length") |> Js.Opt.to_option with
       | Some size -> Ok (size |> Js.to_string |> Int64.of_string)
       | None -> Error "Missing content-length header"
@@ -159,7 +154,6 @@ let blob_of_url ?progress url =
     XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob
       ~headers:[ ("X-Requested-With", "XMLHttpRequest") ]
   in
-  (* let f = XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob in *)
   let future = match progress with Some progress -> f ~progress url | None -> f url in
   future >|= fun resp ->
   if resp.code <> 200 then failwith @@ Printf.sprintf "Download failed with code %d" resp.code;

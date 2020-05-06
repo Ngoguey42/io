@@ -19,29 +19,28 @@ let import_js name =
 
 let urls_of_entry : entry -> string list = function
   | `Tfjs ->
-     [
-       "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js";
-       "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js";
-     ]
+      [
+        "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js";
+        "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js";
+      ]
   | `Cryptojs ->
-     [
-       "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js";
-       "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js";
+      [
+        "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js";
+        "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js";
         "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js";
-     ]
-  | `Pako ->
-     [ "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" ]
+      ]
+  | `Pako -> [ "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" ]
   | `Reactjs ->
-     [
-       "https://unpkg.com/react@16/umd/react.development.js";
-       "https://unpkg.com/react-dom@16/umd/react-dom.development.js";
-     ]
+      [
+        "https://unpkg.com/react@16/umd/react.development.js";
+        "https://unpkg.com/react-dom@16/umd/react-dom.development.js";
+      ]
   | `Pagebuilder ->
-     [
-       Filename.concat
-         (Misc.origin_of_url (Dom_html.window##.location##.href |> Js.to_string))
-         "build/default/bin/page_builder.bc.js"
-     ]
+      [
+        Filename.concat
+          (Misc.origin_of_url (Dom_html.window##.location##.href |> Js.to_string))
+          "build/default/bin/page_builder.bc.js";
+      ]
 
 let import entry =
   let open Lwt.Infix in

@@ -1,0 +1,10 @@
+import re
+code = !cat ./lib/ft_js/scripts.ml
+code = ''.join(code)
+urls = re.findall('"(http[^"]+)"', code)
+for url in urls:
+    s = !curl -L -s --compressed --raw {url}
+    s = '\n'.join(s)
+    print('  | "{}" -> Some {}l'.format(url, len(s)))
+    
+    

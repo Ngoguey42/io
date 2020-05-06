@@ -95,24 +95,19 @@ let decompress_blob (way : string) b =
 
   wrap_promise resp
 
-let origin_of_url : string -> string = fun url ->
+let origin_of_url : string -> string =
+ fun url ->
   let url = Js.string url in
-  (* let url = Dom_html.window##.location##.href in *)
-  (* Firebug.console##log url; *)
-  let url = Js.Unsafe.new_obj Js.Unsafe.global##.URL [| Js.Unsafe.inject url |] in
-  (* Firebug.console##log url; *)
-  (* Firebug.console##log *)
+  let url = Js.Unsafe.new_obj Js.Unsafe.global ##. URL [| Js.Unsafe.inject url |] in
   Js.to_string url##.origin
 
 let prepend_url url =
-
   let origin =
     Dom_html.window##.location##.origin |> Js.Optdef.to_option |> Option.map Js.to_string
   in
   match origin with
   | Some origin ->
-     if origin = origin_of_url url then url
-     else "https://cors-anywhere.herokuapp.com/" ^ url
+      if origin = origin_of_url url then url else "https://cors-anywhere.herokuapp.com/" ^ url
   | None -> url
 
 let size_of_url : string -> (int64, string) result Lwt.t =
@@ -130,13 +125,11 @@ let size_of_url : string -> (int64, string) result Lwt.t =
     let status xhr =
       (* Printf.eprintf "Status\n%!"; *)
       (* Firebug.console##log xhr; *)
-
       if xhr##.status = 200 then Ok xhr else Error (Printf.sprintf "Error code %d" xhr##.status)
     in
     let size xhr =
       (* Printf.eprintf "Size\n%!"; *)
       (* Firebug.console##log xhr; *)
-
       match xhr##getResponseHeader (Js.string "content-length") |> Js.Opt.to_option with
       | Some size -> Ok (size |> Js.to_string |> Int64.of_string)
       | None -> Error "Missing content-length header"
@@ -150,12 +143,14 @@ let size_of_url : string -> (int64, string) result Lwt.t =
   xhr##send Js.Opt.empty;
   lwt
 
-let size_of_urls : string list -> (string * (int64, string) result -> unit) -> unit = fun urls fire_event ->
-  List.iter (fun url ->
+let size_of_urls : string list -> (string * (int64, string) result -> unit) -> unit =
+ fun urls fire_event ->
+  List.iter
+    (fun url ->
       let lwt = size_of_url url in
       Lwt.on_success lwt (fun res -> fire_event (url, res));
-      Lwt.on_failure lwt (fun exn -> fire_event (url, (Error (Printexc.to_string exn))));
-    ) urls
+      Lwt.on_failure lwt (fun exn -> fire_event (url, Error (Printexc.to_string exn))))
+    urls
 
 let blob_of_url ?progress url =
   let open Lwt.Infix in

@@ -57,6 +57,18 @@ let urls_of_entry : Vertex.t -> string list = function
   | #Ft_js.Scripts.entry as entry -> Ft_js.Scripts.urls_of_entry entry
   | #Mnist.entry as entry -> [ Mnist.url_of_entry entry ]
 
+(* Some hard-coded compressed file sizes that I couldn't retrieve through XHR *)
+let byte_count_of_url_opt : string -> Int64.t option = function
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" -> Some 204294L
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js" -> Some 11545L
+  | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js" -> Some 1463L
+  | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js" -> Some 700L
+  | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js" -> Some 830L
+  | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7417L
+  | "https://unpkg.com/react@16/umd/react.development.js" -> Some 30840L
+  | "https://unpkg.com/react-dom@16/umd/react-dom.development.js" -> Some 245565L
+  | _ -> None
+
 let string_of_byte_count count =
   let k = Int64.of_int 1000 in
   let m = Int64.of_int (1000 * 1000) in
@@ -96,64 +108,36 @@ let get_leaf_vertices g =
   assert (G.is_empty g = (List.length leaves = 0));
   leaves |> List.to_seq |> Vset.of_seq
 
-(* let size_of_entry : Vertex.t -> int = function *)
-(*   | `Pagebuilder -> 987654321 *)
-(*   | `Reactjs -> 98765432 *)
-(*   | `Tfjs -> 9876543 *)
-(*   | `Pako -> 987654 *)
-(*   | `Cryptojs -> 98765 *)
-(*   | `Train_imgs -> 9876 *)
-(*   | `Train_labs -> 987 *)
-(*   | `Test_imgs -> 98 *)
-(*   | `Test_labs -> 9 *)
-
-(* let () = *)
-(*   let urls = [ *)
-(*       "https://cors-anywhere.herokuapp.com/https://mirror.us-midwest-1.nexcess.net/ubuntu-releases/20.04/ubuntu-20.04-desktop-amd64.iso"; *)
-(*       Dom_html.window##.location##.pathname |> Js.to_string; *)
-(*     ] in *)
-(*   let events, fire_event = React.E.create () in *)
-(*   let aux (url, res) = *)
-(*     match res with *)
-(*     | Error err -> *)
-(*        Printf.eprintf "%s for %s\n%!" err url *)
-(*     | Ok v -> *)
-(*        Printf.eprintf "%Ld for %s\n%!" v url *)
-(*   in *)
-(*   React.E.map aux events |> ignore; *)
-(*   size_of_urls urls fire_event; *)
-(*   () *)
-
 let construct_tr (entry, events) =
   let name = name_of_entry entry in
   let description = description_of_entry entry in
   let urls = urls_of_entry entry in
   let size_fetch_events, fire_size_fetch_event = React.E.create () in
-  let aux (url, res) =
-    match res with
-    | Error err ->
-       Printf.eprintf "%s for %s\n%!" err url
-    | Ok v ->
-       Printf.eprintf "%Ld for %s\n%!" v url
-  in
-  React.E.map aux size_fetch_events |> ignore;
+
+  React.E.map
+    (fun (url, res) ->
+      match res with
+      | Error err -> Printf.eprintf "%s for %s\n%!" err url
+      | Ok v -> Printf.eprintf "%Ld for %s\n%!" v url)
+    size_fetch_events
+  |> ignore;
 
   let size_option_signal =
     size_fetch_events
     |> React.E.map (fun (_, size) -> size)
-    |> React.E.fold (fun acc res ->
-           match acc, res with
+    |> React.E.fold
+         (fun acc res ->
+           match (acc, res) with
            | Ok (count, sum), Ok size -> Ok (count + 1, Int64.add sum size)
            | Error _, _ -> acc
-           | _, (Error _ as res) -> res
-         ) (Ok (0, Int64.zero))
+           | _, (Error _ as res) -> res)
+         (Ok (0, Int64.zero))
     |> React.E.fmap (function
-                     | Ok (count, size) when count = List.length urls -> Some (Some size)
-                     | _ -> None)
+         | Ok (count, size) when count = List.length urls -> Some (Some size)
+         | _ -> None)
     |> React.S.hold None
   in
 
-  (* let size = Printf.sprintf "\u{00a0}(%s)" (size_of_entry entry |> string_of_byte_count) in *)
   let signal =
     events
     |> React.E.filter (fun (entry', _) -> entry = entry')
@@ -164,25 +148,28 @@ let construct_tr (entry, events) =
     let open Reactjs.Jsx in
     let s = match React.S.value signal with `Ongoing s -> s | `Done -> "\u{02713}" in
     let tt = of_tag "span" ~class_:"tooltiptext" [ of_string description ] in
-    let size = match React.S.value size_option_signal with
+    let size =
+      match React.S.value size_option_signal with
       | None -> []
       | Some size ->
-         let s = Printf.sprintf "\u{00a0}(%s)" (string_of_byte_count size) in
-         [ of_tag "div" ~class_:"entry-size" [ of_string s ] ]
+          let s = Printf.sprintf "\u{00a0}(%s)" (string_of_byte_count size) in
+          [ of_tag "div" ~class_:"entry-size" [ of_string s ] ]
     in
     of_tag "tr"
       [
         of_tag "th" ~class_:"entry-info"
-          [
-            of_tag "div"
-                   ([ of_tag "div" ~class_:"tooltip" [ of_string name; tt ] ] @ size)
-          ];
+          [ of_tag "div" ([ of_tag "div" ~class_:"tooltip" [ of_string name; tt ] ] @ size) ];
         of_tag "th" ~class_:"entry-status" [ of_string s ];
       ]
   in
   let mount () =
-    (* if entry = `Pako then *)
-      Ft_js.size_of_urls urls fire_size_fetch_event
+    List.iter
+      (fun url ->
+        match byte_count_of_url_opt url with
+        | Some size -> fire_size_fetch_event (url, Ok size)
+        | None -> Ft_js.size_of_urls [url] fire_size_fetch_event
+      )
+      urls
   in
   Reactjs.construct ~signal ~signal:size_option_signal ~mount render
 
@@ -210,7 +197,8 @@ let construct : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
     Lwt_js_events.async (fun () -> Mnist.get fire_mnist_event)
   in
 
-  let launch_script_fetch : Ft_js.Scripts.entry -> _ = fun entry ->
+  let launch_script_fetch : Ft_js.Scripts.entry -> _ =
+   fun entry ->
     if entry = `Reactjs || entry = `Pagebuilder then fire_event ((entry :> Vertex.t), `Done)
     else
       Lwt_js_events.async (fun () ->

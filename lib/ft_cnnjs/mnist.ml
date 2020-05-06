@@ -23,12 +23,7 @@ let filename_of_entry = function
   | `Test_labs -> "t10k-labels-idx1-ubyte"
 
 let url_of_entry entry =
-  String.concat ""
-    [
-      "http://yann.lecun.com/exdb/mnist/";
-      filename_of_entry entry;
-      ".gz";
-    ]
+  String.concat "" [ "http://yann.lecun.com/exdb/mnist/"; filename_of_entry entry; ".gz" ]
 
 let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
  fun entry store progress ->

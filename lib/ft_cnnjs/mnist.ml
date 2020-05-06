@@ -25,7 +25,6 @@ let filename_of_entry = function
 let url_of_entry entry =
   String.concat ""
     [
-      "https://cors-anywhere.herokuapp.com/";
       "http://yann.lecun.com/exdb/mnist/";
       filename_of_entry entry;
       ".gz";

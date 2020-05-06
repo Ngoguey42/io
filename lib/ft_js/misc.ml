@@ -95,11 +95,75 @@ let decompress_blob (way : string) b =
 
   wrap_promise resp
 
+let origin_of_url : string -> string = fun url ->
+  let url = Js.string url in
+  (* let url = Dom_html.window##.location##.href in *)
+  (* Firebug.console##log url; *)
+  let url = Js.Unsafe.new_obj Js.Unsafe.global##.URL [| Js.Unsafe.inject url |] in
+  (* Firebug.console##log url; *)
+  (* Firebug.console##log *)
+  Js.to_string url##.origin
+
+let prepend_url url =
+
+  let origin =
+    Dom_html.window##.location##.origin |> Js.Optdef.to_option |> Option.map Js.to_string
+  in
+  match origin with
+  | Some origin ->
+     if origin = origin_of_url url then url
+     else "https://cors-anywhere.herokuapp.com/" ^ url
+  | None -> url
+
+let size_of_url : string -> (int64, string) result Lwt.t =
+ fun url ->
+  let url = prepend_url url in
+  let lwt, lwt' = Lwt.wait () in
+  let xhr = XmlHttpRequest.create () in
+  xhr##_open (Js.string "HEAD") (Js.string url) Js._true;
+  xhr##setRequestHeader (Js.string "X-Requested-With") (Js.string "XMLHttpRequest");
+
+  let callback () =
+    let ( >>= ) : type a b e. (a, e) result -> (a -> (b, e) result) -> (b, e) result =
+     fun m f -> match m with Error _ as m -> m | Ok v -> f v
+    in
+    let status xhr =
+      (* Printf.eprintf "Status\n%!"; *)
+      (* Firebug.console##log xhr; *)
+
+      if xhr##.status = 200 then Ok xhr else Error (Printf.sprintf "Error code %d" xhr##.status)
+    in
+    let size xhr =
+      (* Printf.eprintf "Size\n%!"; *)
+      (* Firebug.console##log xhr; *)
+
+      match xhr##getResponseHeader (Js.string "content-length") |> Js.Opt.to_option with
+      | Some size -> Ok (size |> Js.to_string |> Int64.of_string)
+      | None -> Error "Missing content-length header"
+    in
+    match xhr##.readyState with
+    | XmlHttpRequest.DONE -> Lwt.wakeup lwt' (Ok xhr >>= status >>= size)
+    | _ -> ()
+  in
+
+  xhr##.onreadystatechange := Js.wrap_callback callback;
+  xhr##send Js.Opt.empty;
+  lwt
+
+let size_of_urls : string list -> (string * (int64, string) result -> unit) -> unit = fun urls fire_event ->
+  List.iter (fun url ->
+      let lwt = size_of_url url in
+      Lwt.on_success lwt (fun res -> fire_event (url, res));
+      Lwt.on_failure lwt (fun exn -> fire_event (url, (Error (Printexc.to_string exn))));
+    ) urls
+
 let blob_of_url ?progress url =
   let open Lwt.Infix in
-  let f = XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob ~headers:[
-                                       "X-Requested-With", "XMLHttpRequest"
-                                     ] in
+  let url = prepend_url url in
+  let f =
+    XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob
+      ~headers:[ ("X-Requested-With", "XMLHttpRequest") ]
+  in
   (* let f = XmlHttpRequest.perform_raw ~response_type:XmlHttpRequest.Blob in *)
   let future = match progress with Some progress -> f ~progress url | None -> f url in
   future >|= fun resp ->

@@ -1,10 +1,12 @@
-module Dom_html = Js_of_ocaml.Dom_html
-module Dom = Js_of_ocaml.Dom
-module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
-module Js = Js_of_ocaml.Js
-module Firebug = Js_of_ocaml.Firebug
-module Lwt_js = Js_of_ocaml_lwt.Lwt_js
-module Worker = Js_of_ocaml.Worker
+open struct
+  module Dom_html = Js_of_ocaml.Dom_html
+  module Dom = Js_of_ocaml.Dom
+  module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
+  module Js = Js_of_ocaml.Js
+  module Firebug = Js_of_ocaml.Firebug
+  module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+  module Worker = Js_of_ocaml.Worker
+end
 
 module type SPEC = sig
   type in_msg

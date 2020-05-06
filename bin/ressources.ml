@@ -42,7 +42,8 @@ let name_of_entry : Vertex.t -> string = function
   | `Cryptojs -> "CryptoJS"
 
 let description_of_entry : Vertex.t -> string = function
-  | `Pagebuilder -> "Webpage source code and OCaml external libraries transpiled to one JavaScript file"
+  | `Pagebuilder ->
+      "Webpage source code and OCaml external libraries transpiled to one JavaScript file"
   | `Reactjs -> "User interface js library"
   | `Tfjs -> "Tensor computations js library running on cpu or gpu using WebGL"
   | `Pako -> "Compression js library"
@@ -52,25 +53,26 @@ let description_of_entry : Vertex.t -> string = function
   | `Test_imgs -> "MNIST test-set images"
   | `Test_labs -> "MNIST test-set labels"
 
-let size_of_entry : Vertex.t -> int = function
-  | `Pagebuilder -> 987654321
-  | `Reactjs -> 98765432
-  | `Tfjs -> 9876543
-  | `Pako -> 987654
-  | `Cryptojs -> 98765
-  | `Train_imgs -> 9876
-  | `Train_labs -> 987
-  | `Test_imgs -> 98
-  | `Test_labs -> 9
+let urls_of_entry : Vertex.t -> string list = function
+  | #Ft_js.Scripts.entry as entry -> Ft_js.Scripts.urls_of_entry entry
+  | #Mnist.entry as entry -> [ Mnist.url_of_entry entry ]
 
 let string_of_byte_count count =
-  assert (count >= 0);
+  let k = Int64.of_int 1000 in
+  let m = Int64.of_int (1000 * 1000) in
+  let g = Int64.of_int (1000 * 1000 * 1000) in
   let suffix, count =
-    if count < 1000 then ("B", float_of_int count)
-    else if count < 1000 * 1000 then ("KB", (float_of_int count) /. 1000.)
-    else if count < 1000 * 1000 * 1000 then ("MB", (float_of_int (count / 1000)) /. 1000.)
-    else ("GB", (float_of_int (count / 1000 / 1000)) /. 1000.)
+    if Int64.compare count k < 0 then ("B", Int64.to_float count)
+    else if Int64.compare count m < 0 then ("KB", Int64.to_float count /. 1000.)
+    else if Int64.compare count g < 0 then ("MB", Int64.to_float (Int64.div count k) /. 1000.)
+    else ("GB", Int64.to_float (Int64.div count m) /. 1000.)
   in
+  (* let suffix, count = *)
+  (*   if count < 1000 then ("B", float_of_int count) *)
+  (*   else if count < 1000 * 1000 then ("KB", float_of_int count /. 1000.) *)
+  (*   else if count < 1000 * 1000 * 1000 then ("MB", float_of_int (count / 1000) /. 1000.) *)
+  (*   else ("GB", float_of_int (count / 1000 / 1000) /. 1000.) *)
+  (* in *)
   let right_digit_count =
     if suffix = "B" then `Zero
     else if count < 10. then `Two
@@ -94,10 +96,64 @@ let get_leaf_vertices g =
   assert (G.is_empty g = (List.length leaves = 0));
   leaves |> List.to_seq |> Vset.of_seq
 
+(* let size_of_entry : Vertex.t -> int = function *)
+(*   | `Pagebuilder -> 987654321 *)
+(*   | `Reactjs -> 98765432 *)
+(*   | `Tfjs -> 9876543 *)
+(*   | `Pako -> 987654 *)
+(*   | `Cryptojs -> 98765 *)
+(*   | `Train_imgs -> 9876 *)
+(*   | `Train_labs -> 987 *)
+(*   | `Test_imgs -> 98 *)
+(*   | `Test_labs -> 9 *)
+
+(* let () = *)
+(*   let urls = [ *)
+(*       "https://cors-anywhere.herokuapp.com/https://mirror.us-midwest-1.nexcess.net/ubuntu-releases/20.04/ubuntu-20.04-desktop-amd64.iso"; *)
+(*       Dom_html.window##.location##.pathname |> Js.to_string; *)
+(*     ] in *)
+(*   let events, fire_event = React.E.create () in *)
+(*   let aux (url, res) = *)
+(*     match res with *)
+(*     | Error err -> *)
+(*        Printf.eprintf "%s for %s\n%!" err url *)
+(*     | Ok v -> *)
+(*        Printf.eprintf "%Ld for %s\n%!" v url *)
+(*   in *)
+(*   React.E.map aux events |> ignore; *)
+(*   size_of_urls urls fire_event; *)
+(*   () *)
+
 let construct_tr (entry, events) =
   let name = name_of_entry entry in
   let description = description_of_entry entry in
-  let size = Printf.sprintf "\u{00a0}(%s)" (size_of_entry entry |> string_of_byte_count) in
+  let urls = urls_of_entry entry in
+  let size_fetch_events, fire_size_fetch_event = React.E.create () in
+  let aux (url, res) =
+    match res with
+    | Error err ->
+       Printf.eprintf "%s for %s\n%!" err url
+    | Ok v ->
+       Printf.eprintf "%Ld for %s\n%!" v url
+  in
+  React.E.map aux size_fetch_events |> ignore;
+
+  let size_option_signal =
+    size_fetch_events
+    |> React.E.map (fun (_, size) -> size)
+    |> React.E.fold (fun acc res ->
+           match acc, res with
+           | Ok (count, sum), Ok size -> Ok (count + 1, Int64.add sum size)
+           | Error _, _ -> acc
+           | _, (Error _ as res) -> res
+         ) (Ok (0, Int64.zero))
+    |> React.E.fmap (function
+                     | Ok (count, size) when count = List.length urls -> Some (Some size)
+                     | _ -> None)
+    |> React.S.hold None
+  in
+
+  (* let size = Printf.sprintf "\u{00a0}(%s)" (size_of_entry entry |> string_of_byte_count) in *)
   let signal =
     events
     |> React.E.filter (fun (entry', _) -> entry = entry')
@@ -108,19 +164,27 @@ let construct_tr (entry, events) =
     let open Reactjs.Jsx in
     let s = match React.S.value signal with `Ongoing s -> s | `Done -> "\u{02713}" in
     let tt = of_tag "span" ~class_:"tooltiptext" [ of_string description ] in
-    ignore size;
+    let size = match React.S.value size_option_signal with
+      | None -> []
+      | Some size ->
+         let s = Printf.sprintf "\u{00a0}(%s)" (string_of_byte_count size) in
+         [ of_tag "div" ~class_:"entry-size" [ of_string s ] ]
+    in
     of_tag "tr"
       [
-        of_tag "th" ~class_:"entry-info" [ of_tag "div" [
-                               of_tag "div" ~class_:"tooltip" [ of_string name; tt ]
-                             ; of_tag "div" ~class_:"entry-size" [ of_string size ]
-                             (* ; tt *)
-
-                    ] ];
+        of_tag "th" ~class_:"entry-info"
+          [
+            of_tag "div"
+                   ([ of_tag "div" ~class_:"tooltip" [ of_string name; tt ] ] @ size)
+          ];
         of_tag "th" ~class_:"entry-status" [ of_string s ];
       ]
   in
-  Reactjs.construct ~signal render
+  let mount () =
+    (* if entry = `Pako then *)
+      Ft_js.size_of_urls urls fire_size_fetch_event
+  in
+  Reactjs.construct ~signal ~signal:size_option_signal ~mount render
 
 let construct : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
  fun on_complete ->
@@ -146,13 +210,13 @@ let construct : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
     Lwt_js_events.async (fun () -> Mnist.get fire_mnist_event)
   in
 
-  let launch_script_fetch entry =
-    if entry = `Reactjs || entry = `Pagebuilder then fire_event (entry, `Done)
+  let launch_script_fetch : Ft_js.Scripts.entry -> _ = fun entry ->
+    if entry = `Reactjs || entry = `Pagebuilder then fire_event ((entry :> Vertex.t), `Done)
     else
       Lwt_js_events.async (fun () ->
           let open Lwt.Infix in
-          fire_event (entry, `Ongoing "Downloading...");
-          Scripts.import entry >|= fun () -> fire_event (entry, `Done))
+          fire_event ((entry :> Vertex.t), `Ongoing "Downloading...");
+          Scripts.import entry >|= fun () -> fire_event ((entry :> Vertex.t), `Done))
   in
 
   let launch_some_tasks (g, ongoing) =

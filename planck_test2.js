@@ -1,9 +1,10 @@
 var pl = planck, Vec2 = pl.Vec2, Math = pl.Math;
-var width = 1.00
+var width = 2.00
 var height = width;
-var BALL_RADIUS = 0.09
+var BALL_RADIUS = width / 100 * 9
 var ACTIVE_RAILS = true
-var mouseForce = width * 20
+var mouseForce = width * 10
+var ARE_BULLETS = false
 
 function bodies_of_world(w) {
   var arr = [];
@@ -20,10 +21,11 @@ pl.internal.Settings.velocityThreshold = 0;
 
 const EPSILON = 0.001
 function createRails(world) {
+  var thickness = width / 2
 
   var tl = Vec2(+(width * .5 + .0), +(height * .5 + .0))
-  var tr = Vec2(+(width * .5 + .5), +(height * .5 + .5))
-  var br = Vec2(+(width * .5 + .5), -(height * .5 + .5))
+  var tr = Vec2(+(width * .5 + thickness), +(height * .5 + thickness))
+  var br = Vec2(+(width * .5 + thickness), -(height * .5 + thickness))
   var bl = Vec2(+(width * .5 + .0), -(height * .5 + .0))
 
   var b = world.createBody({userData: {type: "rail", idx: 0}})
@@ -35,8 +37,8 @@ function createRails(world) {
   b.setActive(ACTIVE_RAILS)
 
   var tl = Vec2(-(width * .5 + .0), +(height * .5 + .0))
-  var tr = Vec2(-(width * .5 + .5), +(height * .5 + .5))
-  var br = Vec2(-(width * .5 + .5), -(height * .5 + .5))
+  var tr = Vec2(-(width * .5 + thickness), +(height * .5 + thickness))
+  var br = Vec2(-(width * .5 + thickness), -(height * .5 + thickness))
   var bl = Vec2(-(width * .5 + .0), -(height * .5 + .0))
 
   var b = world.createBody({userData: {type: "rail", idx: 0}})
@@ -48,8 +50,8 @@ function createRails(world) {
   b.setActive(ACTIVE_RAILS)
 
   var tl = Vec2(+(width * .5 + .0), -(height * .5 + .0))
-  var tr = Vec2(+(width * .5 + .5), -(height * .5 + .5))
-  var br = Vec2(-(width * .5 + .5), -(height * .5 + .5))
+  var tr = Vec2(+(width * .5 + thickness), -(height * .5 + thickness))
+  var br = Vec2(-(width * .5 + thickness), -(height * .5 + thickness))
   var bl = Vec2(-(width * .5 + .0), -(height * .5 + .0))
 
   var b = world.createBody({userData: {type: "rail", idx: 0}})
@@ -61,8 +63,8 @@ function createRails(world) {
   b.setActive(ACTIVE_RAILS)
 
   var tl = Vec2(+(width * .5 + .0), +(height * .5 + .0))
-  var tr = Vec2(+(width * .5 + .5), +(height * .5 + .5))
-  var br = Vec2(-(width * .5 + .5), +(height * .5 + .5))
+  var tr = Vec2(+(width * .5 + thickness), +(height * .5 + thickness))
+  var br = Vec2(-(width * .5 + thickness), +(height * .5 + thickness))
   var bl = Vec2(-(width * .5 + .0), +(height * .5 + .0))
 
   var b = world.createBody({userData: {type: "rail", idx: 0}})
@@ -81,7 +83,9 @@ createBalls(world)
 
 function createBalls(world) {
   const def = [
-    [0, {fill: 'white', stroke: 'black'}],
+    /* [0, {fill: 'white', stroke: 'black'}],*/
+    [0, {fill: 'orange', stroke: 'black'}],
+    /* [0, {fill: 'yellow', stroke: 'black'}],*/
     [1, {fill: 'black', stroke: 'white'}],
     [2, {fill: 'purple', stroke: 'white'}],
     [3, {fill: 'green', stroke: 'white'}],
@@ -125,7 +129,7 @@ function createBalls(world) {
       linearDamping: 1.5,
       angularDamping: 1
     });
-    b.setBullet(true);
+    b.setBullet(ARE_BULLETS);
     b.setPosition({x: x, y: y});
     b.createFixture(pl.Circle(BALL_RADIUS), {
       friction: 0.1,
@@ -146,7 +150,7 @@ world.on('post-solve', function(contact) {
   var d0 = b0.getUserData()
   var d1 = b1.getUserData()
 
-  console.log('> post-solve', post_solve_count, d0, d1)
+  /* console.log('> post-solve', post_solve_count, d0, d1)*/
 
   if (d0.type == 'ball' && d1.type == 'ball' && d0.digit + d1.digit == 10) {
     setTimeout(function() {

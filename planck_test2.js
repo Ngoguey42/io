@@ -1,5 +1,3 @@
-
-/* import "https://cdn.jsdelivr.net/npm/delaunator@4.0.1/delaunator.js"*/
 /* TODO: Set object weights to avoid changing mouseForce on scale*/
 var pl = planck, Vec2 = pl.Vec2, Math = pl.Math;
 var width = 10.0 * 2
@@ -8,7 +6,6 @@ var digits_scale = 10
 var BALL_RADIUS = width / 100 * 9
 var ACTIVE_RAILS = true
 var mouseForce = width * 40
-/* var mouseForce = width * 10*/
 var ARE_BULLETS = true
 
 function bodies_of_world(w) {
@@ -45,7 +42,7 @@ function gaussian(mu, sigma_left, sigma_right, bound_left, bound_right) {
       continue
     if (v > bound_right)
       continue
-    console.log(v)
+    console.log("> Gaussian mu/sigmas", mu, sigma_left, sigma_right, 'bounds', bound_left, bound_right, 'res:', v)
     return v
   }
 }
@@ -107,12 +104,10 @@ function triangulate(xys) {
       xys[triangles[i * 3 + 1]],
       xys[triangles[i * 3 + 2]],
     ])
-    /* break*/
   }
   return arr
 }
 
-/* */
 function createRails(world) {
   var thickness = width / 2
   def = {
@@ -158,12 +153,9 @@ function createRails(world) {
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
   b.setActive(ACTIVE_RAILS)
-
 }
 
-
 function shapeStats(dense_coords, light_coords) {
-
   var minx = light_coords.reduce((a, b) => Math.min(a, b[0]), 100)
   var maxx = light_coords.reduce((a, b) => Math.max(a, b[0]), -100)
   var miny = light_coords.reduce((a, b) => Math.min(a, b[1]), 100)
@@ -181,15 +173,14 @@ function shapeStats(dense_coords, light_coords) {
   return [span, minx_near_meany, meany]
 }
 
-
 function putFixtures(b, digit, balltype) {
   var dense_coords = digit_coords[digit]
   var light_coords = simplify_coords(dense_coords)
   var fn = Vec2.scaleFn(digits_scale, digits_scale)
   var ball_fixture_def = {
-      friction: 0.01,
-      restitution: 0.3,
-      density: 1,
+    friction: 0.01,
+    restitution: 0.3,
+    density: 1,
   }
   if (balltype == 'sub') {
     var [span, minx, meany] = shapeStats(dense_coords, light_coords)
@@ -247,22 +238,14 @@ function putFixtures(b, digit, balltype) {
 function attemptToPutDigit(world, idx, digit, xy, balltype) {
   const style = {
     'player': {fill: 'white', stroke: 'white'},
-    /* {fill: 'black', stroke: 'white'},*/
-    /* {fill: 'purple', stroke: 'white'},*/
     'add': {fill: 'red', stroke: 'red'},
-    /* {fill: 'blue', stroke: 'white'},*/
     'sub': {fill: 'blue', stroke: 'blue'},
-    /* {fill: 'blue', stroke: 'white'},*/
-    /* {fill: 'green', stroke: 'white'},*/
-    /* {fill: 'purple', stroke: 'white'},*/
-    /* {fill: 'black', stroke: 'white'},*/
   }[balltype]
 
   var b = world.createDynamicBody({
     userData: {type: 'ball', digit: digit, idx: idx, balltype: balltype, alive: true},
     linearDamping: 1.5,
     angularDamping: 10,
-    /* fixedRotation: true,*/
   });
   b.setBullet(ARE_BULLETS);
   b.setPosition({x: xy[0], y: xy[1]});
@@ -270,9 +253,6 @@ function attemptToPutDigit(world, idx, digit, xy, balltype) {
   putFixtures(b, digit, balltype)
   return b
 }
-/* var player_body = null*/
-var g_pending = []
-var g_player = null
 
 function createBalls(world) {
   var kx = 4
@@ -285,52 +265,42 @@ function createBalls(world) {
   console.log('> Creating balls with: spacing', spacingx, 'centroid dist', ball_centroid_distancex, spacingx * (kx + 1) + BALL_RADIUS * 2 * kx)
   console.log('                       spacing', spacingy, 'centroid dist', ball_centroid_distancey, spacingy * (ky + 1) + BALL_RADIUS * 2 * ky)
 
-  var difficulty = 9 // TODO: gaussian centered on difficuly, with a certain left/right sigma
-
   function randomDigit() {
     return gaussian_int(0, 1, 3.5, 5, 9)
     /* return gaussian_int(0, 1, 2.5, 3, 9)*/
   }
 
-  g_player = attemptToPutDigit(world, 42, 0, [0, 0], 'player')
-  for (var i = 0; i < 4; i++) {
+  player = attemptToPutDigit(world, 42, 0, [0, 0], 'player')
+  for (var i = 0; i < 2; i++) {
     var angle = Math.random() * Math.PI * 2
     var dist = (Math.random() * 0.7 + 0.25) * (width / 2)
-    var x = dist * Math.cos(angle)
-    var y = dist * Math.sin(angle)
     var digit
     var balltype
 
-    if (i == 0) {
-      balltype = 'add'
-      digit = Math.max(2, randomDigit())
-    }
-    else {
-      balltype = ['add', 'sub'][Math.floor(Math.random() * 1.999)]
-      digit = 2, randomDigit()
-    }
-    attemptToPutDigit(world, 42, digit, [x, y], balltype)
+    for (j of [0, 1, 2, 3]) {
+      if (i == 0 && j % 2 == 0) {
+        balltype = 'add'
+        digit = Math.max(2, randomDigit())
+      }
+      else {
+        balltype = ['add', 'sub'][Math.floor(Math.random() * 1.999)]
+        digit = randomDigit()
+      }
+      var x = dist * Math.cos(angle + Math.PI / 2 * j)
+      var y = dist * Math.sin(angle + Math.PI / 2 * j)
+      attemptToPutDigit(world, 42, digit, [x, y], balltype)
 
-    var x = -x
-    var y = -y
-
-    if (i == 0) {
-      balltype = 'add'
-      digit = Math.max(2, randomDigit())
     }
-    else {
-      balltype = ['add', 'sub'][Math.floor(Math.random() * 1.999)]
-      digit = 2, randomDigit()
-    }
-    attemptToPutDigit(world, 42, digit, [x, y], balltype)
-
   }
+  return player
 }
+
 
 pl.internal.Settings.velocityThreshold = 0;
 var world = pl.World({});
 createRails(world)
-createBalls(world)
+var g_pending = []
+g_player = createBalls(world)
 
 var post_solve_count = 0
 world.on('post-solve', function(contact) {
@@ -365,32 +335,20 @@ world.on('post-solve', function(contact) {
     setTimeout(function() {
       world.destroyBody(other);
       if (g_pending.length > 0) {
-        console.log('> Add callback | begin')
         digit = g_pending.reduce((a, b) => a + b, g_player.getUserData().digit)
-        /* player.getUserData().digit = digit*/
-        /* for (f of fixtures_of_body(player)) {
-         *   b.destroyFixture(f)
-         * }*/
         c = g_player.c_position.c
         a = g_player.c_position.a
         velo = g_player.c_velocity
-        console.log('> Add callback | pending:', g_pending, 'digit:', digit, 'c', c.x, c.y)
         g_pending = []
-
-        /* ({x, y} = c)*/
         world.destroyBody(g_player)
-
         if (digit >= 0 && digit <= 9) {
-          /* putFixtures(player, digit, 'player')*/
           g_player = attemptToPutDigit(world, 42, digit, [0, 0], 'player')
           g_player.setPosition(c)
           g_player.setAngularVelocity(velo.w)
           g_player.setLinearVelocity(velo.v)
-
         }
-        console.log('> Add callback | end')
       }
-      }, 1)
+    }, 1)
   }
   post_solve_count = post_solve_count + 1
 });

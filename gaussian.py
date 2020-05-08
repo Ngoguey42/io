@@ -38,11 +38,18 @@ class digit:
     # none below left_bound
     # none below max
 
+    # left_bound = 0
+    # left_anchor = 1
+    # middle = 2.5
+    # right_anchor = 3
+    # right_bound = 9
+
     left_bound = 0
     left_anchor = 1
-    middle = 2.5
-    right_anchor = 3
+    middle = 3.5
+    right_anchor = 5
     right_bound = 9
+
 
 vs = np.asarray([
     gaussian_int(

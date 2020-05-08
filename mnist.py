@@ -1,6 +1,8 @@
 
 import numpy as np
 np.set_printoptions(linewidth=300, threshold=100000)
+rng = np.random.RandomState(42)
+
 
 def find_countour(img):
     assert img.size > 0
@@ -172,18 +174,18 @@ def find_countour(img):
                 inside = True
 
 
-    def simplify(coords):
-        # (i0, j0), *coords = coords
-        edges = [
-            (i2 - i1, j2 - j1)
-            for (i1, j1), (i2, j2) in zip(coords, coords[1:] + [coords[0]])
-        ]
-        yield coords[0]
-        for edge0, ij, edge1 in zip(edges, coords[1:], edges[1:]):
-            if edge0 != edge1:
-                yield ij
+    # def simplify(coords):
+    #     # (i0, j0), *coords = coords
+    #     edges = [
+    #         (i2 - i1, j2 - j1)
+    #         for (i1, j1), (i2, j2) in zip(coords, coords[1:] + [coords[0]])
+    #     ]
+    #     yield coords[0]
+    #     for edge0, ij, edge1 in zip(edges, coords[1:], edges[1:]):
+    #         if edge0 != edge1:
+    #             yield ij
 
-    components = [list(simplify(coords)) for coords in components]
+    # components = [list(simplify(coords)) for coords in components]
 
     test = np.zeros((h * 2, w * 2), 'int8')
     for i in range(h):
@@ -200,15 +202,15 @@ def find_countour(img):
 
     # print(infos)
     test[test == -1] = 5
-    # print(str(test)
-    #       .replace('5', ' ')
-    #       .replace('0', ' ')
-    #       .replace('1', '-')
-    #       .replace('3', '@')
-    #       .replace('2', '~')
-    #       .replace('9', '*')
-    #       .replace('8', '.')
-    # )
+    print(str(test)
+          .replace('5', ' ')
+          .replace('0', ' ')
+          .replace('1', '-')
+          .replace('3', '@')
+          .replace('2', '~')
+          .replace('9', '*')
+          .replace('8', '.')
+    )
 
 
     components = [
@@ -245,7 +247,7 @@ def dump(ijs):
 
     # print(maxi - mini, maxj - minj)
 
-    ijs = (ijs - [[meani, meanj]]) / 10 / 100 * 9 * 10
+    ijs = (ijs - [[meani, meanj]]) / 10 / 100 * 9
 
     xys = np.c_[ijs[:, 1], -ijs[:, 0]]
 
@@ -271,7 +273,7 @@ for i in [0, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9]:
 # for j in [1087]:
 #     i = labs[j]
     while True:
-        j = np.random.randint(1000)
+        j = rng.randint(1000)
         if labs[j] != i:
             continue
         # print('> lab:{}, idx:{}'.format(i, j))

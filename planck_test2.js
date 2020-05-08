@@ -2,12 +2,12 @@
 /* import "https://cdn.jsdelivr.net/npm/delaunator@4.0.1/delaunator.js"*/
 /* TODO: Set object weights to avoid changing mouseForce on scale*/
 var pl = planck, Vec2 = pl.Vec2, Math = pl.Math;
-var width = 10.0
+var width = 10.0 * 2
 var height = width;
 var digits_scale = 10
 var BALL_RADIUS = width / 100 * 9
 var ACTIVE_RAILS = true
-var mouseForce = width * 40
+var mouseForce = width * 40 * 2
 /* var mouseForce = width * 10*/
 var ARE_BULLETS = true
 
@@ -164,7 +164,7 @@ function createBalls(world) {
       userData: {type: 'ball', digit: digit, idx: i},
       linearDamping: 1.5,
       angularDamping: 10,
-      fixedRotation: true,
+      /* fixedRotation: true,*/
     });
     b.setBullet(ARE_BULLETS);
     b.setPosition({x: x, y: y});
@@ -192,7 +192,7 @@ function createBalls(world) {
       /* console.log("fixture", poly)*/
       b.createFixture(poly, {
         friction: 0.01,
-        restitution: 0.3,
+        restitution: 0.6,
         density: 1,
         userData: 'ball'
       })
@@ -227,13 +227,26 @@ world.on('post-solve', function(contact) {
   post_solve_count = post_solve_count + 1
 });
 
+var _queryAABB = world.queryAABB
+function _hook(aabb, callback) {
+  console.log('> Hooked queryAABB')
+  function my_callback(f) {
+    var d = f.m_body.getUserData()
+    if (d.type == 'ball' && d.digit == 0) {
+      callback(f)
+    }
+  }
+  return _queryAABB.apply(this, [aabb, my_callback])
+}
+world.__proto__.queryAABB = _hook
+
 console.log('> Calling testbed')
-planck.testbed('8 Ball', function(testbed) {
+tb = planck.testbed('8 Ball', function(testbed) {
   console.log('> Testbed callback')
   testbed.x = 0;
   testbed.y = 0;
-  testbed.width = width * 3;
-  testbed.height = height * 3;
+  testbed.width = width * 2;
+  testbed.height = height * 2;
   testbed.ratio = 100;
   testbed.mouseForce = mouseForce;
   return world;

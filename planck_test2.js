@@ -7,7 +7,7 @@ var height = width;
 var digits_scale = 10
 var BALL_RADIUS = width / 100 * 9
 var ACTIVE_RAILS = true
-var mouseForce = width * 40 * 2
+var mouseForce = width * 40
 /* var mouseForce = width * 10*/
 var ARE_BULLETS = true
 
@@ -186,6 +186,11 @@ function putFixtures(b, digit, balltype) {
   var dense_coords = digit_coords[digit]
   var light_coords = simplify_coords(dense_coords)
   var fn = Vec2.scaleFn(digits_scale, digits_scale)
+  var ball_fixture_def = {
+      friction: 0.01,
+      restitution: 0.3,
+      density: 1,
+  }
   if (balltype == 'sub') {
     var [span, minx, meany] = shapeStats(dense_coords, light_coords)
     var offset = span / 10 / 2
@@ -194,6 +199,7 @@ function putFixtures(b, digit, balltype) {
     var random_span = bar_height / 3
     function r() { return Math.random() * random_span }
 
+
     var midx = minx - offset - bar_width / 2
     var midy = meany
     b.createFixture(pl.Polygon([
@@ -201,11 +207,7 @@ function putFixtures(b, digit, balltype) {
       Vec2(midx - bar_width / 2 + r(), midy + bar_height / 2 - r()),
       Vec2(midx - bar_width / 2 + r(), midy - bar_height / 2 + r()),
       Vec2(midx + bar_width / 2 - r(), midy - bar_height / 2 + r()),
-    ].map(fn)), {
-      friction: 0.01,
-      restitution: 0.6,
-      density: 1,
-    })
+    ].map(fn)), ball_fixture_def)
   }
   if (balltype == 'add') {
     var [span, minx, meany] = shapeStats(dense_coords, light_coords)
@@ -222,21 +224,13 @@ function putFixtures(b, digit, balltype) {
       Vec2(midx - bar_width / 2 + r(), midy + bar_height / 2 - r()),
       Vec2(midx - bar_width / 2 + r(), midy - bar_height / 2 + r()),
       Vec2(midx + bar_width / 2 - r(), midy - bar_height / 2 + r()),
-    ].map(fn)), {
-      friction: 0.01,
-      restitution: 0.6,
-      density: 1,
-    })
+    ].map(fn)), ball_fixture_def)
     b.createFixture(pl.Polygon([
       Vec2(midx + bar_height / 2 - r(), midy + bar_width / 2 - r()),
       Vec2(midx - bar_height / 2 + r(), midy + bar_width / 2 - r()),
       Vec2(midx - bar_height / 2 + r(), midy - bar_width / 2 + r()),
       Vec2(midx + bar_height / 2 - r(), midy - bar_width / 2 + r()),
-    ].map(fn)), {
-      friction: 0.01,
-      restitution: 0.6,
-      density: 1,
-    })
+    ].map(fn)), ball_fixture_def)
   }
   shape = triangulate(light_coords)
   for (var j = 0; j < shape.length; j++) {
@@ -245,11 +239,7 @@ function putFixtures(b, digit, balltype) {
       fn(Vec2(shape[j][1][0], shape[j][1][1])),
       fn(Vec2(shape[j][2][0], shape[j][2][1])),
     ])
-    b.createFixture(poly, {
-      friction: 0.01,
-      restitution: 0.6,
-      density: 1,
-    })
+    b.createFixture(poly, ball_fixture_def)
   }
 
 }
@@ -297,8 +287,13 @@ function createBalls(world) {
 
   var difficulty = 9 // TODO: gaussian centered on difficuly, with a certain left/right sigma
 
+  function randomDigit() {
+    return gaussian_int(0, 1, 3.5, 5, 9)
+    /* return gaussian_int(0, 1, 2.5, 3, 9)*/
+  }
+
   g_player = attemptToPutDigit(world, 42, 0, [0, 0], 'player')
-  for (var i = 0; i < 2; i++) {
+  for (var i = 0; i < 4; i++) {
     var angle = Math.random() * Math.PI * 2
     var dist = (Math.random() * 0.7 + 0.25) * (width / 2)
     var x = dist * Math.cos(angle)
@@ -308,11 +303,11 @@ function createBalls(world) {
 
     if (i == 0) {
       balltype = 'add'
-      digit = Math.max(2, gaussian_int(0, 1, 2.5, 3, 9))
+      digit = Math.max(2, randomDigit())
     }
     else {
       balltype = ['add', 'sub'][Math.floor(Math.random() * 1.999)]
-      digit = 2, gaussian_int(0, 1, 2.5, 3, 9)
+      digit = 2, randomDigit()
     }
     attemptToPutDigit(world, 42, digit, [x, y], balltype)
 
@@ -321,11 +316,11 @@ function createBalls(world) {
 
     if (i == 0) {
       balltype = 'add'
-      digit = Math.max(2, gaussian_int(0, 1, 2.5, 3, 9))
+      digit = Math.max(2, randomDigit())
     }
     else {
       balltype = ['add', 'sub'][Math.floor(Math.random() * 1.999)]
-      digit = 2, gaussian_int(0, 1, 2.5, 3, 9)
+      digit = 2, randomDigit()
     }
     attemptToPutDigit(world, 42, digit, [x, y], balltype)
 
@@ -339,7 +334,6 @@ createBalls(world)
 
 var post_solve_count = 0
 world.on('post-solve', function(contact) {
-  console.log('coucou')
   var f0 = contact.getFixtureA()
   var f1 = contact.getFixtureB()
   var b0 = f0.getBody()
@@ -370,17 +364,18 @@ world.on('post-solve', function(contact) {
 
     setTimeout(function() {
       world.destroyBody(other);
-      if (g_pending) {
+      if (g_pending.length > 0) {
+        console.log('> Add callback | begin')
         digit = g_pending.reduce((a, b) => a + b, g_player.getUserData().digit)
         /* player.getUserData().digit = digit*/
-        console.log('player update! pending:', g_pending, 'digit:', digit)
-        g_pending = []
         /* for (f of fixtures_of_body(player)) {
          *   b.destroyFixture(f)
          * }*/
         c = g_player.c_position.c
         a = g_player.c_position.a
         velo = g_player.c_velocity
+        console.log('> Add callback | pending:', g_pending, 'digit:', digit, 'c', c.x, c.y)
+        g_pending = []
 
         /* ({x, y} = c)*/
         world.destroyBody(g_player)
@@ -393,6 +388,7 @@ world.on('post-solve', function(contact) {
           g_player.setLinearVelocity(velo.v)
 
         }
+        console.log('> Add callback | end')
       }
       }, 1)
   }
@@ -401,12 +397,15 @@ world.on('post-solve', function(contact) {
 
 world.__proto__.queryAABB2 = world.queryAABB
 function _hook(aabb, callback) {
-  console.log('> Hooked queryAABB')
+  console.log('> queryAABB, hooked')
   function my_callback(f) {
     var d = f.m_body.getUserData()
     if (d.type == 'ball' && d.balltype == 'player') {
+      console.log('>>> queryAABB, callback player',)
       callback(f)
     }
+    else
+      console.log('>>> queryAABB, callback IGNORED',)
   }
   return world.__proto__.queryAABB2.apply(this, [aabb, my_callback])
 }

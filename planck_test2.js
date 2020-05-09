@@ -1,19 +1,22 @@
 /* # TODOs
   - Set object weights to avoid changing mouseForce on scale
+    - It's funny to have almost no weight when playing a `1`, keep it?
   - Using velocity enables the strat of shooting from close range. Let's replace velocity with both:
     - distance runned since knock (but it would enable the oposite strat...)
     - number of elements hit since knock
   - Only increase score after all forces equal 0
-
+  - Put player back after body deletion callback?
+  - Can prevent collision when about to remove the ball?
  */
 var pl = planck, Vec2 = pl.Vec2, Math = pl.Math;
 var width = 10.0 * 2
 var height = width;
 var digits_scale = 10
 var BALL_RADIUS = width / 100 * 9
-var ACTIVE_RAILS = true
+var ACTIVE_WALLS = true
 var mouseForce = width * 40
 var ARE_BULLETS = true
+var MIN_CONTACT_STEP_DISTANCE = 20
 
 function bodies_of_world(w) {
   var arr = [];
@@ -114,7 +117,7 @@ function triangulate(xys) {
   return arr
 }
 
-function createRails(world) {
+function createWalls(world) {
   var thickness = width / 2
   def = {
     friction: 0.,
@@ -125,40 +128,40 @@ function createRails(world) {
   var br = Vec2(+(width * .5 + thickness), -(height * .5 + thickness))
   var bl = Vec2(+(width * .5 + .0), -(height * .5 + .0))
 
-  var b = world.createBody({userData: {type: "rail", idx: 0}})
+  var b = world.createBody({userData: {type: "wall", idx: 0}})
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
-  b.setActive(ACTIVE_RAILS)
+  b.setActive(ACTIVE_WALLS)
 
   var tl = Vec2(-(width * .5 + .0), +(height * .5 + .0))
   var tr = Vec2(-(width * .5 + thickness), +(height * .5 + thickness))
   var br = Vec2(-(width * .5 + thickness), -(height * .5 + thickness))
   var bl = Vec2(-(width * .5 + .0), -(height * .5 + .0))
 
-  var b = world.createBody({userData: {type: "rail", idx: 0}})
+  var b = world.createBody({userData: {type: "wall", idx: 0}})
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
-  b.setActive(ACTIVE_RAILS)
+  b.setActive(ACTIVE_WALLS)
 
   var tl = Vec2(+(width * .5 + .0), -(height * .5 + .0))
   var tr = Vec2(+(width * .5 + thickness), -(height * .5 + thickness))
   var br = Vec2(-(width * .5 + thickness), -(height * .5 + thickness))
   var bl = Vec2(-(width * .5 + .0), -(height * .5 + .0))
 
-  var b = world.createBody({userData: {type: "rail", idx: 0}})
+  var b = world.createBody({userData: {type: "wall", idx: 0}})
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
-  b.setActive(ACTIVE_RAILS)
+  b.setActive(ACTIVE_WALLS)
 
   var tl = Vec2(+(width * .5 + .0), +(height * .5 + .0))
   var tr = Vec2(+(width * .5 + thickness), +(height * .5 + thickness))
   var br = Vec2(-(width * .5 + thickness), +(height * .5 + thickness))
   var bl = Vec2(-(width * .5 + .0), +(height * .5 + .0))
 
-  var b = world.createBody({userData: {type: "rail", idx: 0}})
+  var b = world.createBody({userData: {type: "wall", idx: 0}})
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
-  b.setActive(ACTIVE_RAILS)
+  b.setActive(ACTIVE_WALLS)
 }
 
 function shapeStats(dense_coords, light_coords) {
@@ -241,15 +244,28 @@ function putFixtures(b, digit, balltype) {
 
 }
 
-function attemptToPutDigit(world, idx, digit, xy, balltype) {
+
+
+g_ball_idx = 0
+function attemptToPutDigit(world, digit, xy, balltype) {
   const style = {
     'player': {fill: 'white', stroke: 'white'},
     'add': {fill: 'red', stroke: 'red'},
     'sub': {fill: 'blue', stroke: 'blue'},
   }[balltype]
 
+
+  if (balltype == 'player') {
+    var d = {type: 'ball', digit: digit, balltype: balltype}
+  }
+  else {
+    var d = {type: 'ball', digit: digit, idx: g_ball_idx, balltype: balltype, alive: true, last_contact: -MIN_CONTACT_STEP_DISTANCE}
+    g_ball_idx += 1
+  }
+  console.log('> create', d)
+
   var b = world.createDynamicBody({
-    userData: {type: 'ball', digit: digit, idx: idx, balltype: balltype, alive: true},
+    userData: d,
     linearDamping: 2.5,
     /* linearDamping: 1.5,*/
     angularDamping: 10,
@@ -277,7 +293,7 @@ function createBalls(world) {
     /* return gaussian_int(0, 1, 2.5, 3, 9)*/
   }
 
-  player = attemptToPutDigit(world, 42, 0, [0, 0], 'player')
+  player = attemptToPutDigit(world, 0, [0, 0], 'player')
   for (var i = 0; i < 2; i++) {
     var angle = Math.random() * Math.PI * 2
     var dist = (Math.random() * 0.7 + 0.25) * (width / 2)
@@ -295,7 +311,7 @@ function createBalls(world) {
       }
       var x = dist * Math.cos(angle + Math.PI / 2 * j)
       var y = dist * Math.sin(angle + Math.PI / 2 * j)
-      attemptToPutDigit(world, 42, digit, [x, y], balltype)
+      attemptToPutDigit(world, digit, [x, y], balltype)
 
     }
   }
@@ -306,124 +322,258 @@ function createBalls(world) {
 
 pl.internal.Settings.velocityThreshold = 0;
 var world = pl.World({});
-createRails(world)
+createWalls(world)
 var g_pending = []
 g_player = createBalls(world)
 g_score = 0
 
-var post_solve_count = 0
-world.on('post-solve', function(contact) {
-  var f0 = contact.getFixtureA()
-  var f1 = contact.getFixtureB()
-  var b0 = f0.getBody()
-  var b1 = f1.getBody()
+function sumToPlayer(pending) {
+  var digit = g_player.getUserData().digit
+  var d_incr = 0
+  var s_incr = 0
+
+  var s_factor = pending.length
+
+  var small_scores = []
+
+  for (d_signed of pending) {
+    /* [d_signed, nvelo] = data*/
+    d_incr += d_signed
+
+    s_incr1 = Math.abs(d_signed) + Math.round(15 / (10 - Math.abs(d_signed))) - 1 // 1, 2, 3, 4, 6, 7, 9, 11, 15, 23
+    /* s_incr0 = 1.6 ** Math.abs(d_signed) // 1, 2, 3, 5, 7, 11, 17, 27, 43, 69*/
+    /* velo_factor = 1 + nvelo / 2*/
+    /* s_incr1 = Math.ceil(s_incr0 * velo_factor)*/
+    small_scores.push(s_incr1)
+
+    console.log('> Eating', d_signed, '. Gaining', s_incr1, '*', s_factor)
+    s_incr += s_incr1 * s_factor
+  }
+  digit = digit + d_incr
+
+  c = g_player.c_position.c
+  a = g_player.c_position.a
+  velo = g_player.c_velocity
+  world.destroyBody(g_player)
+  console.log('> g_score:', g_score, 'digit:', digit)
+  if (digit >= 0 && digit <= 9) {
+    g_score += s_incr
+    document.getElementById('score').innerText = (
+      g_score.toString()
+    + ' (+'
+    + s_factor.toString()
+    + ' x (' + small_scores.join('+') + '))'
+    )
+
+    g_player = attemptToPutDigit(world, digit, [0, 0], 'player')
+    /* console.log('new player!', c.x, c.y)*/
+    g_player.setPosition(c)
+    g_player.setAngle(a)
+    /* g_player.setAngularVelocity(velo.w)*/
+    /* g_player.setLinearVelocity(velo.v)*/
+  }
+  else
+    document.getElementById('score').innerText = ("Game over with score " + g_score.toString() + ". refresh page")
+}
+
+world.on('begin-contact', function(contact) {
+  var b0 = contact.getFixtureA().getBody()
+  var b1 = contact.getFixtureB().getBody()
+  /* console.log(contact)*/
 
   var player = null
   var other = null
-  if (b0.getUserData().type == 'ball' && b0.getUserData().balltype == 'player') {
+  var wall = null
+  if (b0.getUserData().type == 'ball' && b0.getUserData().balltype == 'player')
     player = b0
-  }
-  if (b1.getUserData().type == 'ball' && b1.getUserData().balltype == 'player') {
+  else if (b1.getUserData().type == 'ball' && b1.getUserData().balltype == 'player')
     player = b1
-  }
-  if (b0.getUserData().type == 'ball' && b0.getUserData().balltype != 'player' && b0.getUserData().alive) {
+  if (b0.getUserData().type == 'ball' && b0.getUserData().balltype != 'player' && b0.getUserData().alive)
     other = b0
-  }
-  if (b1.getUserData().type == 'ball' && b1.getUserData().balltype != 'player' && b1.getUserData().alive) {
+  else if (b1.getUserData().type == 'ball' && b1.getUserData().balltype != 'player' && b1.getUserData().alive)
     other = b1
-  }
+  if (b0.getUserData().type == 'wall')
+    wall = b0
+  else if (b1.getUserData().type == 'wall')
+    wall = b0
 
-  if (player && other) {
-    velo = player.c_velocity
-    nvelo = (velo.v.x ** 2 + velo.v.y ** 2) ** 0.5
-    nvelo = nvelo / width
-
-    if (other.getUserData().balltype == 'add')
-      g_pending.push([other.getUserData().digit, nvelo])
-    else
-      g_pending.push([-other.getUserData().digit, nvelo])
+  if (other && wall) {
     other.getUserData().alive = false
-
+    if (other.getUserData().balltype == 'add')
+      g_pending.push(other.getUserData().digit)
+    else
+      g_pending.push(-other.getUserData().digit)
     setTimeout(function() {
       world.destroyBody(other);
-      if (g_pending.length > 0) {
-        var digit = g_player.getUserData().digit
-        var d_incr = 0
-        var s_incr = 0
-
-        for (data of g_pending) {
-          [d_signed, nvelo] = data
-          d_incr += d_signed
-
-          s_incr0 = 1.6 ** Math.abs(d_signed)
-          velo_factor = 1 + nvelo / 2
-          s_incr1 = Math.ceil(s_incr0 * velo_factor)
-
-          console.log('> Eating', d_signed, 'at velocity', nvelo, '. Gaining', s_incr0, '*', velo_factor, '=', s_incr1)
-          s_incr += s_incr1
-        }
-        g_pending = []
-        digit = digit + d_incr
-
-        c = g_player.c_position.c
-        a = g_player.c_position.a
-        velo = g_player.c_velocity
-        world.destroyBody(g_player)
-        console.log('> g_score:', g_score, 'digit:', digit)
-        if (digit >= 0 && digit <= 9) {
-          g_score += s_incr
-          document.getElementById('score').innerText = (
-            g_score.toString()
-          + ' (+'
-          + (Math.floor(s_incr0 * 10) / 10).toString()
-          + ' * '
-          + (Math.floor(velo_factor * 10) / 10).toString()
-          + ' = '
-          + (s_incr1).toString()
-          + ')'
-          )
-
-          g_player = attemptToPutDigit(world, 42, digit, [0, 0], 'player')
-          g_player.setPosition(c)
-          g_player.setAngularVelocity(velo.w)
-          g_player.setLinearVelocity(velo.v)
-        }
-        else
-          document.getElementById('score').innerText = ("Lost! with score " + g_score.toString() + " refresh page")
-
-      }
     }, 1)
   }
-  post_solve_count = post_solve_count + 1
-});
+})
+
+
+function create_promise() {
+  var fire
+  var p = new Promise(
+    (resolve, _) => fire = resolve
+  )
+  return [p, fire]
+}
+
+g_knock_ball = null
+
+async function main(world) {
+  console.log('> main')
+  while (true) { // one loop per game round
+    ;[p, g_knock_ball] = create_promise() // Oh oui le javascript
+    console.log('> main | wait for click')
+    await p
+    console.log('> main | got click')
+    g_knock_ball = null
+
+    function same_maps(a, b) {
+      for (k of [...b.keys()]) {
+        va = a.get(k)
+        vb = b.get(k)
+        if (Math.abs(va[0] - vb[0]) / width > 5 / 200)
+          return false
+        if (Math.abs(va[1] - vb[1]) / width > 5 / 200)
+          return false
+      }
+      return true
+    }
+
+    function list_positions() {
+      var o = new Map()
+      for (b of bodies_of_world(world)) {
+        ud = b.getUserData()
+        if (ud && ud.type == 'ball') {
+          if (b.balltype == 'player')
+            var key = ['player']
+          else
+            var key = ['ball', ud.idx]
+          o.set(key.toString(), [b.c_position.c.x, b.c_position.c.y, b.c_position.a])
+        }
+      }
+      return o
+    }
+    var last_positions = list_positions()
+    var positions
+    var last_step = world.m_stepCount
+    while (true) { // wait for end of movements
+      console.log('> main | waiting a bit', world.m_stepCount)
+      while (true) { // sleep for several steps
+        await (new Promise(resolve => setTimeout(resolve, 1)))
+        if (world.m_stepCount >= last_step + 20) {
+          last_step = world.m_stepCount
+          break
+        }
+      }
+      console.log('> main | checking positions', world.m_stepCount)
+      positions = list_positions()
+      if (same_maps(last_positions, positions))
+        break
+      last_positions = positions
+    }
+    console.log('> main | stopping remaining velocity')
+    for (b of bodies_of_world(world)) {
+      b.setLinearVelocity({x: 0, y: 0})
+      b.setAngularVelocity(0)
+    }
+    console.log('> main | apply score', g_pending)
+    if (g_pending.length > 0)
+      sumToPlayer(g_pending)
+    g_pending = []
+
+  }
+}
+setTimeout(main, 0, world)
 /*
- * world.__proto__.queryAABB2 = world.queryAABB
- * function _hook(aabb, callback) {
- *   console.log('> queryAABB, hooked')
- *   function my_callback(f) {
- *     var d = f.m_body.getUserData()
- *     if (d.type == 'ball' && d.balltype == 'player') {
- *       console.log('>>> queryAABB, callback player',)
- *       callback(f)
- *     }
- *     else
- *       console.log('>>> queryAABB, callback IGNORED',)
+ * world.on('post-solve', function(contact) {
+ *   var b0 = contact.getFixtureA().getBody()
+ *   var b1 = contact.getFixtureB().getBody()
+ *
+ *   var player = null
+ *   var other = null
+ *   if (b0.getUserData().type == 'ball' && b0.getUserData().balltype == 'player') {
+ *     player = b0
  *   }
- *   return world.__proto__.queryAABB2.apply(this, [aabb, my_callback])
- * }
- * world.__proto__.queryAABB = _hook
+ *   if (b1.getUserData().type == 'ball' && b1.getUserData().balltype == 'player') {
+ *     player = b1
+ *   }
+ *   if (b0.getUserData().type == 'ball' && b0.getUserData().balltype != 'player' && b0.getUserData().alive) {
+ *     other = b0
+ *   }
+ *   if (b1.getUserData().type == 'ball' && b1.getUserData().balltype != 'player' && b1.getUserData().alive) {
+ *     other = b1
+ *   }
+ *
+ *   if (player && other) {
+ *     step = world.m_stepCount
+ *     last_contact = other.getUserData().last_contact
+ *     other.getUserData().last_contact = step
+ *     diff = step - last_contact
+ *     if (diff >= MIN_CONTACT_STEP_DISTANCE) {
+ *       velo = player.c_velocity
+ *       nvelo = (velo.v.x ** 2 + velo.v.y ** 2) ** 0.5
+ *       nvelo = nvelo / width
+ *       if (other.getUserData().balltype == 'add')
+ *         g_pending.push([other.getUserData().digit, nvelo])
+ *       else
+ *         g_pending.push([-other.getUserData().digit, nvelo])
+ *       setTimeout(function() {
+ *         if (g_pending.length > 0) {
+ *           sumToPlayer(g_pending)
+ *           g_pending = []
+ *         }
+ *       }, 1)
+ *     }
+ *   }
+ * });
  * */
+
+var tb
+var mouse = 0
+var canvas // = document.querySelector('canvas')
+
+world.__proto__.queryAABB2 = world.queryAABB
+function _hook(aabb, callback) {
+  mouse = 0
+  console.log('hook')
+  function my_callback(f) {
+    var d = f.m_body.getUserData()
+    mouse = 0
+    if (d.type == 'ball' && d.balltype == 'player' && g_knock_ball !== null) {
+      console.log('hook:callback player')
+      mouse = 1
+      callback(f)
+    }
+    else
+      console.log('hook:callback IGNORED')
+  }
+  return world.__proto__.queryAABB2.apply(this, [aabb, my_callback])
+}
+world.__proto__.queryAABB = _hook
+
 console.log('> Calling testbed')
 tb = planck.testbed('8 Ball', function(testbed) {
-  console.log('> Testbed callback')
+  tb = testbed
+  canvas = tb.canvas
+  console.log('> Testbed callback', canvas)
   testbed.x = 0;
   testbed.y = 0;
   testbed.width = width * 2;
   testbed.height = height * 2;
   testbed.ratio = 100;
   testbed.mouseForce = mouseForce;
-  return world;
 
+  canvas.onmouseup = function (_) {
+    console.log('canvas:onmouseup', mouse, g_knock_ball)
+    if (mouse == 1 && g_knock_ball !== null) {
+      mouse = 0
+      g_knock_ball()
+    }
+  }
+
+  return world;
 });
 
 

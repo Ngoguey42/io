@@ -202,15 +202,15 @@ def find_countour(img):
 
     # print(infos)
     test[test == -1] = 5
-    print(str(test)
-          .replace('5', ' ')
-          .replace('0', ' ')
-          .replace('1', '-')
-          .replace('3', '@')
-          .replace('2', '~')
-          .replace('9', '*')
-          .replace('8', '.')
-    )
+    # print(str(test)
+    #       .replace('5', ' ')
+    #       .replace('0', ' ')
+    #       .replace('1', '-')
+    #       .replace('3', '@')
+    #       .replace('2', '~')
+    #       .replace('9', '*')
+    #       .replace('8', '.')
+    # )
 
 
     components = [
@@ -223,8 +223,8 @@ imgs = np.frombuffer(open("train-images.idx3-ubyte", 'rb').read(), 'uint8', offs
 labs = np.frombuffer(open("train-labels.idx1-ubyte", 'rb').read(), 'uint8', offset=8)
 # imgs = np.frombuffer(open("./t10k-images.idx3-ubyte", 'rb').read(), 'uint8', offset=16).reshape(-1, 28, 28)
 # labs = np.frombuffer(open("t10k-labels.idx1-ubyte", 'rb').read(), 'uint8', offset=8)
-print(imgs.shape)
-print(labs.shape)
+# print(imgs.shape)
+# print(labs.shape)
 # for i in range(4):
 #     j = labs.tolist().index(i)
 """
@@ -238,8 +238,8 @@ test 18
 
 def dump(ijs):
     ijs = np.asarray(ijs[::-1]).astype(float)
-    meani = ijs[:, 0].mean()
-    meanj = ijs[:, 1].mean()
+    # meani = ijs[:, 0].mean()
+    # meanj = ijs[:, 1].mean()
     maxi = ijs[:, 0].max()
     maxj = ijs[:, 1].max()
     mini = ijs[:, 0].min()
@@ -247,9 +247,24 @@ def dump(ijs):
 
     # print(maxi - mini, maxj - minj)
 
-    ijs = (ijs - [[meani, meanj]]) / 10 / 100 * 9
+    print()
+    # print(maxi, mini, (maxi - mini), '  ', maxj, minj, (maxj - minj))
+    # print('is:', np.around(ijs[:, 0].min(), 3), np.around(ijs[:, 0].mean(), 3), np.around(ijs[:, 0].max(), 3))
+    # print('js:', np.around(ijs[:, 1].min(), 3), np.around(ijs[:, 1].mean(), 3), np.around(ijs[:, 1].max(), 3))
+
+    ijs = (ijs - np.asarray([[(maxi + mini), (maxj + minj)]]) / 2)
+    # print('is:', np.around(ijs[:, 0].min(), 3), np.around(ijs[:, 0].mean(), 3), np.around(ijs[:, 0].max(), 3))
+    # print('js:', np.around(ijs[:, 1].min(), 3), np.around(ijs[:, 1].mean(), 3), np.around(ijs[:, 1].max(), 3))
+
+    ijs = ijs / 14
+    # print('is:', np.around(ijs[:, 0].min(), 3), np.around(ijs[:, 0].mean(), 3), np.around(ijs[:, 0].max(), 3))
+    # print('js:', np.around(ijs[:, 1].min(), 3), np.around(ijs[:, 1].mean(), 3), np.around(ijs[:, 1].max(), 3))
+    # ijs = (ijs - [[meani, meanj]]) / 14
+    # ijs = (ijs - [[meani, meanj]]) / 10 / 100 * 9
 
     xys = np.c_[ijs[:, 1], -ijs[:, 0]]
+    # print('xs:', np.around(xys[:, 0].min(), 3), np.around(xys[:, 0].mean(), 3), np.around(xys[:, 0].max(), 3))
+    # print('ys:', np.around(xys[:, 1].min(), 3), np.around(xys[:, 1].mean(), 3), np.around(xys[:, 1].max(), 3))
 
     s = ', '.join(
         '[{:.5f}, {:.5f}]'.format(x, y)
@@ -262,7 +277,8 @@ def dump(ijs):
     # input()
     # i = labs[j]
 
-for i in [0, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9]:
+for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+# for i in [0, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9]:
 
 # for j in [11]:
 # for j in [3]:

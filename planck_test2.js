@@ -1,13 +1,5 @@
-/* # TODOs
-  - Set object weights to avoid changing mouseForce on scale
-    - It's funny to have almost no weight when playing a `1`, keep it?
-  - Using velocity enables the strat of shooting from close range. Let's replace velocity with both:
-    - distance runned since knock (but it would enable the oposite strat...)
-    - number of elements hit since knock
-  - Only increase score after all forces equal 0
-  - Put player back after body deletion callback?
-  - Can prevent collision when about to remove the ball?
- */
+/* Proof Of Concept code, please don't judge me :( */
+
 var pl = planck, Vec2 = pl.Vec2, Math = pl.Math;
 const width = 10.0 * 2
 const height = width;
@@ -139,6 +131,7 @@ function createWalls(world) {
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
   b.setActive(ACTIVE_WALLS)
+  b.render = {'fill': '#1f1f1f', 'stroke': '#1f1f1f'}
 
   var tl = Vec2(-(width * .5 + .0), +(height * .5 + .0))
   var tr = Vec2(-(width * .5 + thickness), +(height * .5 + thickness))
@@ -149,6 +142,7 @@ function createWalls(world) {
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
   b.setActive(ACTIVE_WALLS)
+  b.render = {'fill': '#1f1f1f', 'stroke': '#1f1f1f'}
 
   var tl = Vec2(+(width * .5 + .0), -(height * .5 + .0))
   var tr = Vec2(+(width * .5 + thickness), -(height * .5 + thickness))
@@ -159,6 +153,7 @@ function createWalls(world) {
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
   b.setActive(ACTIVE_WALLS)
+  b.render = {'fill': '#1f1f1f', 'stroke': '#1f1f1f'}
 
   var tl = Vec2(+(width * .5 + .0), +(height * .5 + .0))
   var tr = Vec2(+(width * .5 + thickness), +(height * .5 + thickness))
@@ -169,6 +164,7 @@ function createWalls(world) {
   var shape = pl.Polygon([tl, tr, br, bl])
   b.createFixture(shape, def)
   b.setActive(ACTIVE_WALLS)
+  b.render = {'fill': '#1f1f1f', 'stroke': '#1f1f1f'}
 }
 
 function shapeStats(dense_coords, light_coords) {
@@ -184,20 +180,13 @@ function shapeStats(dense_coords, light_coords) {
   var coords_near_meany = dense_coords.filter(xy => Math.abs((xy[1] - meany) / spany) < 0.25 )
   var minx_near_meany = coords_near_meany.reduce((a, b) => Math.min(a, b[0]), 100)
 
-  /* console.log('>>> coords counts:', dense_coords.length, light_coords.length, coords_near_meany.length)*/
-  /* console.log('    stats: span/minx.../meany', span, minx_near_meany, meany)*/
   return [span, minx_near_meany, meany]
 }
 
-function putFixtures(b, digit, op) {
+function putFixtures(b, digit, op, def) {
   var dense_coords = digit_coords[digit]
   var light_coords = simplify_coords(dense_coords)
   var fn = Vec2.scaleFn(digit_scale, digit_scale)
-  var def = {
-    friction: 0.01,
-    restitution: 0.3,
-    density: 1,
-  }
   if (op == 'sub') {
     var [span, minx, meany] = shapeStats(dense_coords, light_coords)
     var offset = span / 10 / 2
@@ -210,10 +199,10 @@ function putFixtures(b, digit, op) {
     var midx = minx - offset - bar_width / 2
     var midy = meany
     b.createFixture(pl.Polygon([
-      Vec2(midx + bar_width / 2 - r(), midy + bar_height / 2 - r()),
+      Vec2(midx + bar_width / 2 - r() + 0.25, midy + bar_height / 2 - r()),
       Vec2(midx - bar_width / 2 + r(), midy + bar_height / 2 - r()),
       Vec2(midx - bar_width / 2 + r(), midy - bar_height / 2 + r()),
-      Vec2(midx + bar_width / 2 - r(), midy - bar_height / 2 + r()),
+      Vec2(midx + bar_width / 2 - r() + 0.25, midy - bar_height / 2 + r()),
     ].map(fn)), def)
   }
   if (op == 'add') {
@@ -227,10 +216,10 @@ function putFixtures(b, digit, op) {
     var midy = meany
 
     b.createFixture(pl.Polygon([
-      Vec2(midx + bar_width / 2 - r(), midy + bar_height / 2 - r()),
+      Vec2(midx + bar_width / 2 - r() + 0.35, midy + bar_height / 2 - r()),
       Vec2(midx - bar_width / 2 + r(), midy + bar_height / 2 - r()),
       Vec2(midx - bar_width / 2 + r(), midy - bar_height / 2 + r()),
-      Vec2(midx + bar_width / 2 - r(), midy - bar_height / 2 + r()),
+      Vec2(midx + bar_width / 2 - r() + 0.35, midy - bar_height / 2 + r()),
     ].map(fn)), def)
     b.createFixture(pl.Polygon([
       Vec2(midx + bar_height / 2 - r(), midy + bar_width / 2 - r()),
@@ -270,25 +259,36 @@ function putPinAt(world, digit, xy, op) {
   b.setBullet(ARE_BULLETS);
   b.setPosition({x: xy[0], y: xy[1]});
   b.render = style;
-  putFixtures(b, digit, op)
+  putFixtures(b, digit, op, {
+    friction: 0.01,
+    restitution: 0.3,
+    density: 1,
+  })
   return b
 }
 
-function putPlayer(world, digit, xy) {
+function putPlayer(world, digit, xy, a) {
   const style = {fill: 'white', stroke: 'white'}
   var d = {type: 'player', digit: digit}
   var b = world.createDynamicBody({
     userData: d,
     linearDamping: 2.5,
-    angularDamping: 10,
+    angularDamping: (digit == 7 ? 1.2 : 10),
+    fixedRotation: (digit == 9 || digit == 6),
   });
+  if (digit == 9 || digit == 6)
+    a = 0
   b.setBullet(ARE_BULLETS);
-  b.setPosition({x: xy[0], y: xy[1]});
+  b.setPosition(xy);
+  b.setAngle(a)
   b.render = style;
-  putFixtures(b, digit, null)
+  putFixtures(b, digit, null, {
+    friction: 0.01,
+    restitution: 0.3,
+    density: 1,
+  })
   return b
 }
-
 
 function computePopCoordinates() {
   var arr = [];
@@ -327,8 +327,8 @@ function findPinPosition(world) {
   function isAvailable(x, y) {
     var available = true
     const where = pl.AABB(
-      Vec2(x - digit_scale / 2, y - digit_scale / 2),
-      Vec2(x + digit_scale / 2, y + digit_scale / 2),
+      Vec2(x - digit_scale / 2 * 1.2, y - digit_scale / 2 * 1.2),
+      Vec2(x + digit_scale / 2 * 1.2, y + digit_scale / 2 * 1.2),
     )
     world.queryAABB2(where, function(_) {
       available = false
@@ -337,7 +337,6 @@ function findPinPosition(world) {
   }
   var xys = [...POP_COORDINATES]
   shuffle(xys)
-  /* console.log(xys)*/
   for (xy of xys) {
     var [x, y] = xy
     if (isAvailable(x, y))
@@ -349,18 +348,37 @@ var ga = 1
 var gb = 2.5
 var gc = 3
 
+function createBoolRngBiased(k) {
+  // The higher k is, the more the function behaves like a uniform sampling
+  // The lower k is, the more the function behaves like a round robin function
+  //
+  // k=0.0001 => 0% change to have x3 `true` in a row
+  // k=1 => 4%
+  // k=2 => 7%
+  // k=999 => 12.5%
+  var balance = 0
+  function boolRngBiased() {
+    var left = (balance >= 0 ? -k : -k + balance)
+    var right = (balance <= 0 ? k : +k + balance)
+    var result = Math.random() * (right - left) + left >= 0
+    balance += result ? -1 : 1
+    return result
+  }
+  return boolRngBiased
+}
+
+randomIsSub = createBoolRngBiased(2)
+
 function putPin(world, forceBigPositive) {
   function randomDigit() {
     return gaussian_int(0, ga, gb, gc, 9)
-    /* return gaussian_int(0, 1, 2.5, 3, 9)*/
-    /* return gaussian_int(0, 1, 3.5, 5, 9)*/
   }
   if (forceBigPositive) {
     var op = 'add'
     var digit = Math.max(2, randomDigit())
   }
   else {
-    var op = ['add', 'sub'][Math.floor(Math.random() * 2)]
+    var op = ['add', 'sub'][Number(randomIsSub())]
     var digit = randomDigit()
   }
   var xy = findPinPosition(world)
@@ -376,13 +394,14 @@ var world = pl.World({});
 world.__proto__.queryAABB2 = world.queryAABB
 createWalls(world)
 var g_pending = []
-g_player = putPlayer(world, 0, [0, 0])
+g_player = putPlayer(world, 0, Vec2(0, 0), 0)
 for (var i = 0; i < 5; i++)
   putPin(world, i <= 1)
 g_score = 0
 
 function sumToPlayer(pending) {
   var digit = g_player.getUserData().digit
+  var digit0 = digit
   var d_incr = 0
   var s_incr = 0
 
@@ -402,17 +421,38 @@ function sumToPlayer(pending) {
   }
   digit = digit + d_incr
 
+  document.getElementById('eaten').innerText = (
+    digit0.toString() +
+    pending.map(i => {
+      if (Object.is(i, -0))
+        return "-0"
+      else if (Object.is(i, 0))
+        return "+0"
+      else if (i < 0)
+        return i.toString()
+      else
+        return '+' + i.toString()
+    }).join('') +
+    " = " +
+    digit.toString()
+  )
+
   c = g_player.c_position.c
   a = g_player.c_position.a
   velo = g_player.c_velocity
   world.destroyBody(g_player)
   console.log('> g_score:', g_score, 'digit:', digit)
   if (digit < 0 || digit > 9) {
-    document.getElementById('score').innerText = ("Game over with score " + g_score.toString() + ". refresh page")
+    document.getElementById('score').innerText = (
+      "Game over with score " + g_score.toString() + '. ' +
+      (digit < 0 ? "Keep a positive number!" : "Stay below 10!") +
+      " Refresh page."
+    )
     return
   }
   var ok = true
-  for (var i = 0; i < pending.length + 1 && ok; i++) {
+  /* for (var i = 0; i < pending.length + 1 && ok; i++) {*/
+  for (var i = 0; i <  1 && ok; i++) {
     console.log('> put new pin', i, pending.length)
     ok = putPin(world, false)
   }
@@ -428,22 +468,16 @@ function sumToPlayer(pending) {
   else if (ga < 5) {
     ga += 1
   }
-  /* var ga = 1*/
-  /* var gb = 2.5*/
-  /* var gc = 3*/
-
 
   g_score += s_incr
   document.getElementById('score').innerText = (
     g_score.toString()
   + ' (+'
   + s_factor.toString()
-  + ' x (' + small_scores.join('+') + '))'
+  + ' x (' + small_scores.join('+') + ') = ' + s_incr.toString() + ')'
   )
 
-  g_player = putPlayer(world, digit, [0, 0])
-  g_player.setPosition(c)
-  g_player.setAngle(a)
+  g_player = putPlayer(world, digit, c, a)
 }
 
 function classify(a, b) {
@@ -479,18 +513,20 @@ function classify(a, b) {
   return [player, wall, alive_pin, dead_pin]
 }
 
-world.on('begin-contact', function(contact) {
-  var [player, wall, pin, _] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
+world.on('pre-solve', function(contact) {
+  var [player, wall, pin, dead_pin] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
 
+  if (dead_pin) {
+    contact.setEnabled(false)
+  }
   if (pin && wall) {
+    console.log('> Deactivating pin', pin.getUserData().idx)
     pin.getUserData().alive = false
     if (pin.getUserData().op == 'add')
       g_pending.push(pin.getUserData().digit)
     else
       g_pending.push(-pin.getUserData().digit)
-    setTimeout(function() {
-      world.destroyBody(pin);
-    }, 1)
+    contact.setEnabled(false)
   }
 })
 
@@ -540,7 +576,7 @@ async function main(world) {
     var positions
     var last_step = world.m_stepCount
     while (true) { // wait for end of movements
-      console.log('> main | waiting a bit', world.m_stepCount)
+      /* console.log('> main | waiting a bit', world.m_stepCount)*/
       while (true) { // sleep for several steps
         await (new Promise(resolve => setTimeout(resolve, 1)))
         if (world.m_stepCount >= last_step + 20) {
@@ -548,7 +584,7 @@ async function main(world) {
           break
         }
       }
-      console.log('> main | checking positions', world.m_stepCount)
+      /* console.log('> main | checking positions', world.m_stepCount)*/
       positions = list_positions()
       if (same_maps(last_positions, positions))
         break
@@ -556,20 +592,22 @@ async function main(world) {
     }
     console.log('> main | stopping remaining velocity')
     for (b of bodies_of_world(world)) {
+      const ud = b.getUserData()
       b.setLinearVelocity({x: 0, y: 0})
       b.setAngularVelocity(0)
+      if (ud && ud.type == 'pin' && !ud.alive)
+        world.destroyBody(b)
     }
     console.log('> main | apply score', g_pending)
     sumToPlayer(g_pending)
     g_pending = []
-
   }
 }
 setTimeout(main, 0, world)
 
 var tb
 var mouse = 0
-var canvas // = document.querySelector('canvas')
+var canvas
 
 function _hook(aabb, callback) {
   mouse = 0
@@ -589,11 +627,9 @@ function _hook(aabb, callback) {
 }
 world.__proto__.queryAABB = _hook
 
-console.log('> Calling testbed')
 tb = planck.testbed('8 Ball', function(testbed) {
   tb = testbed
   canvas = tb.canvas
-  console.log('> Testbed callback', canvas)
   testbed.x = 0;
   testbed.y = 0;
   testbed.width = width * 2;
@@ -602,7 +638,7 @@ tb = planck.testbed('8 Ball', function(testbed) {
   testbed.mouseForce = mouseForce;
 
   canvas.onmouseup = function (_) {
-    console.log('canvas:onmouseup', mouse, g_knock_ball)
+    console.log('canvas:onmouseup', 'mouse value:', mouse, 'has-callback:', g_knock_ball !== null)
     if (mouse == 1 && g_knock_ball !== null) {
       mouse = 0
       g_knock_ball()
@@ -611,7 +647,6 @@ tb = planck.testbed('8 Ball', function(testbed) {
 
   return world;
 });
-
 
 var bodies = bodies_of_world(world)
 var [b] = bodies

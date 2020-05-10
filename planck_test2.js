@@ -12,7 +12,6 @@ var pl = planck, Vec2 = pl.Vec2, Math = pl.Math;
 var width = 10.0 * 2
 var height = width;
 var digits_scale = 10
-var BALL_RADIUS = width / 100 * 9
 var ACTIVE_WALLS = true
 var mouseForce = width * 40
 var ARE_BULLETS = true
@@ -182,16 +181,16 @@ function shapeStats(dense_coords, light_coords) {
   return [span, minx_near_meany, meany]
 }
 
-function putFixtures(b, digit, balltype) {
+function putFixtures(b, digit, op) {
   var dense_coords = digit_coords[digit]
   var light_coords = simplify_coords(dense_coords)
   var fn = Vec2.scaleFn(digits_scale, digits_scale)
-  var ball_fixture_def = {
+  var def = {
     friction: 0.01,
     restitution: 0.3,
     density: 1,
   }
-  if (balltype == 'sub') {
+  if (op == 'sub') {
     var [span, minx, meany] = shapeStats(dense_coords, light_coords)
     var offset = span / 10 / 2
     var bar_width = span / 2 * 0.66
@@ -207,9 +206,9 @@ function putFixtures(b, digit, balltype) {
       Vec2(midx - bar_width / 2 + r(), midy + bar_height / 2 - r()),
       Vec2(midx - bar_width / 2 + r(), midy - bar_height / 2 + r()),
       Vec2(midx + bar_width / 2 - r(), midy - bar_height / 2 + r()),
-    ].map(fn)), ball_fixture_def)
+    ].map(fn)), def)
   }
-  if (balltype == 'add') {
+  if (op == 'add') {
     var [span, minx, meany] = shapeStats(dense_coords, light_coords)
     var offset = span / 10 / 2
     var bar_width = span / 2 * 0.66
@@ -224,13 +223,13 @@ function putFixtures(b, digit, balltype) {
       Vec2(midx - bar_width / 2 + r(), midy + bar_height / 2 - r()),
       Vec2(midx - bar_width / 2 + r(), midy - bar_height / 2 + r()),
       Vec2(midx + bar_width / 2 - r(), midy - bar_height / 2 + r()),
-    ].map(fn)), ball_fixture_def)
+    ].map(fn)), def)
     b.createFixture(pl.Polygon([
       Vec2(midx + bar_height / 2 - r(), midy + bar_width / 2 - r()),
       Vec2(midx - bar_height / 2 + r(), midy + bar_width / 2 - r()),
       Vec2(midx - bar_height / 2 + r(), midy - bar_width / 2 + r()),
       Vec2(midx + bar_height / 2 - r(), midy - bar_width / 2 + r()),
-    ].map(fn)), ball_fixture_def)
+    ].map(fn)), def)
   }
   shape = triangulate(light_coords)
   for (var j = 0; j < shape.length; j++) {
@@ -239,86 +238,78 @@ function putFixtures(b, digit, balltype) {
       fn(Vec2(shape[j][1][0], shape[j][1][1])),
       fn(Vec2(shape[j][2][0], shape[j][2][1])),
     ])
-    b.createFixture(poly, ball_fixture_def)
+    b.createFixture(poly, def)
   }
 
 }
 
-
-
-g_ball_idx = 0
-function attemptToPutDigit(world, digit, xy, balltype) {
+g_pin_idx = 0
+function putPin(world, digit, xy, op) {
   const style = {
-    'player': {fill: 'white', stroke: 'white'},
     'add': {fill: 'red', stroke: 'red'},
     'sub': {fill: 'blue', stroke: 'blue'},
-  }[balltype]
+  }[op]
 
-
-  if (balltype == 'player') {
-    var d = {type: 'ball', digit: digit, balltype: balltype}
-  }
-  else {
-    var d = {type: 'ball', digit: digit, idx: g_ball_idx, balltype: balltype, alive: true, last_contact: -MIN_CONTACT_STEP_DISTANCE}
-    g_ball_idx += 1
-  }
-  console.log('> create', d)
+  var d = {type: 'pin', digit: digit, idx: g_pin_idx, op: op,
+           alive: true, last_contact: -MIN_CONTACT_STEP_DISTANCE}
+  g_pin_idx += 1
 
   var b = world.createDynamicBody({
     userData: d,
     linearDamping: 2.5,
-    /* linearDamping: 1.5,*/
     angularDamping: 10,
   });
   b.setBullet(ARE_BULLETS);
   b.setPosition({x: xy[0], y: xy[1]});
   b.render = style;
-  putFixtures(b, digit, balltype)
+  putFixtures(b, digit, op)
+  return b
+}
+
+function putPlayer(world, digit, xy) {
+  const style = {fill: 'white', stroke: 'white'}
+  var d = {type: 'player', digit: digit}
+  var b = world.createDynamicBody({
+    userData: d,
+    linearDamping: 2.5,
+    angularDamping: 10,
+  });
+  b.setBullet(ARE_BULLETS);
+  b.setPosition({x: xy[0], y: xy[1]});
+  b.render = style;
+  putFixtures(b, digit, null)
   return b
 }
 
 function createBalls(world) {
-  var kx = 4
-  var ky = 3
-  var spacingx = (width - kx * BALL_RADIUS * 2) / (kx + 1)
-  var ball_centroid_distancex = spacingx + BALL_RADIUS * 2
-  var spacingy = (height - ky * BALL_RADIUS * 2) / (ky + 1)
-  var ball_centroid_distancey = spacingy + BALL_RADIUS * 2
-
-  console.log('> Creating balls with: spacing', spacingx, 'centroid dist', ball_centroid_distancex, spacingx * (kx + 1) + BALL_RADIUS * 2 * kx)
-  console.log('                       spacing', spacingy, 'centroid dist', ball_centroid_distancey, spacingy * (ky + 1) + BALL_RADIUS * 2 * ky)
-
   function randomDigit() {
     return gaussian_int(0, 1, 3.5, 5, 9)
     /* return gaussian_int(0, 1, 2.5, 3, 9)*/
   }
-
-  player = attemptToPutDigit(world, 0, [0, 0], 'player')
+  player = putPlayer(world, 0, [0, 0])
   for (var i = 0; i < 2; i++) {
     var angle = Math.random() * Math.PI * 2
     var dist = (Math.random() * 0.7 + 0.25) * (width / 2)
     var digit
-    var balltype
+    var op
 
     for (j of [0, 1, 2, 3]) {
       if (i == 0 && j % 2 == 0) {
-        balltype = 'add'
+        op = 'add'
         digit = Math.max(2, randomDigit())
       }
       else {
-        balltype = ['add', 'sub'][Math.floor(Math.random() * 1.999)]
+        op = ['add', 'sub'][Math.floor(Math.random() * 1.999)]
         digit = randomDigit()
       }
       var x = dist * Math.cos(angle + Math.PI / 2 * j)
       var y = dist * Math.sin(angle + Math.PI / 2 * j)
-      attemptToPutDigit(world, digit, [x, y], balltype)
+      putPin(world, digit, [x, y], op)
 
     }
   }
   return player
 }
-
-
 
 pl.internal.Settings.velocityThreshold = 0;
 var world = pl.World({});
@@ -337,13 +328,10 @@ function sumToPlayer(pending) {
   var small_scores = []
 
   for (d_signed of pending) {
-    /* [d_signed, nvelo] = data*/
     d_incr += d_signed
 
     s_incr1 = Math.abs(d_signed) + Math.round(15 / (10 - Math.abs(d_signed))) - 1 // 1, 2, 3, 4, 6, 7, 9, 11, 15, 23
-    /* s_incr0 = 1.6 ** Math.abs(d_signed) // 1, 2, 3, 5, 7, 11, 17, 27, 43, 69*/
-    /* velo_factor = 1 + nvelo / 2*/
-    /* s_incr1 = Math.ceil(s_incr0 * velo_factor)*/
+    /* s_incr0 = 1.6 ** Math.abs(d_signed) // 1, 2, 3, 5, 7, 11, 17, 27, 43, 69 */
     small_scores.push(s_incr1)
 
     console.log('> Eating', d_signed, '. Gaining', s_incr1, '*', s_factor)
@@ -365,50 +353,61 @@ function sumToPlayer(pending) {
     + ' x (' + small_scores.join('+') + '))'
     )
 
-    g_player = attemptToPutDigit(world, digit, [0, 0], 'player')
-    /* console.log('new player!', c.x, c.y)*/
+    g_player = putPlayer(world, digit, [0, 0])
     g_player.setPosition(c)
     g_player.setAngle(a)
-    /* g_player.setAngularVelocity(velo.w)*/
-    /* g_player.setLinearVelocity(velo.v)*/
   }
   else
     document.getElementById('score').innerText = ("Game over with score " + g_score.toString() + ". refresh page")
 }
 
-world.on('begin-contact', function(contact) {
-  var b0 = contact.getFixtureA().getBody()
-  var b1 = contact.getFixtureB().getBody()
-  /* console.log(contact)*/
-
+function classify(a, b) {
+  adat = a.getUserData()
+  bdat = b.getUserData()
   var player = null
-  var other = null
   var wall = null
-  if (b0.getUserData().type == 'ball' && b0.getUserData().balltype == 'player')
-    player = b0
-  else if (b1.getUserData().type == 'ball' && b1.getUserData().balltype == 'player')
-    player = b1
-  if (b0.getUserData().type == 'ball' && b0.getUserData().balltype != 'player' && b0.getUserData().alive)
-    other = b0
-  else if (b1.getUserData().type == 'ball' && b1.getUserData().balltype != 'player' && b1.getUserData().alive)
-    other = b1
-  if (b0.getUserData().type == 'wall')
-    wall = b0
-  else if (b1.getUserData().type == 'wall')
-    wall = b0
+  var alive_pin = null
+  var dead_pin = null
 
-  if (other && wall) {
-    other.getUserData().alive = false
-    if (other.getUserData().balltype == 'add')
-      g_pending.push(other.getUserData().digit)
+  if (bdat.type == 'player')
+    player = b
+  else if (bdat.type == 'wall')
+    wall = b
+  else if (bdat.type == 'pin' && bdat.alive === true)
+    alive_pin = b
+  else if (bdat.type == 'pin' && bdat.alive === false)
+    dead_pin = b
+  else
+    console.error('unknown entity')
+
+  if (adat.type == 'player')
+    player = a
+  else if (adat.type == 'wall')
+    wall = a
+  else if (adat.type == 'pin' && adat.alive === true)
+    alive_pin = a
+  else if (adat.type == 'pin' && adat.alive === false)
+    dead_pin = a
+  else
+    console.error('unknown entity')
+
+  return [player, wall, alive_pin, dead_pin]
+}
+
+world.on('begin-contact', function(contact) {
+  var [player, wall, pin, _] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
+
+  if (pin && wall) {
+    pin.getUserData().alive = false
+    if (pin.getUserData().op == 'add')
+      g_pending.push(pin.getUserData().digit)
     else
-      g_pending.push(-other.getUserData().digit)
+      g_pending.push(-pin.getUserData().digit)
     setTimeout(function() {
-      world.destroyBody(other);
+      world.destroyBody(pin);
     }, 1)
   }
 })
-
 
 function create_promise() {
   var fire
@@ -445,13 +444,10 @@ async function main(world) {
       var o = new Map()
       for (b of bodies_of_world(world)) {
         ud = b.getUserData()
-        if (ud && ud.type == 'ball') {
-          if (b.balltype == 'player')
-            var key = ['player']
-          else
-            var key = ['ball', ud.idx]
-          o.set(key.toString(), [b.c_position.c.x, b.c_position.c.y, b.c_position.a])
-        }
+        if (ud && ud.type == 'player')
+          o.set('player', [b.c_position.c.x, b.c_position.c.y, b.c_position.a])
+        else if (ud && ud.type == 'pin')
+          o.set(ud.idx, [b.c_position.c.x, b.c_position.c.y, b.c_position.a])
       }
       return o
     }
@@ -486,49 +482,6 @@ async function main(world) {
   }
 }
 setTimeout(main, 0, world)
-/*
- * world.on('post-solve', function(contact) {
- *   var b0 = contact.getFixtureA().getBody()
- *   var b1 = contact.getFixtureB().getBody()
- *
- *   var player = null
- *   var other = null
- *   if (b0.getUserData().type == 'ball' && b0.getUserData().balltype == 'player') {
- *     player = b0
- *   }
- *   if (b1.getUserData().type == 'ball' && b1.getUserData().balltype == 'player') {
- *     player = b1
- *   }
- *   if (b0.getUserData().type == 'ball' && b0.getUserData().balltype != 'player' && b0.getUserData().alive) {
- *     other = b0
- *   }
- *   if (b1.getUserData().type == 'ball' && b1.getUserData().balltype != 'player' && b1.getUserData().alive) {
- *     other = b1
- *   }
- *
- *   if (player && other) {
- *     step = world.m_stepCount
- *     last_contact = other.getUserData().last_contact
- *     other.getUserData().last_contact = step
- *     diff = step - last_contact
- *     if (diff >= MIN_CONTACT_STEP_DISTANCE) {
- *       velo = player.c_velocity
- *       nvelo = (velo.v.x ** 2 + velo.v.y ** 2) ** 0.5
- *       nvelo = nvelo / width
- *       if (other.getUserData().balltype == 'add')
- *         g_pending.push([other.getUserData().digit, nvelo])
- *       else
- *         g_pending.push([-other.getUserData().digit, nvelo])
- *       setTimeout(function() {
- *         if (g_pending.length > 0) {
- *           sumToPlayer(g_pending)
- *           g_pending = []
- *         }
- *       }, 1)
- *     }
- *   }
- * });
- * */
 
 var tb
 var mouse = 0
@@ -541,7 +494,7 @@ function _hook(aabb, callback) {
   function my_callback(f) {
     var d = f.m_body.getUserData()
     mouse = 0
-    if (d.type == 'ball' && d.balltype == 'player' && g_knock_ball !== null) {
+    if (d.type == 'player' && g_knock_ball !== null) {
       console.log('hook:callback player')
       mouse = 1
       callback(f)

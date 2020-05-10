@@ -252,7 +252,7 @@ function putFixtures(b, digit, op) {
 }
 
 g_pin_idx = 0
-function putPin(world, digit, xy, op) {
+function putPinAt(world, digit, xy, op) {
   const style = {
     'add': {fill: 'red', stroke: 'red'},
     'sub': {fill: 'blue', stroke: 'blue'},
@@ -289,6 +289,40 @@ function putPlayer(world, digit, xy) {
   return b
 }
 
+
+function computePopCoordinates() {
+  var arr = [];
+  const count = 4
+  for (var i = 0; i <= count; i++) {
+    for (var j = 0; j <= count; j++) {
+      var x = width / (count * 2) * (1 + i) - width / 2
+      var y = height / (count * 2) * (1 + j) - height / 2
+      arr.push([x, y])
+    }
+  }
+  for (var i = 0; i <= count - 1; i++) {
+    for (var j = 0; j <= count - 1; j++) {
+      var x = width / count * i - width / 2
+      var y = height / count * j - height / 2
+      arr.push([x, y])
+    }
+  }
+  return arr
+}
+
+const POP_COORDINATES = computePopCoordinates()
+
+function shuffle(a) {
+    var j, x, i;
+    for (i = a.length - 1; i > 0; i--) {
+        j = Math.floor(Math.random() * (i + 1));
+        x = a[i];
+        a[i] = a[j];
+        a[j] = x;
+    }
+    return a;
+}
+
 function findPinPosition(world) {
   function isAvailable(x, y) {
     var available = true
@@ -301,46 +335,40 @@ function findPinPosition(world) {
     })
     return available
   }
-  const count = 4
-  for (var i = 0; i <= count; i++) {
-    for (var j = 0; j <= count; i++) {
-      var x = width / (count * 2) * (1 + i) - width / 2
-      var y = weight / (count * 2) * (1 + j) - weight / 2
-      if (isAvailable(x, y))
-        return [x, y]
-    }
+  var xys = [...POP_COORDINATES]
+  shuffle(xys)
+  /* console.log(xys)*/
+  for (xy of xys) {
+    var [x, y] = xy
+    if (isAvailable(x, y))
+      return xy
   }
-  return null
 }
 
-function createBalls(world) {
+var ga = 1
+var gb = 2.5
+var gc = 3
+
+function putPin(world, forceBigPositive) {
   function randomDigit() {
-    return gaussian_int(0, 1, 3.5, 5, 9)
+    return gaussian_int(0, ga, gb, gc, 9)
     /* return gaussian_int(0, 1, 2.5, 3, 9)*/
+    /* return gaussian_int(0, 1, 3.5, 5, 9)*/
   }
-  player = putPlayer(world, 0, [0, 0])
-  for (var i = 0; i < 2; i++) {
-    var angle = Math.random() * Math.PI * 2
-    var dist = (Math.random() * 0.7 + 0.25) * (width / 2)
-    var digit
-    var op
-
-    for (j of [0, 1, 2, 3]) {
-      if (i == 0 && j % 2 == 0) {
-        op = 'add'
-        digit = Math.max(2, randomDigit())
-      }
-      else {
-        op = ['add', 'sub'][Math.floor(Math.random() * 1.999)]
-        digit = randomDigit()
-      }
-      var x = dist * Math.cos(angle + Math.PI / 2 * j)
-      var y = dist * Math.sin(angle + Math.PI / 2 * j)
-      putPin(world, digit, [x, y], op)
-
-    }
+  if (forceBigPositive) {
+    var op = 'add'
+    var digit = Math.max(2, randomDigit())
   }
-  return player
+  else {
+    var op = ['add', 'sub'][Math.floor(Math.random() * 2)]
+    var digit = randomDigit()
+  }
+  var xy = findPinPosition(world)
+  if (xy === null)
+    return false
+  var [x, y] = xy
+  putPinAt(world, digit, [x, y], op)
+  return true
 }
 
 pl.internal.Settings.velocityThreshold = 0;
@@ -348,7 +376,9 @@ var world = pl.World({});
 world.__proto__.queryAABB2 = world.queryAABB
 createWalls(world)
 var g_pending = []
-g_player = createBalls(world)
+g_player = putPlayer(world, 0, [0, 0])
+for (var i = 0; i < 5; i++)
+  putPin(world, i <= 1)
 g_score = 0
 
 function sumToPlayer(pending) {
@@ -377,21 +407,43 @@ function sumToPlayer(pending) {
   velo = g_player.c_velocity
   world.destroyBody(g_player)
   console.log('> g_score:', g_score, 'digit:', digit)
-  if (digit >= 0 && digit <= 9) {
-    g_score += s_incr
-    document.getElementById('score').innerText = (
-      g_score.toString()
-    + ' (+'
-    + s_factor.toString()
-    + ' x (' + small_scores.join('+') + '))'
-    )
-
-    g_player = putPlayer(world, digit, [0, 0])
-    g_player.setPosition(c)
-    g_player.setAngle(a)
-  }
-  else
+  if (digit < 0 || digit > 9) {
     document.getElementById('score').innerText = ("Game over with score " + g_score.toString() + ". refresh page")
+    return
+  }
+  var ok = true
+  for (var i = 0; i < pending.length + 1 && ok; i++) {
+    console.log('> put new pin', i, pending.length)
+    ok = putPin(world, false)
+  }
+  if (!true) {
+    document.getElementById('score').innerText = ("Game over with score " + g_score.toString() + ". refresh page")
+    return
+  }
+
+  if (gc < 7) {
+    gb += 0.5
+    gc += 0.5
+  }
+  else if (ga < 5) {
+    ga += 1
+  }
+  /* var ga = 1*/
+  /* var gb = 2.5*/
+  /* var gc = 3*/
+
+
+  g_score += s_incr
+  document.getElementById('score').innerText = (
+    g_score.toString()
+  + ' (+'
+  + s_factor.toString()
+  + ' x (' + small_scores.join('+') + '))'
+  )
+
+  g_player = putPlayer(world, digit, [0, 0])
+  g_player.setPosition(c)
+  g_player.setAngle(a)
 }
 
 function classify(a, b) {
@@ -508,8 +560,7 @@ async function main(world) {
       b.setAngularVelocity(0)
     }
     console.log('> main | apply score', g_pending)
-    if (g_pending.length > 0)
-      sumToPlayer(g_pending)
+    sumToPlayer(g_pending)
     g_pending = []
 
   }

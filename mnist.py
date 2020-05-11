@@ -236,7 +236,7 @@ test 18
 
 """
 
-def dump(ijs):
+def dump(img, ijs):
     ijs = np.asarray(ijs[::-1]).astype(float)
     # meani = ijs[:, 0].mean()
     # meanj = ijs[:, 1].mean()
@@ -271,7 +271,7 @@ def dump(ijs):
         # 'Vec2({:.5f}, {:.5f})'.format(x, y)
         for x, y in xys
     )
-    print('  [{}],'.format(s))
+    print('  {{coords: [{}], pxcount: {}}},'.format(s, img.sum()))
 
 # for j in range(len(labs)):
     # input()
@@ -300,7 +300,7 @@ for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
         # print([len(c) for c in components])
         if len(components) != 1:
             continue
-        dump(components[0])
+        dump(img, components[0])
         # exit()
         break
         # if len(components) != 1:

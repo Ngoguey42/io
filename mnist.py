@@ -236,47 +236,75 @@ test 18
 
 """
 
-def dump(img, ijs):
+def dump(img, mask, ijs):
     ijs = np.asarray(ijs[::-1]).astype(float)
-    # meani = ijs[:, 0].mean()
-    # meanj = ijs[:, 1].mean()
-    maxi = ijs[:, 0].max()
-    maxj = ijs[:, 1].max()
-    mini = ijs[:, 0].min()
-    minj = ijs[:, 1].min()
+    xys = np.asarray(ijs)[::-1, ::-1].astype(float)
 
-    # print(maxi - mini, maxj - minj)
+    raw_maxx = xys[:, 0].max()
+    raw_minx = xys[:, 0].min()
+    raw_maxy = xys[:, 1].max()
+    raw_miny = xys[:, 1].min()
+    raw_midx = (raw_maxx + raw_minx) / 2
+    raw_midy = (raw_maxy + raw_miny) / 2
 
-    print()
-    # print(maxi, mini, (maxi - mini), '  ', maxj, minj, (maxj - minj))
-    # print('is:', np.around(ijs[:, 0].min(), 3), np.around(ijs[:, 0].mean(), 3), np.around(ijs[:, 0].max(), 3))
-    # print('js:', np.around(ijs[:, 1].min(), 3), np.around(ijs[:, 1].mean(), 3), np.around(ijs[:, 1].max(), 3))
+    xys = (xys - [[raw_midx, raw_midy]]) / [[13.5, -13.5]]
 
-    ijs = (ijs - np.asarray([[(maxi + mini), (maxj + minj)]]) / 2)
-    # print('is:', np.around(ijs[:, 0].min(), 3), np.around(ijs[:, 0].mean(), 3), np.around(ijs[:, 0].max(), 3))
-    # print('js:', np.around(ijs[:, 1].min(), 3), np.around(ijs[:, 1].mean(), 3), np.around(ijs[:, 1].max(), 3))
 
-    ijs = ijs / 14
-    # print('is:', np.around(ijs[:, 0].min(), 3), np.around(ijs[:, 0].mean(), 3), np.around(ijs[:, 0].max(), 3))
-    # print('js:', np.around(ijs[:, 1].min(), 3), np.around(ijs[:, 1].mean(), 3), np.around(ijs[:, 1].max(), 3))
-    # ijs = (ijs - [[meani, meanj]]) / 14
-    # ijs = (ijs - [[meani, meanj]]) / 10 / 100 * 9
-
-    xys = np.c_[ijs[:, 1], -ijs[:, 0]]
-    # print('xs:', np.around(xys[:, 0].min(), 3), np.around(xys[:, 0].mean(), 3), np.around(xys[:, 0].max(), 3))
-    # print('ys:', np.around(xys[:, 1].min(), 3), np.around(xys[:, 1].mean(), 3), np.around(xys[:, 1].max(), 3))
+    imgclean_str = ','.join(
+        # '[{:.5f}, {:.5f}]'.format(x, y)
+        '\n     [' + ', '.join(
+            str(color)
+            for color in row
+        ) + ']'
+        for row in img
+    )
 
     s = ', '.join(
         '[{:.5f}, {:.5f}]'.format(x, y)
         # 'Vec2({:.5f}, {:.5f})'.format(x, y)
         for x, y in xys
     )
-    print('  {{coords: [{}], pxcount: {}}},'.format(s, img.sum()))
+    # s = 'hidden'
+
+    idxs_map = np.arange(img.size).reshape(img.shape)
+    xys_map = np.stack(
+        [(idxs_map % 28 - raw_midx) / 13.5, -(idxs_map // 28 - raw_midy) / 13.5],
+        axis=0,
+    )
+    # print(np.around(xys_map, 2))
+
+    print()
+    print('  {{sum_mask: {}, sum_imgclean: {}, w: {}, h: {}, '
+          '\n   cx_j: {}, cy_i: {},'
+          '\n   barycenter_mask: [{}, {}], barycenter_imgclean: [{}, {}], barycenter_exterior: [{}, {}],'
+          '\n   imgclean_uint8: [{}],'
+          '\n   exterior: [{}]'
+          '}},'.format(
+        mask.sum(),
+        np.around(img.sum() / 255, 2),
+        np.ceil((raw_maxx - raw_minx) / 13.5 * 10000) / 10000,
+        np.ceil((raw_maxy - raw_miny) / 13.5 * 10000) / 10000,
+
+        raw_midx,
+        raw_midy,
+
+        np.around(xys_map[0][mask].mean(), 4),
+        np.around(xys_map[1][mask].mean(), 4),
+        np.around((xys_map[0] * img / 255)[mask].mean(), 4),
+        np.around((xys_map[1] * img / 255)[mask].mean(), 4),
+        np.around(xys[:, 0].mean(), 4),
+        np.around(xys[:, 1].mean(), 4),
+
+              imgclean_str,
+        s,
+    ))
 
 # for j in range(len(labs)):
     # input()
     # i = labs[j]
 
+# for i in [0]:
+# for i in [1]:
 for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
 # for i in [0, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9]:
 
@@ -293,14 +321,16 @@ for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
         if labs[j] != i:
             continue
         # print('> lab:{}, idx:{}'.format(i, j))
-        img = imgs[j] > 50
+        img = imgs[j].copy()
+        mask = img > 50
+        img[~mask] = 0
         # img = .copy()
         # print(img.astype(bool).astype(int))
-        components = find_countour(img)
+        components = find_countour(mask)
         # print([len(c) for c in components])
         if len(components) != 1:
             continue
-        dump(img, components[0])
+        dump(img, mask, components[0])
         # exit()
         break
         # if len(components) != 1:

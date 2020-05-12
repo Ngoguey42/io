@@ -1,9 +1,11 @@
 /* Proof Of Concept code, please don't judge me :( */
 
 var pl = planck, Vec2 = pl.Vec2, Math = pl.Math;
+pl.internal.Settings.velocityThreshold = 0;
+
 const width = 10.0 * 2
 const height = width;
-const digit_scale = 1.26
+const digit_scale = 1.75
 const simplification_slack = 0.08
 const ACTIVE_WALLS = true
 const mouseForce = width * 40
@@ -12,41 +14,9 @@ const ARE_BULLETS = true
 const MIN_CONTACT_STEP_DISTANCE = 20
 const MAX_HP = 100
 
-function createFloorClosure(canvas, maxhp) {
-  function setHp(hp) {
-    const frac = Math.max(0., Math.min(1., hp / maxhp))
-    var i, r, g, b
-    for (i = 0; i < firegrass.length; i++) {
-      if (firegrass[i][0] >= frac)
-        break
-    }
-    if (i == 0) {
-      ;[_, r, g, b] = firegrass[0]
-    }
-    else {
-      var [x0, r0, g0, b0] = firegrass[i - 1]
-      var [x1, r1, g1, b1] = firegrass[i]
-      var frac1 = (frac - x0) / (x1 - x0)
-      var frac0 = 1 - frac1
-      r = frac0 * r0 + frac1 * r1
-      g = frac0 * g0 + frac1 * g1
-      b = frac0 * b0 + frac1 * b1
-    }
-    c = (
-      '#' +
-      Math.round(r * 255).toString(16) +
-      Math.round(g * 255).toString(16) +
-      Math.round(b * 255).toString(16)
-    )
-    canvas.style.backgroundColor = c;
-  }
-  setHp(100)
-  return setHp
-}
-
-function createWalls(world) {
-  var thickness = width / 2
-  def = {
+function putWalls(world) {
+  var thickness = width / 4
+  var def = {
     friction: 0.,
     restitution: 1,
   }
@@ -95,7 +65,7 @@ function createWalls(world) {
   b.render = {'fill': '#1f1f1f', 'stroke': '#1f1f1f'}
 }
 
-function putFixtures(b, digit, op, def) {
+function putDigitFixtures(b, digit, op, def) {
   var dense_coords = DIGITS_DEFN[digit]['exterior']
   var light_coords = simplify_coords(dense_coords)
   var fn = Vec2.scaleFn(digit_scale, digit_scale)
@@ -152,16 +122,24 @@ function putFixtures(b, digit, op, def) {
 
 }
 
-g_pin_idx = 0
+var g_pin_idx = 0
 function putPinAt(world, digit, xy, op) {
   const style = {
-    'add': {fill: 'red', stroke: 'red'},
-    'sub': {fill: 'blue', stroke: 'blue'},
-  }[op]
+    1: {fill: 'pink', stroke: 'pink'},
+    9: {fill: 'pink', stroke: 'pink'},
+    2: {fill: 'blue', stroke: 'blue'},
+    8: {fill: 'blue', stroke: 'blue'},
+    3: {fill: 'green', stroke: 'green'},
+    7: {fill: 'green', stroke: 'green'},
+    6: {fill: 'orange', stroke: 'orange'},
+    4: {fill: 'orange', stroke: 'orange'},
+    5: {fill: 'red', stroke: 'red'},
+  }[digit]
 
   var d = {type: 'pin', digit: digit, idx: g_pin_idx, op: op,
            alive: true, last_contact: -MIN_CONTACT_STEP_DISTANCE}
   g_pin_idx += 1
+  console.log('> New pin', d)
 
   var b = world.createDynamicBody({
     userData: d,
@@ -171,7 +149,7 @@ function putPinAt(world, digit, xy, op) {
   b.setBullet(ARE_BULLETS);
   b.setPosition({x: xy[0], y: xy[1]});
   b.render = style;
-  putFixtures(b, digit, op, {
+  putDigitFixtures(b, digit, op, {
     friction: 0.01,
     restitution: 0.3,
     density: 1,
@@ -199,29 +177,29 @@ function putPlayer(world, digit, xy, a) {
   b.setPosition(xy);
   b.setAngle(a)
   b.render = style;
-  putFixtures(b, digit, null, {
+  putDigitFixtures(b, digit, null, {
     friction: 0.01,
-    restitution: 0.3,
+    restitution: 0.7,
     density: 1,
   })
   b.setMassData({
-    mass: DIGITS_DEFN[digit]['sum_imgclean'] / 140.72 * 1.5,
+    mass: DIGITS_DEFN[digit]['sum_imgclean'] / 140.72,
     center: pair_to_vec2(DIGITS_DEFN[digit]['barycenter_imgclean']),
     I: 1,
   })
   return b
 }
 
-function computePopCoordinates() {
+function computeSpawnCoordinates() {
   var arr = [];
   const count = 4
   for (var i = 0; i <= count; i++) {
     for (var j = 0; j <= count; j++) {
-      if (i == 0) continue
-      if (j == 0) continue
-      if (i == count - 1) continue
-      if (j == count - 1) continue
-
+      /* if (i == 0) continue
+       * if (j == 0) continue
+       * if (i == count - 1) continue
+       * if (j == count - 1) continue
+       */
       var x = width / (count * 2) * (1 + i) - width / 2
       var y = height / (count * 2) * (1 + j) - height / 2
       arr.push([x, y])
@@ -237,21 +215,24 @@ function computePopCoordinates() {
   return arr
 }
 
-const POP_COORDINATES = computePopCoordinates()
+const SPAWN_COORDINATES = computeSpawnCoordinates()
 
-function findPinPosition(world) {
+function findPinPosition(world, digit) {
+  ;({w, h} = DIGITS_DEFN[digit]);
   function isAvailable(x, y) {
     var available = true
     const where = pl.AABB(
-      Vec2(x - digit_scale / 2 * 2, y - digit_scale / 2 * 2),
-      Vec2(x + digit_scale / 2 * 2, y + digit_scale / 2 * 2),
+      Vec2(x - digit_scale * w / 2, y - digit_scale * h / 2),
+      Vec2(x + digit_scale * w / 2, y + digit_scale * h / 2),
+      /* Vec2(x - digit_scale / 2 * 2, y - digit_scale / 2 * 2),
+       * Vec2(x + digit_scale / 2 * 2, y + digit_scale / 2 * 2),*/
     )
     world.queryAABB2(where, function(_) {
       available = false
     })
     return available
   }
-  var xys = [...POP_COORDINATES]
+  var xys = [...SPAWN_COORDINATES]
   shuffle(xys)
   for (xy of xys) {
     var [x, y] = xy
@@ -261,152 +242,25 @@ function findPinPosition(world) {
   return null
 }
 
+const randomBool = createBoolBiasedRng(1)
 var ga = 1
 var gb = 2.5
 var gc = 3
 
-randomIsSub = createBoolBiasedRng(1)
-
-function putPin(world, forceBigPositive) {
-  function randomDigit() {
-    return gaussian_int(0, ga, gb, gc, 9)
-  }
-  if (forceBigPositive) {
-    var op = 'add'
-    var digit = Math.max(2, randomDigit())
-  }
-  else {
-    var op = ['add', 'sub'][Number(randomIsSub())]
-    var digit = randomDigit()
-  }
-  var xy = findPinPosition(world)
+function putPin(world, digit) {
+  var xy = findPinPosition(world, digit)
   if (xy === null)
     return false
   var [x, y] = xy
-  putPinAt(world, digit, [x, y], op)
+  putPinAt(world, digit, [x, y], null)
   return true
 }
 
-pl.internal.Settings.velocityThreshold = 0;
-var world = pl.World({});
-world.__proto__.queryAABB2 = world.queryAABB
-createWalls(world)
-var g_pending = []
-var g_player = putPlayer(world, 0, Vec2(0, 0), 0)
-for (var i = 0; i < 5; i++)
-  putPin(world, i <= 1)
+var g_player = null
 var g_score = 0
 var g_knock_ball = null
 var g_hp = MAX_HP
 var g_round = 0
-
-
-function sumToPlayer(pending, hpdiff) {
-  var digit = g_player.getUserData().digit
-  var digit0 = digit
-  var d_incr = 0
-  var s_incr = 0
-
-  var s_factor = pending.length
-
-  g_hp += hpdiff
-
-  var small_scores = []
-
-  for (d_signed of pending) {
-    d_incr += d_signed
-
-    s_incr1 = Math.abs(d_signed) + Math.round(15 / (10 - Math.abs(d_signed))) - 1 // 1, 2, 3, 4, 6, 7, 9, 11, 15, 23
-    /* s_incr0 = 1.6 ** Math.abs(d_signed) // 1, 2, 3, 5, 7, 11, 17, 27, 43, 69 */
-    small_scores.push(s_incr1)
-
-    console.log('> Eating', d_signed, '. Gaining', s_incr1, '*', s_factor)
-    s_incr += s_incr1 * s_factor
-  }
-  digit = digit + d_incr
-
-  setColor(g_hp)
-  document.getElementById('health').innerText = (
-    g_hp.toString() +
-    ' hp (' +
-     (hpdiff >= 0 ? '+' : '') +
-    hpdiff.toString() +
-    ')'
-  )
-  document.getElementById('eaten').innerText = (
-    digit0.toString() +
-    pending.map(i => {
-      if (Object.is(i, -0))
-        return "-0"
-      else if (Object.is(i, 0))
-        return "+0"
-      else if (i < 0)
-        return i.toString()
-      else
-        return '+' + i.toString()
-    }).join('') +
-    " = " +
-    digit.toString()
-  )
-
-  c = g_player.c_position.c
-  a = g_player.c_position.a
-  velo = g_player.c_velocity
-  world.destroyBody(g_player)
-  console.log('> g_score:', g_score, 'digit:', digit)
-  if (digit < 0 || digit > 9) {
-    document.getElementById('score').innerText = (
-      "Game over with score " + g_score.toString() + '. ' +
-      (digit < 0 ? "Keep a positive number!" : "Stay below 10!") +
-      " Refresh page."
-    )
-    return
-  }
-  if (g_hp < 0) {
-    document.getElementById('score').innerText = (
-      "Game over with score " + g_score.toString() + '.' +
-      " Refresh page."
-    )
-    return
-  }
-
-  var ok = true
-  /* for (var i = 0; i < pending.length + 1 && ok; i++) {*/
-  /* for (var i = 0; i <  1 && ok; i++) {*/
-
-  pincount = 1
-  /* g_round <= 5 ? 1 :
-   * g_round <= 15 ? 2 :
-   * 3
-     )
-   */
-  for (var i = 0; i < pincount && ok; i++) {
-    console.log('> put new pin', i, pending.length)
-    ok = putPin(world, false)
-  }
-  if (!ok) {
-    document.getElementById('score').innerText = ("Game over with score " + g_score.toString() + ". refresh page")
-    return
-  }
-
-  if (gc < 7) {
-    gb += 0.5
-    gc += 0.5
-  }
-  else if (ga < 5) {
-    ga += 1
-  }
-
-  g_score += s_incr
-  document.getElementById('score').innerText = (
-    g_score.toString()
-  + ' (+'
-  + s_factor.toString()
-  + ' x (' + small_scores.join('+') + ') = ' + s_incr.toString() + ')'
-  )
-
-  g_player = putPlayer(world, digit, c, a)
-}
 
 function classify(a, b) {
   adat = a.getUserData()
@@ -415,13 +269,16 @@ function classify(a, b) {
   var wall = null
   var alive_pin = null
   var dead_pin = null
+  var two_pins = []
 
   if (bdat.type == 'player')
     player = b
   else if (bdat.type == 'wall')
     wall = b
-  else if (bdat.type == 'pin' && bdat.alive === true)
+  else if (bdat.type == 'pin' && bdat.alive === true) {
     alive_pin = b
+    two_pins.push(b)
+  }
   else if (bdat.type == 'pin' && bdat.alive === false)
     dead_pin = b
   else
@@ -431,38 +288,31 @@ function classify(a, b) {
     player = a
   else if (adat.type == 'wall')
     wall = a
-  else if (adat.type == 'pin' && adat.alive === true)
+  else if (adat.type == 'pin' && adat.alive === true) {
     alive_pin = a
+    two_pins.push(a)
+  }
   else if (adat.type == 'pin' && adat.alive === false)
     dead_pin = a
   else
     console.error('unknown entity')
 
-  return [player, wall, alive_pin, dead_pin]
+  if (two_pins.length != 2)
+    two_pins = null
+
+  return [player, wall, alive_pin, dead_pin, two_pins]
 }
 
-world.on('pre-solve', function(contact) {
-  var [player, wall, pin, dead_pin] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
-
-  if (dead_pin) {
-    contact.setEnabled(false)
-  }
-  if (pin && wall) {
-    console.log('> Deactivating pin', pin.getUserData().idx)
-    pin.getUserData().alive = false
-    if (pin.getUserData().op == 'add')
-      g_pending.push(pin.getUserData().digit)
-    else
-      g_pending.push(-pin.getUserData().digit)
-    contact.setEnabled(false)
-  }
-})
-
-async function main(world) {
+async function main(world, canvas) {
   console.log('> main')
-  setColor(MAX_HP)
+  g_player = putPlayer(world, 0, Vec2(0, 0), 0)
+  putWalls(world)
+  for (var i = 1; i < 10; i++)
+    putPin(world, i)
+  putPin(world, 5)
+
   while (true) { // one loop per game round
-    ;[p, g_knock_ball] = create_promise() // Oh oui le javascript
+    ;[p, g_knock_ball] = create_promise()
     console.log('> main | wait for click')
     await p
     console.log('> main | got click')
@@ -510,27 +360,29 @@ async function main(world) {
       last_positions = positions
     }
     console.log('> main | stopping remaining velocity')
-    var hpdiff = -1
+    var done = true
+
     for (b of bodies_of_world(world)) {
       const ud = b.getUserData()
       b.setLinearVelocity({x: 0, y: 0})
       b.setAngularVelocity(0)
-      if (ud && ud.type == 'pin' && !ud.alive)
-        world.destroyBody(b)
       if (ud && ud.type == 'pin' && ud.alive)
-        hpdiff -= 1
+        done = false
     }
-    console.log('> main | apply score', g_pending)
-    sumToPlayer(g_pending, hpdiff)
-    g_pending = []
+    if (done)
+      document.getElementById('score').innerText = (
+        "Game over after " + (g_round + 1) + " rounds. Refresh page."
+      )
+    else
+      document.getElementById('score').innerText = "Round " + (g_round + 2)
+
     g_round += 1
   }
 }
 
 var tb
 var mouse = 0
-var canvas
-var setColor
+/* var canvas*/
 
 function _hook(aabb, callback) {
   mouse = 0
@@ -544,13 +396,16 @@ function _hook(aabb, callback) {
       callback(f)
     }
     else
-      console.log('hook:callback IGNORED')
+      console.log('hook:callback IGNORED', d.type, g_knock_ball !== null)
   }
-  return world.__proto__.queryAABB2.apply(this, [aabb, my_callback])
+  return this.queryAABB2.apply(this, [aabb, my_callback])
 }
-world.__proto__.queryAABB = _hook
 
-tb = planck.testbed('8 Ball', function(testbed) {
+planck.testbed('8 Ball', function(testbed) {
+
+  var world = pl.World({});
+  world.__proto__.queryAABB2 = world.queryAABB
+  world.__proto__.queryAABB = _hook
   tb = testbed
   canvas = tb.canvas
   testbed.x = 0;
@@ -561,8 +416,30 @@ tb = planck.testbed('8 Ball', function(testbed) {
   testbed.mouseForce = mouseForce;
   setTimeout(main, 0, world)
 
-  document.getElementById('health').innerText = (MAX_HP).toString() + ' hp'
-  setColor = createFloorClosure(canvas, MAX_HP)
+  world.on('pre-solve', function(contact) {
+    var [player, wall, pin, dead_pin, two_pins] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
+
+    if (dead_pin) {
+      contact.setEnabled(false)
+    }
+    if (two_pins) {
+      var [p0, p1] = two_pins
+      var ud0 = p0.getUserData()
+      var ud1 = p1.getUserData()
+      console.log('> collision of value', ud0.digit, ud1.digit)
+      if (ud0.digit + ud1.digit == 10) {
+        console.log('> Deactivating pins', ud0.idx, ud1.idx)
+        ud0.alive = false
+        ud1.alive = false
+        contact.setEnabled(false)
+        setTimeout(function () {
+          console.log('> Destroying pins', ud0.idx, ud1.idx)
+          world.destroyBody(p0)
+          world.destroyBody(p1)
+        }, 1)
+    }
+    }
+  })
 
   canvas.onmouseup = function (_) {
     console.log('canvas:onmouseup', 'mouse value:', mouse, 'has-callback:', g_knock_ball !== null)
@@ -575,5 +452,5 @@ tb = planck.testbed('8 Ball', function(testbed) {
   return world;
 });
 
-var bodies = bodies_of_world(world)
-var [b] = bodies
+/* var bodies = bodies_of_world(world)*/
+/* var [b] = bodies*/

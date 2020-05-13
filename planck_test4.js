@@ -3,12 +3,12 @@
 var pl = planck, Vec2 = pl.Vec2, Math = pl.Math;
 pl.internal.Settings.velocityThreshold = 0;
 
-const width = 10.0 * 2
+const width = 10.0 * 1.7
 const height = width;
 const digit_scale = 1.75
 const simplification_slack = 0.08
 const ACTIVE_WALLS = true
-const mouseForce = width * 40
+const mouseForce = width * 30
 /* const mouseForce = width * 100*/
 const ARE_BULLETS = true
 const MIN_CONTACT_STEP_DISTANCE = 20
@@ -145,6 +145,7 @@ function putPinAt(world, digit, xy, op) {
     userData: d,
     linearDamping: 2.5,
     angularDamping: 10,
+    fixedRotation: digit == 6 || digit == 9,
   });
   b.setBullet(ARE_BULLETS);
   b.setPosition({x: xy[0], y: xy[1]});
@@ -305,11 +306,30 @@ function classify(a, b) {
 
 async function main(world, canvas) {
   console.log('> main')
+
   g_player = putPlayer(world, 0, Vec2(0, 0), 0)
+
+  /* var xy = findPinPosition(world, digit)
+   * if (xy === null)
+   *   return false
+   * var [x, y] = xy
+   * putPinAt(world, digit, [x, y], null)
+   */
   putWalls(world)
-  for (var i = 1; i < 10; i++)
-    putPin(world, i)
-  putPin(world, 5)
+  const r = 0.75 * width / 2
+  const a0 = Math.random() * Math.PI * 2
+
+  var digits = Array.from({length:9},(v,k)=>k+1)
+  digits.push(5)
+  console.log(digits)
+  shuffle(digits)
+
+  for (var i = 0; i < 10; i++) {
+    var a = a0 + Math.PI * 2 / 10 * i
+    var x = r * Math.cos(a)
+    var y = r * Math.sin(a)
+    putPinAt(world, digits[i], [x, y], null)
+  }
 
   while (true) { // one loop per game round
     ;[p, g_knock_ball] = create_promise()

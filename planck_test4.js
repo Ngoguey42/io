@@ -10,9 +10,13 @@ const simplification_slack = 0.08
 const ACTIVE_WALLS = true
 const mouseForce = width * 30
 /* const mouseForce = width * 100*/
+/* const ARE_BULLETS = false*/
 const ARE_BULLETS = true
 const MIN_CONTACT_STEP_DISTANCE = 20
 const MAX_HP = 100
+const BENCHMARK = true
+const USE_BALLS = false
+const BENCH_LOOP_COUNT = 10
 
 function putWalls(world) {
   var thickness = width / 4
@@ -66,60 +70,25 @@ function putWalls(world) {
 }
 
 function putDigitFixtures(b, digit, op, def) {
-  var dense_coords = DIGITS_DEFN[digit]['exterior']
-  var light_coords = simplify_coords(dense_coords)
-  var fn = Vec2.scaleFn(digit_scale, digit_scale)
-  if (op == 'sub') {
-    var [span, minx, meany] = shapeStats(dense_coords, light_coords)
-    var offset = span / 10 / 2
-    var bar_width = span / 2 * 0.66
-    var bar_height = span / 5 * 0.6
-    var random_span = bar_height / 3
-    function r() { return Math.random() * random_span }
 
-
-    var midx = minx - offset - bar_width / 2
-    var midy = meany
-    b.createFixture(pl.Polygon([
-      Vec2(midx + bar_width / 2 - r() + 0.25, midy + bar_height / 2 - r()),
-      Vec2(midx - bar_width / 2 + r(), midy + bar_height / 2 - r()),
-      Vec2(midx - bar_width / 2 + r(), midy - bar_height / 2 + r()),
-      Vec2(midx + bar_width / 2 - r() + 0.25, midy - bar_height / 2 + r()),
-    ].map(fn)), def)
+  if (USE_BALLS) {
+    b.createFixture(pl.Circle(1), def);
   }
-  if (op == 'add') {
-    var [span, minx, meany] = shapeStats(dense_coords, light_coords)
-    var offset = span / 10 / 2
-    var bar_width = span / 2 * 0.66
-    var bar_height = span / 5 * 0.55
-    var random_span = bar_height / 3
-    function r() { return Math.random() * random_span }
-    var midx = minx - offset - bar_width / 2
-    var midy = meany
-
-    b.createFixture(pl.Polygon([
-      Vec2(midx + bar_width / 2 - r() + 0.35, midy + bar_height / 2 - r()),
-      Vec2(midx - bar_width / 2 + r(), midy + bar_height / 2 - r()),
-      Vec2(midx - bar_width / 2 + r(), midy - bar_height / 2 + r()),
-      Vec2(midx + bar_width / 2 - r() + 0.35, midy - bar_height / 2 + r()),
-    ].map(fn)), def)
-    b.createFixture(pl.Polygon([
-      Vec2(midx + bar_height / 2 - r(), midy + bar_width / 2 - r()),
-      Vec2(midx - bar_height / 2 + r(), midy + bar_width / 2 - r()),
-      Vec2(midx - bar_height / 2 + r(), midy - bar_width / 2 + r()),
-      Vec2(midx + bar_height / 2 - r(), midy - bar_width / 2 + r()),
-    ].map(fn)), def)
+  else {
+    var dense_coords = DIGITS_DEFN[digit]['exterior']
+    var light_coords = simplify_coords(dense_coords)
+    console.log('> Digit ', digit, 'from', dense_coords.length, 'coords to', light_coords.length, 'coords')
+    var fn = Vec2.scaleFn(digit_scale, digit_scale)
+    shape = triangulate(light_coords)
+    for (var j = 0; j < shape.length; j++) {
+      var poly = pl.Polygon([
+        fn(Vec2(shape[j][0][0], shape[j][0][1])),
+        fn(Vec2(shape[j][1][0], shape[j][1][1])),
+        fn(Vec2(shape[j][2][0], shape[j][2][1])),
+      ])
+      b.createFixture(poly, def)
+    }
   }
-  shape = triangulate(light_coords)
-  for (var j = 0; j < shape.length; j++) {
-    var poly = pl.Polygon([
-      fn(Vec2(shape[j][0][0], shape[j][0][1])),
-      fn(Vec2(shape[j][1][0], shape[j][1][1])),
-      fn(Vec2(shape[j][2][0], shape[j][2][1])),
-    ])
-    b.createFixture(poly, def)
-  }
-
 }
 
 var g_pin_idx = 0
@@ -139,7 +108,7 @@ function putPinAt(world, digit, xy, op) {
   var d = {type: 'pin', digit: digit, idx: g_pin_idx, op: op,
            alive: true, last_contact: -MIN_CONTACT_STEP_DISTANCE}
   g_pin_idx += 1
-  console.log('> New pin', d)
+  /* console.log('> New pin', d)*/
 
   var b = world.createDynamicBody({
     userData: d,
@@ -218,32 +187,6 @@ function computeSpawnCoordinates() {
 
 const SPAWN_COORDINATES = computeSpawnCoordinates()
 
-function findPinPosition(world, digit) {
-  ;({w, h} = DIGITS_DEFN[digit]);
-  function isAvailable(x, y) {
-    var available = true
-    const where = pl.AABB(
-      Vec2(x - digit_scale * w / 2, y - digit_scale * h / 2),
-      Vec2(x + digit_scale * w / 2, y + digit_scale * h / 2),
-      /* Vec2(x - digit_scale / 2 * 2, y - digit_scale / 2 * 2),
-       * Vec2(x + digit_scale / 2 * 2, y + digit_scale / 2 * 2),*/
-    )
-    world.queryAABB2(where, function(_) {
-      available = false
-    })
-    return available
-  }
-  var xys = [...SPAWN_COORDINATES]
-  shuffle(xys)
-  for (xy of xys) {
-    var [x, y] = xy
-    if (isAvailable(x, y))
-      return xy
-  }
-  return null
-}
-
-const randomBool = createBoolBiasedRng(1)
 var ga = 1
 var gb = 2.5
 var gc = 3
@@ -305,7 +248,7 @@ function classify(a, b) {
 }
 
 async function main(world, canvas) {
-  console.log('> main')
+  /* console.log('> main')*/
 
   g_player = putPlayer(world, 0, Vec2(0, 0), 0)
 
@@ -317,12 +260,13 @@ async function main(world, canvas) {
    */
   putWalls(world)
   const r = 0.75 * width / 2
-  const a0 = Math.random() * Math.PI * 2
+  /* const a0 = Math.random() * Math.PI * 2*/
+  const a0 = 0 * Math.PI * 2
 
   var digits = Array.from({length:9},(v,k)=>k+1)
   digits.push(5)
-  console.log(digits)
-  shuffle(digits)
+  /* console.log(digits)*/
+  /* shuffle(digits)*/
 
   for (var i = 0; i < 10; i++) {
     var a = a0 + Math.PI * 2 / 10 * i
@@ -333,9 +277,9 @@ async function main(world, canvas) {
 
   while (true) { // one loop per game round
     ;[p, g_knock_ball] = create_promise()
-    console.log('> main | wait for click')
+    /* console.log('> main | wait for click')*/
     await p
-    console.log('> main | got click')
+    /* console.log('> main | got click')*/
     g_knock_ball = null
 
     function same_maps(a, b) {
@@ -379,9 +323,10 @@ async function main(world, canvas) {
         break
       last_positions = positions
     }
-    console.log('> main | stopping remaining velocity')
+    /* console.log('> main | stopping remaining velocity')*/
     var done = true
 
+    console.log('$ Kill all velocities at step', world.m_stepCount)
     for (b of bodies_of_world(world)) {
       const ud = b.getUserData()
       b.setLinearVelocity({x: 0, y: 0})
@@ -400,77 +345,168 @@ async function main(world, canvas) {
   }
 }
 
-var tb
-var mouse = 0
-/* var canvas*/
-
-function _hook(aabb, callback) {
-  mouse = 0
-  console.log('hook', aabb)
-  function my_callback(f) {
-    var d = f.m_body.getUserData()
-    mouse = 0
-    if (d.type == 'player' && g_knock_ball !== null) {
-      console.log('hook:callback player')
-      mouse = 1
-      callback(f)
-    }
-    else
-      console.log('hook:callback IGNORED', d.type, g_knock_ball !== null)
-  }
-  return this.queryAABB2.apply(this, [aabb, my_callback])
+const events = {
+341: ["move", Vec2(240.1662049861507,-5703.947368421052)],
+441: ["kill", null],
+531: ["move", Vec2(-2820.8290555793856,-6036.213400113114)],
+631: ["kill", null],
+715: ["move", Vec2(-1736.55385958767,-3411.6692174901973)],
+815: ["kill", null],
+856: ["move", Vec2(-1041.171975122699,3593.823529510891)],
+956: ["kill", null],
+980: ["move", Vec2(4733.654411589059,3166.799313221475)],
+1080: ["kill", null],
+1113: ["move", Vec2(-17.093097375925524,-1340.3992276017466)],
+1193: ["kill", null],
+1220: ["move", Vec2(-1129.8613039671036,308.59253228426354)],
+1300: ["kill", null],
+1346: ["move", Vec2(-1398.3770246544534,2974.625200066688)],
+1446: ["kill", null],
+1500: ["move", Vec2(-2364.7833128116185,2322.2723386013568)],
+1580: ["kill", null],
+1632: ["move", Vec2(7806.195502194902,-2787.3350251991046)],
+1732: ["kill", null],
+1776: ["move", Vec2(6427.646998463051,2943.9443420052603)],
+1896: ["kill", null],
+1947: ["move", Vec2(5653.20522739833,1563.7359598174446)],
+2067: ["kill", null],
+2101: ["move", Vec2(10620.536910455594,2466.2084211951524)],
+2201: ["kill", null],
+2249: ["move", Vec2(7252.811366527396,1837.5453575562017)],
+2369: ["kill", null],
+2447: ["move", Vec2(4552.732852694188,2912.8256820490224)],
+2567: ["kill", null],
+2615: ["move", Vec2(601.6774713747501,714.7106300227429)],
+2695: ["kill", null],
+2753: ["move", Vec2(2188.5141732617585,-3687.9861812140452)],
+2853: ["kill", null],
+2937: ["move", Vec2(-6318.810615206455,55.4625802640948)],
+3057: ["kill", null],
+3080: ["move", Vec2(-1359.0393539641766,-1059.9360569064927)],
+3160: ["kill", null],
+3195: ["move", Vec2(3381.648148558141,-473.88793485278825)],
+3295: ["kill", null],
+3369: ["move", Vec2(-7288.671960412422,1722.5066239616947)],
+3489: ["kill", null],
+3539: ["move", Vec2(1010.6328161897775,-2574.7708658619085)],
+3619: ["kill", null],
 }
 
-planck.testbed('8 Ball', function(testbed) {
+if (BENCHMARK) {
+  for (j = 0; j < BENCH_LOOP_COUNT; j++) {
+    t0 = Date.now() / 1000
+    var world = pl.World({});
+    /* world.setContinuousPhysics(false)*/
 
-  var world = pl.World({});
-  world.__proto__.queryAABB2 = world.queryAABB
-  world.__proto__.queryAABB = _hook
-  tb = testbed
-  canvas = tb.canvas
-  testbed.x = 0;
-  testbed.y = 0;
-  testbed.width = width * 2;
-  testbed.height = height * 2;
-  testbed.ratio = 100;
-  testbed.mouseForce = mouseForce;
-  setTimeout(main, 0, world)
-
-  world.on('pre-solve', function(contact) {
-    var [player, wall, pin, dead_pin, two_pins] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
-
-    if (dead_pin) {
-      contact.setEnabled(false)
+    g_player = putPlayer(world, 0, Vec2(0, 0), 0)
+    putWalls(world)
+    const r = 0.75 * width / 2
+    const a0 = 0 * Math.PI * 2
+    var digits = Array.from({length:9},(v,k)=>k+1)
+    digits.push(5)
+    for (var i = 0; i < 10; i++) {
+      var a = a0 + Math.PI * 2 / 10 * i
+      var x = r * Math.cos(a)
+      var y = r * Math.sin(a)
+      putPinAt(world, digits[i], [x, y], null)
     }
-    if (two_pins) {
-      var [p0, p1] = two_pins
-      var ud0 = p0.getUserData()
-      var ud1 = p1.getUserData()
-      console.log('> collision of value', ud0.digit, ud1.digit)
-      if (ud0.digit + ud1.digit == 10) {
-        console.log('> Deactivating pins', ud0.idx, ud1.idx)
-        ud0.alive = false
-        ud1.alive = false
-        contact.setEnabled(false)
-        setTimeout(function () {
-          console.log('> Destroying pins', ud0.idx, ud1.idx)
-          world.destroyBody(p0)
-          world.destroyBody(p1)
-        }, 1)
-    }
-    }
-  })
 
-  canvas.onmouseup = function (_) {
-    console.log('canvas:onmouseup', 'mouse value:', mouse, 'has-callback:', g_knock_ball !== null)
-    if (mouse == 1 && g_knock_ball !== null) {
+    t1 = Date.now() / 1000
+    for (i = 0; i < 3619; i++) {
+      var ev = events[i]
+      if (ev !== undefined) {
+        if (ev[0] == 'move') {
+          g_player.applyForceToCenter(ev[1], true);
+        }
+        else {
+          for (b of bodies_of_world(world)) {
+            b.setLinearVelocity({x: 0, y: 0})
+            b.setAngularVelocity(0)
+          }
+        }
+      }
+      world.step(1/60);
+    }
+    t2 = Date.now() / 1000
+
+    console.log('prime', t1 - t0, 'steps', t2 - t1, 'total', t2 - t0)
+  }
+}
+else {
+  var tb
+  var mouse = 0
+  /* var canvas*/
+
+  function _hook(aabb, callback) {
+    mouse = 0
+    /* console.log('hook', aabb)*/
+    function my_callback(f) {
+      var d = f.m_body.getUserData()
       mouse = 0
-      g_knock_ball()
+      if (d.type == 'player' && g_knock_ball !== null) {
+        /* console.log('hook:callback player')*/
+        mouse = 1
+        callback(f)
+      }
+      /* else*/
+      /* console.log('hook:callback IGNORED', d.type, g_knock_ball !== null)*/
     }
+    return this.queryAABB2.apply(this, [aabb, my_callback])
   }
 
-  return world;
-});
+  planck.testbed('8 Ball', function(testbed) {
 
-/* var bodies = bodies_of_world(world)*/
-/* var [b] = bodies*/
+    var world = pl.World({});
+    /* world.setContinuousPhysics(false)*/
+
+    world.__proto__.queryAABB2 = world.queryAABB
+    world.__proto__.queryAABB = _hook
+    tb = testbed
+    canvas = tb.canvas
+    testbed.x = 0;
+    testbed.y = 0;
+    testbed.width = width * 2;
+    testbed.height = height * 2;
+    testbed.ratio = 100;
+    testbed.mouseForce = mouseForce;
+    setTimeout(main, 0, world)
+
+    world.on('pre-solve', function(contact) {
+      var [player, wall, pin, dead_pin, two_pins] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
+
+      if (dead_pin) {
+        contact.setEnabled(false)
+      }
+      if (two_pins) {
+        var [p0, p1] = two_pins
+        var ud0 = p0.getUserData()
+        var ud1 = p1.getUserData()
+        /* console.log('> collision of value', ud0.digit, ud1.digit)*/
+        if (ud0.digit + ud1.digit == 10) {
+          /* console.log('> Deactivating pins', ud0.idx, ud1.idx)*/
+          ud0.alive = false
+          ud1.alive = false
+          contact.setEnabled(false)
+          setTimeout(function () {
+            /* console.log('> Destroying pins', ud0.idx, ud1.idx)*/
+            world.destroyBody(p0)
+            world.destroyBody(p1)
+          }, 1)
+        }
+      }
+    })
+
+    canvas.onmouseup = function (_) {
+      /* console.log('canvas:onmouseup', 'mouse value:', mouse, 'has-callback:', g_knock_ball !== null)*/
+      if (mouse == 1 && g_knock_ball !== null) {
+        mouse = 0
+        g_knock_ball()
+      }
+    }
+
+    return world;
+  });
+
+  /* var bodies = bodies_of_world(world)*/
+  /* var [b] = bodies*/
+}

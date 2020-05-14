@@ -30,6 +30,9 @@ perspectives:
   "+1": [[ bin/index.ml, bin/about.ml ]]
   "2": [[ bin/lrcraft.ml, bin/ressources.ml ]]
 
+  "10":
+    - [ lib/game/shapes.ml ]
+
   # ft_cnnjs
   "4": [[ lib/ft_cnnjs/dune, lib/ft_cnnjs/ft_cnnjs.ml, lib/ft_cnnjs/misc.ml ]]
   "5": [[ lib/ft_cnnjs/training_types.ml, lib/ft_cnnjs/training.ml ]]

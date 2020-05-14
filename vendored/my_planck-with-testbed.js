@@ -1,18 +1,18 @@
 /*!
- * 
+ *
  * Planck.js v0.3.0
- * 
+ *
  * Copyright (c) 2016-2018 Ali Shakiba http://shakiba.me/planck.js
  * Copyright (c) 2006-2013 Erin Catto  http://www.gphysics.com
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
  * arising from the use of this software.
- * 
+ *
  * Permission is granted to anyone to use this software for any purpose,
  * including commercial applications, and to alter it and redistribute it
  * freely, subject to the following restrictions:
- * 
+ *
  * 1. The origin of this software must not be misrepresented; you must not
  * claim that you wrote the original software. If you use this software
  * in a product, an acknowledgment in the product documentation would be
@@ -20,7 +20,7 @@
  * 2. Altered source versions must be plainly marked as such, and must not be
  * misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
- * 
+ *
  */
 var planck =
 /******/ (function(modules) { // webpackBootstrap
@@ -316,7 +316,7 @@ Vec2.prototype.clone = function() {
 
 /**
  * Set this vector to all zeros.
- * 
+ *
  * @returns this
  */
 Vec2.prototype.setZero = function() {
@@ -327,7 +327,7 @@ Vec2.prototype.setZero = function() {
 
 /**
  * Set this vector to some specified coordinates.
- * 
+ *
  * @returns this
  */
 Vec2.prototype.set = function(x, y) {
@@ -385,7 +385,7 @@ Vec2.prototype.setMul = function(a, v) {
 
 /**
  * Add a vector to this vector.
- * 
+ *
  * @returns this
  */
 Vec2.prototype.add = function(w) {
@@ -475,7 +475,7 @@ Vec2.prototype.subMul = function(a, v) {
 
 /**
  * Subtract a vector from this vector
- * 
+ *
  * @returns this
  */
 Vec2.prototype.sub = function(w) {
@@ -487,7 +487,7 @@ Vec2.prototype.sub = function(w) {
 
 /**
  * Multiply this vector by a scalar.
- * 
+ *
  * @returns this
  */
 Vec2.prototype.mul = function(m) {
@@ -499,7 +499,7 @@ Vec2.prototype.mul = function(m) {
 
 /**
  * Get the length of this vector (the norm).
- * 
+ *
  * For performance, use this instead of lengthSquared (if possible).
  */
 Vec2.prototype.length = function() {
@@ -515,7 +515,7 @@ Vec2.prototype.lengthSquared = function() {
 
 /**
  * Convert this vector into a unit vector.
- * 
+ *
  * @returns old length
  */
 Vec2.prototype.normalize = function() {
@@ -586,7 +586,7 @@ Vec2.dot = function(v, w) {
 
 /**
  * Perform the cross product on two vectors. In 2D this produces a scalar.
- * 
+ *
  * Perform the cross product on a vector and a scalar. In 2D this produces a
  * vector.
  */
@@ -892,11 +892,11 @@ Rot.prototype.getYAxis = function() {
 
 /**
  * Multiply two rotations: q * r
- * 
+ *
  * @returns Rot
- * 
+ *
  * Rotate a vector
- * 
+ *
  * @returns Vec2
  */
 Rot.mul = function(rot, m) {
@@ -945,11 +945,11 @@ Rot.mulSub = function(rot, v, w) {
 
 /**
  * Transpose multiply two rotations: qT * r
- * 
+ *
  * @returns Rot
- * 
+ *
  * Inverse rotate a vector
- * 
+ *
  * @returns Vec2
  */
 Rot.mulT = function(rot, m) {
@@ -1862,7 +1862,7 @@ var Transform = __webpack_require__(4);
  * defined with respect to the body origin, which may not coincide with the
  * center of mass. However, to support dynamics we must interpolate the center
  * of mass position.
- * 
+ *
  * @prop {Vec2} localCenter Local center of mass position
  * @prop {Vec2} c World center position
  * @prop {float} a World angle
@@ -1899,7 +1899,7 @@ Sweep.prototype.setLocalCenter = function(localCenter, xf) {
 
 /**
  * Get the interpolated transform at a specific time.
- * 
+ *
  * @param xf
  * @param beta A factor in [0,1], where 0 indicates alpha0
  */
@@ -1914,7 +1914,7 @@ Sweep.prototype.getTransform = function(xf, beta) {
 
 /**
  * Advance the sweep forward, yielding a new initial state.
- * 
+ *
  * @param {float} alpha The new initial time
  */
 Sweep.prototype.advance = function(alpha) {
@@ -2037,7 +2037,7 @@ Mat33.prototype.setZero = function() {
 /**
  * Solve A * x = b, where b is a column vector. This is more efficient than
  * computing the inverse in one-shot cases.
- * 
+ *
  * @param {Vec3} v
  * @returns {Vec3}
  */
@@ -2057,9 +2057,9 @@ Mat33.prototype.solve33 = function(v) {
  * Solve A * x = b, where b is a column vector. This is more efficient than
  * computing the inverse in one-shot cases. Solve only the upper 2-by-2 matrix
  * equation.
- * 
+ *
  * @param {Vec2} v
- * 
+ *
  * @returns {Vec2}
  */
 Mat33.prototype.solve22 = function(v) {
@@ -2080,7 +2080,7 @@ Mat33.prototype.solve22 = function(v) {
 /**
  * Get the inverse of this matrix as a 2-by-2. Returns the zero matrix if
  * singular.
- * 
+ *
  * @param {Mat33} M
  */
 Mat33.prototype.getInverse22 = function(M) {
@@ -2106,7 +2106,7 @@ Mat33.prototype.getInverse22 = function(M) {
 /**
  * Get the symmetric inverse of this matrix as a 3-by-3. Returns the zero matrix
  * if singular.
- * 
+ *
  * @param {Mat33} M
  */
 Mat33.prototype.getSymInverse33 = function(M) {
@@ -2136,10 +2136,10 @@ Mat33.prototype.getSymInverse33 = function(M) {
 
 /**
  * Multiply a matrix times a vector.
- * 
+ *
  * @param {Mat33} a
  * @param {Vec3|Vec2} b
- * 
+ *
  * @returns {Vec3|Vec2}
  */
 Mat33.mul = function(a, b) {
@@ -2309,7 +2309,7 @@ var common = __webpack_require__(2);
  * where each body is a node and each joint is an edge. A joint edge belongs to
  * a doubly linked list maintained in each attached body. Each joint has two
  * joint nodes, one for each attached body.
- * 
+ *
  * @prop {Body} other provides quick access to the other body attached.
  * @prop {Joint} joint the joint
  * @prop {JointEdge} prev the previous joint edge in the body's joint list
@@ -2326,7 +2326,7 @@ function JointEdge() {
  * @typedef {Object} JointDef
  *
  * Joint definitions are used to construct joints.
- * 
+ *
  * @prop userData Use this to attach application specific data to your joints.
  *       void userData;
  * @prop {boolean} collideConnected Set this flag to true if the attached bodies
@@ -2344,7 +2344,7 @@ var DEFAULTS = {
 /**
  * The base joint class. Joints are used to constraint two bodies together in
  * various fashions. Some joints also feature limits and motors.
- * 
+ *
  * @param {JointDef} def
  */
 function Joint(def, bodyA, bodyB) {
@@ -2375,7 +2375,7 @@ function Joint(def, bodyA, bodyB) {
 
 /**
  * Short-cut function to determine if either body is inactive.
- * 
+ *
  * @returns {boolean}
  */
 Joint.prototype.isActive = function() {
@@ -2384,7 +2384,7 @@ Joint.prototype.isActive = function() {
 
 /**
  * Get the type of the concrete joint.
- * 
+ *
  * @returns JointType
  */
 Joint.prototype.getType = function() {
@@ -2393,7 +2393,7 @@ Joint.prototype.getType = function() {
 
 /**
  * Get the first body attached to this joint.
- * 
+ *
  * @returns Body
  */
 Joint.prototype.getBodyA = function() {
@@ -2402,7 +2402,7 @@ Joint.prototype.getBodyA = function() {
 
 /**
  * Get the second body attached to this joint.
- * 
+ *
  * @returns Body
  */
 Joint.prototype.getBodyB = function() {
@@ -2411,7 +2411,7 @@ Joint.prototype.getBodyB = function() {
 
 /**
  * Get the next joint the world joint list.
- * 
+ *
  * @returns Joint
  */
 Joint.prototype.getNext = function() {
@@ -2430,7 +2430,7 @@ Joint.prototype.setUserData = function(data) {
  * Get collide connected. Note: modifying the collide connect flag won't work
  * correctly because the flag is only checked when fixture AABBs begin to
  * overlap.
- * 
+ *
  * @returns {boolean}
  */
 Joint.prototype.getCollideConnected = function() {
@@ -2439,7 +2439,7 @@ Joint.prototype.getCollideConnected = function() {
 
 /**
  * Get the anchor point on bodyA in world coordinates.
- * 
+ *
  * @return {Vec2}
  */
 Joint.prototype.getAnchorA = function() {
@@ -2447,7 +2447,7 @@ Joint.prototype.getAnchorA = function() {
 
 /**
  * Get the anchor point on bodyB in world coordinates.
- * 
+ *
  * @return {Vec2}
  */
 Joint.prototype.getAnchorB = function() {
@@ -2455,7 +2455,7 @@ Joint.prototype.getAnchorB = function() {
 
 /**
  * Get the reaction force on bodyB at the joint anchor in Newtons.
- * 
+ *
  * @param {float} inv_dt
  * @return {Vec2}
  */
@@ -2464,7 +2464,7 @@ Joint.prototype.getReactionForce = function(inv_dt) {
 
 /**
  * Get the reaction torque on bodyB in N*m.
- * 
+ *
  * @param {float} inv_dt
  * @return {float}
  */
@@ -2473,7 +2473,7 @@ Joint.prototype.getReactionTorque = function(inv_dt) {
 
 /**
  * Shift the origin for any points stored in world coordinates.
- * 
+ *
  * @param {Vec2} newOrigin
  */
 Joint.prototype.shiftOrigin = function(newOrigin) {
@@ -2546,7 +2546,7 @@ Shape.prototype.getRadius = function() {
 /**
  * Get the type of this shape. You can use this to down cast to the concrete
  * shape.
- * 
+ *
  * @return the shape type.
  */
 Shape.prototype.getType = function() {
@@ -2570,7 +2570,7 @@ Shape.prototype.getChildCount = function() {
 /**
  * Test a point for containment in this shape. This only works for convex
  * shapes.
- * 
+ *
  * @param {Transform} xf The shape world transform.
  * @param p A point in world coordinates.
  */
@@ -2579,7 +2579,7 @@ Shape.prototype.testPoint = function(xf, p) {
 
 /**
  * Cast a ray against a child shape.
- * 
+ *
  * @param {RayCastOutput} output The ray-cast results.
  * @param {RayCastInput} input The ray-cast input parameters.
  * @param {Transform} transform The transform to be applied to the shape.
@@ -2591,7 +2591,7 @@ Shape.prototype.rayCast = function(output, input, transform, childIndex) {
 /**
  * Given a transform, compute the associated axis aligned bounding box for a
  * child shape.
- * 
+ *
  * @param {AABB} aabb Returns the axis aligned box.
  * @param {Transform} xf The world transform of the shape.
  * @param childIndex The child shape
@@ -2602,7 +2602,7 @@ Shape.prototype.computeAABB = function(aabb, xf, childIndex) {
 /**
  * Compute the mass properties of this shape using its dimensions and density.
  * The inertia tensor is computed about the local origin.
- * 
+ *
  * @param {MassData} massData Returns the mass data for this shape.
  * @param density The density in kilograms per meter squared.
  */
@@ -2920,7 +2920,7 @@ module.exports = Contact;
  * graph where each body is a node and each contact is an edge. A contact edge
  * belongs to a doubly linked list maintained in each attached body. Each
  * contact has two contact nodes, one for each attached body.
- * 
+ *
  * @prop {Contact} contact The contact
  * @prop {ContactEdge} prev The previous contact edge in the body's contact list
  * @prop {ContactEdge} next The next contact edge in the body's contact list
@@ -2935,7 +2935,7 @@ function ContactEdge(contact) {
 
 /**
  * @function Contact~evaluate
- * 
+ *
  * @param manifold
  * @param xfA
  * @param fixtureA
@@ -2949,7 +2949,7 @@ function ContactEdge(contact) {
  * The class manages contact between two shapes. A contact exists for each
  * overlapping AABB in the broad-phase (except if filtered). Therefore a contact
  * object may exist that has no contact points.
- * 
+ *
  * @param {Fixture} fA
  * @param {int} indexA
  * @param {Fixture} fB
@@ -3110,7 +3110,7 @@ Contact.prototype.getManifold = function() {
 
 /**
  * Get the world manifold.
- * 
+ *
  * @param {WorldManifold} [worldManifold]
  */
 Contact.prototype.getWorldManifold = function(worldManifold) {
@@ -3259,9 +3259,9 @@ Contact.prototype.evaluate = function(manifold, xfA, xfB) {
 
 /**
  * Updates the contact manifold and touching status.
- * 
+ *
  * Note: do not assume the fixture AABBs are overlapping or are valid.
- * 
+ *
  * @param {function} listener.beginContact
  * @param {function} listener.endContact
  * @param {function} listener.preSolve
@@ -3751,16 +3751,16 @@ Contact.prototype.solveVelocityConstraint = function(step) {
     // vn1 = 0 and vn2 = 0, x1 = 0 and x2 = 0, x1 = 0 and vn2 = 0, x2 = 0 and
     // vn1 = 0 need to be tested. The first valid
     // solution that satisfies the problem is chosen.
-    // 
+    //
     // In order to account of the accumulated impulse 'a' (because of the
     // iterative nature of the solver which only requires
     // that the accumulated impulse is clamped and not the incremental
     // impulse) we change the impulse variable (x_i).
     //
     // Substitute:
-    // 
+    //
     // x = a + d
-    // 
+    //
     // a := old total impulse
     // x := new total impulse
     // d := incremental impulse
@@ -3928,7 +3928,7 @@ Contact.prototype.solveVelocityConstraint = function(step) {
 
       //
       // Case 4: x1 = 0 and x2 = 0
-      // 
+      //
       // vn1 = b1
       // vn2 = b2;
       //
@@ -4154,15 +4154,15 @@ Manifold.e_face = 1;
 /**
  * A manifold for two touching convex shapes. Manifolds are created in `evaluate`
  * method of Contact subclasses.
- * 
+ *
  * Supported manifold types are e_faceA or e_faceB for clip point versus plane
  * with radius and e_circles point versus point with radius.
- * 
+ *
  * We store contacts in this way so that position correction can account for
  * movement, which is critical for continuous physics. All contact scenarios
  * must be expressed in one of these types. This structure is stored across time
  * steps, so we keep it small.
- * 
+ *
  * @prop type e_circle, e_faceA, e_faceB
  * @prop localPoint Usage depends on manifold type:<br>
  *       e_circles: the local center of circleA <br>
@@ -4186,12 +4186,12 @@ function Manifold() {
 /**
  * A manifold point is a contact point belonging to a contact manifold. It holds
  * details related to the geometry and dynamics of the contact points.
- * 
+ *
  * This structure is stored across time steps, so we keep it small.
- * 
+ *
  * Note: impulses are used for internal caching and may not provide reliable
  * contact forces, especially for high speed collisions.
- * 
+ *
  * @prop {Vec2} localPoint Usage depends on manifold type:<br>
  *       e_circles: the local center of circleB<br>
  *       e_faceA: the local center of cirlceB or the clip point of polygonB<br>
@@ -4210,10 +4210,10 @@ function ManifoldPoint() {
 
 /**
  * Contact ids to facilitate warm starting.
- * 
+ *
  * @prop {ContactFeature} cf
  * @prop key Used to quickly compare contact ids.
- * 
+ *
  */
 function ContactID() {
   this.cf = new ContactFeature();
@@ -4234,7 +4234,7 @@ ContactID.prototype.set = function(o) {
 
 /**
  * The features that intersect to form the contact point.
- * 
+ *
  * @prop indexA Feature index on shapeA
  * @prop indexB Feature index on shapeB
  * @prop typeA The feature type on shapeA
@@ -4256,7 +4256,7 @@ ContactFeature.prototype.set = function(o) {
 
 /**
  * This is used to compute the current state of a contact manifold.
- * 
+ *
  * @prop normal World vector pointing from A to B
  * @prop points World contact point (point of intersection)
  * @prop separations A negative value indicates overlap, in meters
@@ -4271,7 +4271,7 @@ function WorldManifold() {
  * Evaluate the manifold with supplied transforms. This assumes modest motion
  * from the original state. This does not change the point count, impulses, etc.
  * The radii must come from the shapes that generated the manifold.
- * 
+ *
  * @param {WorldManifold} [wm]
  */
 Manifold.prototype.getWorldManifold = function(wm, xfA, radiusA, xfB, radiusB) {
@@ -4343,7 +4343,7 @@ Manifold.prototype.getWorldManifold = function(wm, xfA, radiusA, xfB, radiusB) {
 
 /**
  * This is used for determining the state of contact points.
- * 
+ *
  * @prop {0} nullState Point does not exist
  * @prop {1} addState Point was added in the update
  * @prop {2} persistState Point persisted across the update
@@ -4361,7 +4361,7 @@ var PointState = {
  * Compute the point states given two manifolds. The states pertain to the
  * transition from manifold1 to manifold2. So state1 is either persist or remove
  * while state2 is either add or persist.
- * 
+ *
  * @param {PointState[Settings.maxManifoldPoints]} state1
  * @param {PointState[Settings.maxManifoldPoints]} state2
  */
@@ -4402,7 +4402,7 @@ function getPointStates(state1, state2, manifold1, manifold2) {
 
 /**
  * Used for computing contact manifolds.
- * 
+ *
  * @prop {Vec2} v
  * @prop {ContactID} id
  */
@@ -4418,7 +4418,7 @@ ClipVertex.prototype.set = function(o) {
 
 /**
  * Clipping for contact manifolds. Sutherland-Hodgman clipping.
- * 
+ *
  * @param {ClipVertex[2]} vOut
  * @param {ClipVertex[2]} vIn
  */
@@ -4821,7 +4821,7 @@ function ComputeCentroid(vs, count) {
  *
  * Create a convex hull from the given array of local points. The count must be
  * in the range [3, Settings.maxPolygonVertices].
- * 
+ *
  * Warning: the points may be re-ordered, even if they form a convex polygon
  * Warning: collinear points are handled but not removed. Collinear points may
  * lead to poor stacking behavior.
@@ -6995,9 +6995,9 @@ var BodyDef = {
 
 /**
  * @class
- * 
+ *
  * A rigid body composed of one or more fixtures.
- * 
+ *
  * @param {BodyDef} def
  */
 function Body(world, def) {
@@ -7146,7 +7146,7 @@ Body.prototype.getType = function() {
 };
 
 /**
- * 
+ *
  * @private
  */
 Body.prototype.setType = function(type) {
@@ -7224,7 +7224,7 @@ Body.prototype.isAwake = function() {
 
 /**
  * Set the sleep state of the body. A sleeping body has very low CPU cost.
- * 
+ *
  * @param flag Set to true to wake the body, false to put it to sleep.
  */
 Body.prototype.setAwake = function(flag) {
@@ -7253,7 +7253,7 @@ Body.prototype.isActive = function() {
  * will be added to the broad-phase. If you pass a flag of false, all fixtures
  * will be removed from the broad-phase and all contacts will be destroyed.
  * Fixtures and joints are otherwise unaffected.
- * 
+ *
  * You may continue to create/destroy fixtures and joints on inactive bodies.
  * Fixtures on an inactive body are implicitly inactive and will not participate
  * in collisions, ray-casts, or queries. Joints connected to an inactive body
@@ -7325,7 +7325,7 @@ Body.prototype.getTransform = function() {
  * Set the position of the body's origin and rotation. Manipulating a body's
  * transform may cause non-physical behavior. Note: contacts are updated on the
  * next call to World.step.
- * 
+ *
  * @param position The world position of the body's local origin.
  * @param angle The world rotation in radians.
  */
@@ -7411,7 +7411,7 @@ Body.prototype.getLocalCenter = function() {
 
 /**
  * Get the linear velocity of the center of mass.
- * 
+ *
  * @return the linear velocity of the center of mass.
  */
 Body.prototype.getLinearVelocity = function() {
@@ -7420,7 +7420,7 @@ Body.prototype.getLinearVelocity = function() {
 
 /**
  * Get the world linear velocity of a world point attached to this body.
- * 
+ *
  * @param worldPoint A point in world coordinates.
  */
 Body.prototype.getLinearVelocityFromWorldPoint = function(worldPoint) {
@@ -7431,7 +7431,7 @@ Body.prototype.getLinearVelocityFromWorldPoint = function(worldPoint) {
 
 /**
  * Get the world velocity of a local point.
- * 
+ *
  * @param localPoint A point in local coordinates.
  */
 Body.prototype.getLinearVelocityFromLocalPoint = function(localPoint) {
@@ -7440,7 +7440,7 @@ Body.prototype.getLinearVelocityFromLocalPoint = function(localPoint) {
 
 /**
  * Set the linear velocity of the center of mass.
- * 
+ *
  * @param v The new linear velocity of the center of mass.
  */
 Body.prototype.setLinearVelocity = function(v) {
@@ -7455,7 +7455,7 @@ Body.prototype.setLinearVelocity = function(v) {
 
 /**
  * Get the angular velocity.
- * 
+ *
  * @returns the angular velocity in radians/second.
  */
 Body.prototype.getAngularVelocity = function() {
@@ -7464,7 +7464,7 @@ Body.prototype.getAngularVelocity = function() {
 
 /**
  * Set the angular velocity.
- * 
+ *
  * @param omega The new angular velocity in radians/second.
  */
 Body.prototype.setAngularVelocity = function(w) {
@@ -7506,7 +7506,7 @@ Body.prototype.setGravityScale = function(scale) {
 
 /**
  * Get the total mass of the body.
- * 
+ *
  * @returns The mass, usually in kilograms (kg).
  */
 Body.prototype.getMass = function() {
@@ -7515,7 +7515,7 @@ Body.prototype.getMass = function() {
 
 /**
  * Get the rotational inertia of the body about the local origin.
- * 
+ *
  * @return the rotational inertia, usually in kg-m^2.
  */
 Body.prototype.getInertia = function() {
@@ -7525,7 +7525,7 @@ Body.prototype.getInertia = function() {
 
 /**
  * @typedef {Object} MassData This holds the mass data computed for a shape.
- * 
+ *
  * @prop mass The mass of the shape, usually in kilograms.
  * @prop center The position of the shape's centroid relative to the shape's
  *       origin.
@@ -7619,7 +7619,7 @@ Body.prototype.resetMassData = function() {
  * that this changes the center of mass position. Note that creating or
  * destroying fixtures can also alter the mass. This function has no effect if
  * the body isn't dynamic.
- * 
+ *
  * @param massData The mass properties.
  */
 Body.prototype.setMassData = function(massData) {
@@ -7663,7 +7663,7 @@ Body.prototype.setMassData = function(massData) {
  * Apply a force at a world point. If the force is not applied at the center of
  * mass, it will generate a torque and affect the angular velocity. This wakes
  * up the body.
- * 
+ *
  * @param force The world force vector, usually in Newtons (N).
  * @param point The world position of the point of application.
  * @param wake Also wake up the body
@@ -7684,7 +7684,7 @@ Body.prototype.applyForce = function(force, point, wake) {
 
 /**
  * Apply a force to the center of mass. This wakes up the body.
- * 
+ *
  * @param force The world force vector, usually in Newtons (N).
  * @param wake Also wake up the body
  */
@@ -7704,7 +7704,7 @@ Body.prototype.applyForceToCenter = function(force, wake) {
 /**
  * Apply a torque. This affects the angular velocity without affecting the
  * linear velocity of the center of mass. This wakes up the body.
- * 
+ *
  * @param torque About the z-axis (out of the screen), usually in N-m.
  * @param wake Also wake up the body
  */
@@ -7725,7 +7725,7 @@ Body.prototype.applyTorque = function(torque, wake) {
  * Apply an impulse at a point. This immediately modifies the velocity. It also
  * modifies the angular velocity if the point of application is not at the
  * center of mass. This wakes up the body.
- * 
+ *
  * @param impulse The world impulse vector, usually in N-seconds or kg-m/s.
  * @param point The world position of the point of application.
  * @param wake Also wake up the body
@@ -7747,7 +7747,7 @@ Body.prototype.applyLinearImpulse = function(impulse, point, wake) {
 
 /**
  * Apply an angular impulse.
- * 
+ *
  * @param impulse The angular impulse in units of kg*m*m/s
  * @param wake Also wake up the body
  */
@@ -7787,12 +7787,12 @@ Body.prototype.shouldCollide = function(that) {
 
 /**
  * Creates a fixture and attach it to this body.
- * 
+ *
  * If the density is non-zero, this function automatically updates the mass of
  * the body.
- * 
+ *
  * Contacts are not created until the next time step.
- * 
+ *
  * Warning: This function is locked during callbacks.
 
  * @param {Shape|FixtureDef} shape Shape or fixture definition.
@@ -7833,9 +7833,9 @@ Body.prototype.createFixture = function(shape, fixdef) {
  * mass of the body if the body is dynamic and the fixture has positive density.
  * All fixtures attached to a body are implicitly destroyed when the body is
  * destroyed.
- * 
+ *
  * Warning: This function is locked during callbacks.
- * 
+ *
  * @param fixture The fixture to be removed.
  */
 Body.prototype.destroyFixture = function(fixture) {
@@ -7920,7 +7920,7 @@ Body.prototype.getLocalPoint = function(worldPoint) {
 };
 
 /**
- * 
+ *
  * Gets the corresponding local vector of a world vector.
  */
 Body.prototype.getLocalVector = function(worldVector) {
@@ -7996,7 +7996,7 @@ ChainShape.TYPE = 'chain';
  * two-sided collision, so you can use inside and outside collision. Therefore,
  * you may use any winding order. Connectivity information is used to create
  * smooth collisions.
- * 
+ *
  * WARNING: The chain will not collide properly if there are self-intersections.
  */
 function ChainShape(vertices, loop) {
@@ -8031,7 +8031,7 @@ function ChainShape(vertices, loop) {
 
 /**
  * Create a loop. This automatically adjusts connectivity.
- * 
+ *
  * @param vertices an array of vertices, these are copied
  * @param count the vertex count
  */
@@ -8061,7 +8061,7 @@ ChainShape.prototype._createLoop = function(vertices) {
 
 /**
  * Create a chain with isolated end vertices.
- * 
+ *
  * @param vertices an array of vertices, these are copied
  * @param count the vertex count
  */
@@ -8384,7 +8384,7 @@ var AABB = __webpack_require__(16);
  *
  * A fixture definition is used to create a fixture. This class defines an
  * abstract fixture definition. You can reuse fixture definitions safely.
- * 
+ *
  * @prop friction The friction coefficient, usually in the range [0,1]
  * @prop restitution The restitution (elasticity) usually in the range [0,1]
  * @prop density The density, usually in kg/m^2
@@ -8426,7 +8426,7 @@ function FixtureProxy(fixture, childIndex) {
  * fixture inherits its transform from its parent. Fixtures hold additional
  * non-geometric data such as friction, collision filters, etc. Fixtures are
  * created via Body.createFixture.
- * 
+ *
  * @param {Shape|FixtureDef} shape Shape of fixture definition.
  * @param {FixtureDef|number} def Fixture definition or number.
  */
@@ -8728,13 +8728,13 @@ Fixture.prototype.refilter = function() {
 /**
  * Implement this method to provide collision filtering, if you want finer
  * control over contact creation.
- * 
+ *
  * Return true if contact calculations should be performed between these two
  * fixtures.
- * 
+ *
  * Warning: for performance reasons this is only called when the AABBs begin to
  * overlap.
- * 
+ *
  * @param {Fixture} fixtureA
  * @param {Fixture} fixtureB
  */
@@ -9866,7 +9866,7 @@ module.exports = DynamicTree;
 
 /**
  * A node in the dynamic tree. The client does not interact with this directly.
- * 
+ *
  * @prop {AABB} aabb Enlarged AABB
  * @prop {integer} height 0: leaf, -1: free node
  */
@@ -9894,7 +9894,7 @@ TreeNode.prototype.isLeaf = function() {
  * expand the proxy AABB by `aabbExtension` so that the proxy AABB is bigger
  * than the client object. This allows the client object to move by small
  * amounts without triggering a tree update.
- * 
+ *
  * Nodes are pooled and relocatable, so we use node indices rather than
  * pointers.
  */
@@ -9912,7 +9912,7 @@ function DynamicTree() {
 
 /**
  * Get proxy user data.
- * 
+ *
  * @return the proxy user data or 0 if the id is invalid.
  */
 DynamicTree.prototype.getUserData = function(id) {
@@ -9923,7 +9923,7 @@ DynamicTree.prototype.getUserData = function(id) {
 
 /**
  * Get the fat AABB for a node id.
- * 
+ *
  * @return the proxy user data or 0 if the id is invalid.
  */
 DynamicTree.prototype.getFatAABB = function(id) {
@@ -9953,7 +9953,7 @@ DynamicTree.prototype.freeNode = function(node) {
 /**
  * Create a proxy in the tree as a leaf node. We return the index of the node
  * instead of a pointer so that we can grow the node pool.
- * 
+ *
  * Create a proxy. Provide a tight fitting AABB and a userData pointer.
  */
 DynamicTree.prototype.createProxy = function(aabb, userData) {
@@ -9991,11 +9991,11 @@ DynamicTree.prototype.destroyProxy = function(id) {
  * Move a proxy with a swepted AABB. If the proxy has moved outside of its
  * fattened AABB, then the proxy is removed from the tree and re-inserted.
  * Otherwise the function returns immediately.
- * 
+ *
  * @param id
  * @param aabb
  * @param {Vec2} d Displacement
- * 
+ *
  * @return true if the proxy was re-inserted.
  */
 DynamicTree.prototype.moveProxy = function(id, aabb, d) {
@@ -10537,7 +10537,7 @@ DynamicTree.prototype.rebuildBottomUp = function() {
 /**
  * Shift the world origin. Useful for large worlds. The shift formula is:
  * position -= newOrigin
- * 
+ *
  * @param newOrigin The new origin with respect to the old origin
  */
 DynamicTree.prototype.shiftOrigin = function(newOrigin) {
@@ -10555,14 +10555,14 @@ DynamicTree.prototype.shiftOrigin = function(newOrigin) {
 
 /**
  * @function {DynamicTree~queryCallback}
- * 
+ *
  * @param id Node id.
  */
 
 /**
  * Query an AABB for overlapping proxies. The callback class is called for each
  * proxy that overlaps the supplied AABB.
- * 
+ *
  * @param {DynamicTree~queryCallback} queryCallback
  */
 DynamicTree.prototype.query = function(aabb, queryCallback) {
@@ -10598,7 +10598,7 @@ DynamicTree.prototype.query = function(aabb, queryCallback) {
  * callback also performs the any collision filtering. This has performance
  * roughly equal to k * log(n), where k is the number of collisions and n is the
  * number of proxies in the tree.
- * 
+ *
  * @param input The ray-cast input data. The ray extends from p1 to p1 +
  *          maxFraction * (p2 - p1).
  * @param rayCastCallback A function that is called for each proxy that is hit by
@@ -10806,7 +10806,7 @@ var SimplexCache = Distance.Cache;
 
 /**
  * Input parameters for TimeOfImpact.
- * 
+ *
  * @prop {DistanceProxy} proxyA
  * @prop {DistanceProxy} proxyB
  * @prop {Sweep} sweepA
@@ -10830,7 +10830,7 @@ TOIOutput.e_separated = 4;
 
 /**
  * Output parameters for TimeOfImpact.
- * 
+ *
  * @prop state
  * @prop t
  */
@@ -10852,10 +10852,10 @@ stats.toiMaxRootIters = 0;
  * represented as a fraction between [0,tMax]. This uses a swept separating axis
  * and may miss some intermediate, non-tunneling collision. If you change the
  * time interval, you should call this function again.
- * 
+ *
  * Note: use Distance to compute the contact point and normal at the time of
  * impact.
- * 
+ *
  * CCD via the local separating axis method. This seeks progression by computing
  * the largest time at which separation is maintained.
  */
@@ -11299,12 +11299,12 @@ RevoluteJoint.prototype = create(RevoluteJoint._super.prototype);
  * initial configuration can violate the constraint slightly. You also need to
  * specify the initial relative angle for joint limits. This helps when saving
  * and loading a game.
- * 
+ *
  * The local anchor points are measured from the body's origin rather than the
  * center of mass because: 1. you might not know where the center of mass will
  * be. 2. if you add/remove shapes from a body and recompute the mass, the
  * joints will be broken.
- * 
+ *
  * @prop {bool} enableLimit A flag to enable joint limits.
  * @prop {bool} enableMotor A flag to enable the joint motor.
  * @prop {float} lowerAngle The lower angle for the joint limit (radians).
@@ -11930,7 +11930,7 @@ PrismaticJoint.prototype = create(PrismaticJoint._super.prototype);
  * The joint translation is zero when the local anchor points coincide in world
  * space. Using local anchors and a local axis helps when saving and loading a
  * game.
- * 
+ *
  * @prop {boolean} enableLimit Enable/disable the joint limit.
  * @prop {float} lowerTranslation The lower translation limit, usually in
  *       meters.
@@ -12647,7 +12647,7 @@ module.exports = function(base) {
 
 /**
  * ! is the definitive JavaScript type testing library
- * 
+ *
  * @copyright 2013-2014 Enrico Marino / Jordan Harband
  * @license MIT
  */
@@ -12980,7 +12980,7 @@ BroadPhase.prototype.query = function(aabb, queryCallback) {
  * callback also performs the any collision filtering. This has performance
  * roughly equal to k * log(n), where k is the number of collisions and n is the
  * number of proxies in the tree.
- * 
+ *
  * @param input The ray-cast input data. The ray extends from p1 to p1 +
  *          maxFraction * (p2 - p1).
  * @param rayCastCallback A function that is called for each proxy that is hit by
@@ -12993,7 +12993,7 @@ BroadPhase.prototype.rayCast = function(input, rayCastCallback) {
 /**
  * Shift the world origin. Useful for large worlds. The shift formula is:
  * position -= newOrigin
- * 
+ *
  * @param newOrigin The new origin with respect to the old origin
  */
 BroadPhase.prototype.shiftOrigin = function(newOrigin) {
@@ -13061,7 +13061,7 @@ BroadPhase.prototype.unbufferMove = function(proxyId) {
 
 /**
  * Update the pairs. This results in pair callbacks. This can only add pairs.
- * 
+ *
  * @param {BroadPhase~AddPair} addPairCallback
  */
 BroadPhase.prototype.updatePairs = function(addPairCallback) {
@@ -13274,7 +13274,7 @@ TimeStep.prototype.reset = function(dt) {
 
 /**
  * Finds and solves islands. An island is a connected subset of the world.
- * 
+ *
  * @param {World} world
  */
 function Solver(world) {
@@ -13369,7 +13369,7 @@ Solver.prototype.solveWorld = function(step) {
       if (b.isStatic()) {
         continue;
       }
-      
+
       // Search all contacts connected to this body.
       for (var ce = b.m_contactList; ce; ce = ce.next) {
         var contact = ce.contact;
@@ -13519,7 +13519,7 @@ Solver.prototype.solveIsland = function(step) {
   }
 
   _DEBUG && this.printBodies('Q: ');
-  
+
   for (var i = 0; i < this.m_joints.length; ++i) {
     var joint = this.m_joints[i];
     joint.initVelocityConstraints(step);
@@ -14545,13 +14545,13 @@ function FindIncidentEdge(c, poly1, xf1, edge1, poly2, xf2) {
 }
 
 /**
- * 
+ *
  * Find edge normal of max separation on A - return if separating axis is found<br>
  * Find edge normal of max separation on B - return if separation axis is found<br>
  * Choose reference edge as min(minA, minB)<br>
  * Find incident edge<br>
  * Clip
- * 
+ *
  * The normal points from 1 to 2
  */
 function CollidePolygons(manifold, polyA, xfA, polyB, xfB) {
@@ -15386,7 +15386,7 @@ DistanceJoint.prototype = create(DistanceJoint._super.prototype);
  * local anchor points so that the initial configuration can violate the
  * constraint slightly. This helps when saving and loading a game. Warning: Do
  * not use a zero or short length.
- * 
+ *
  * @prop {float} frequencyHz The mass-spring-damper frequency in Hertz. A value
  *       of 0 disables softness.
  * @prop {float} dampingRatio The damping ratio. 0 = no damping, 1 = critical
@@ -15738,7 +15738,7 @@ FrictionJoint.prototype = create(FrictionJoint._super.prototype);
  * @typedef {Object} FrictionJointDef
  *
  * Friction joint definition.
- * 
+ *
  * @prop {float} maxForce The maximum friction force in N.
  * @prop {float} maxTorque The maximum friction torque in N-m.
  *
@@ -16076,12 +16076,12 @@ var DEFAULTS = {
  * A gear joint is used to connect two joints together. Either joint can be a
  * revolute or prismatic joint. You specify a gear ratio to bind the motions
  * together: coordinate1 + ratio * coordinate2 = constant
- * 
+ *
  * The ratio can be negative or positive. If one joint is a revolute joint and
  * the other joint is a prismatic joint, then the ratio will have units of
  * length or units of 1/length. Warning: You have to manually destroy the gear
  * joint if joint1 or joint2 is destroyed.
- * 
+ *
  * This definition requires two existing revolute or prismatic joints (any
  * combination will work).
  *
@@ -16326,13 +16326,13 @@ GearJoint.prototype.initVelocityConstraints = function(step) {
   if (step.warmStarting) {
     vA.addMul(this.m_mA * this.m_impulse, this.m_JvAC);
     wA += this.m_iA * this.m_impulse * this.m_JwA;
-    
+
     vB.addMul(this.m_mB * this.m_impulse, this.m_JvBD);
     wB += this.m_iB * this.m_impulse * this.m_JwB;
-    
+
     vC.subMul(this.m_mC * this.m_impulse, this.m_JvAC);
     wC -= this.m_iC * this.m_impulse * this.m_JwC;
-  
+
     vD.subMul(this.m_mD * this.m_impulse, this.m_JvBD);
     wD -= this.m_iD * this.m_impulse * this.m_JwD;
 
@@ -16539,7 +16539,7 @@ MotorJoint.prototype = create(MotorJoint._super.prototype);
  * @typedef {Object} MotorJointDef
  *
  * Motor joint definition.
- * 
+ *
  * @prop {float} angularOffset The bodyB angle minus bodyA angle in radians.
  * @prop {float} maxForce The maximum motor force in N.
  * @prop {float} maxTorque The maximum motor torque in N-m.
@@ -16908,7 +16908,7 @@ MouseJoint.prototype = create(MouseJoint._super.prototype);
  *
  * Mouse joint definition. This requires a world target point, tuning
  * parameters, and the time step.
- * 
+ *
  * @prop [maxForce = 0.0] The maximum constraint force that can be exerted to
  *       move the candidate body. Usually you will express as some multiple of
  *       the weight (multiplier * mass * gravity).
@@ -16930,7 +16930,7 @@ var DEFAULTS = {
  * A mouse joint is used to make a point on a body track a specified world
  * point. This a soft constraint with a maximum force. This allows the
  * constraint to stretch and without applying huge forces.
- * 
+ *
  * NOTE: this joint is not documented in the manual because it was developed to
  * be used in the testbed. If you want to learn how to use the mouse joint, look
  * at the testbed.
@@ -17234,9 +17234,9 @@ var PulleyJointDef = {
 /**
  * The pulley joint is connected to two bodies and two fixed ground points. The
  * pulley supports a ratio such that: length1 + ratio * length2 <= constant
- * 
+ *
  * Yes, the force transmitted is scaled by the ratio.
- * 
+ *
  * Warning: the pulley joint can get a bit squirrelly by itself. They often work
  * better when combined with prismatic joints. You should also cover the the
  * anchor points with static shapes to prevent one side from going to zero
@@ -17620,10 +17620,10 @@ var DEFAULTS = {
 /**
  * A rope joint enforces a maximum distance between two points on two bodies. It
  * has no other effect.
- * 
+ *
  * Warning: if you attempt to change the maximum length during the simulation
  * you will get some non-physical behavior.
- * 
+ *
  * A model that would allow you to dynamically modify the length would have some
  * sponginess, so I chose not to implement it that way. See DistanceJoint if you
  * want to dynamically control length.
@@ -17778,13 +17778,13 @@ RopeJoint.prototype.initVelocityConstraints = function(step) {
     this.m_impulse *= step.dtRatio;
 
     var P = Vec2.mul(this.m_impulse, this.m_u);
-    
+
     vA.subMul(this.m_invMassA, P);
     wA -= this.m_invIA * Vec2.cross(this.m_rA, P);
-    
+
     vB.addMul(this.m_invMassB, P);
     wB += this.m_invIB * Vec2.cross(this.m_rB, P);
-    
+
   } else {
     this.m_impulse = 0.0;
   }
@@ -17922,7 +17922,7 @@ WeldJoint.prototype = create(WeldJoint._super.prototype);
  * Weld joint definition. You need to specify local anchor points where they are
  * attached and the relative body angle. The position of the anchor points is
  * important for computing the reaction torque.
- * 
+ *
  * @prop {float} frequencyHz The mass-spring-damper frequency in Hertz. Rotation
  *       only. Disable softness with a value of 0.
  * @prop {float} dampingRatio The damping ratio. 0 = no damping, 1 = critical
@@ -18361,7 +18361,7 @@ WheelJoint.prototype = create(WheelJoint._super.prototype);
  * joint translation is zero when the local anchor points coincide in world
  * space. Using local anchors and a local axis helps when saving and loading a
  * game.
- * 
+ *
  * @prop {boolean} enableMotor Enable/disable the joint motor.
  * @prop {float} maxMotorTorque The maximum motor torque, usually in N-m.
  * @prop {float} motorSpeed The desired motor speed in radians per second.
@@ -19479,7 +19479,9 @@ planck.testbed = function(opts, callback) {
       }
       if (targetBody) {
         var force = Vec2.sub(point, targetBody.getPosition());
-        targetBody.applyForceToCenter(force.mul(testbed.mouseForce), true);
+        force = force.mul(testbed.mouseForce)
+        console.log('$ Move player with', force, 'at step', world.m_stepCount)
+        targetBody.applyForceToCenter(force, true);
         targetBody = null;
       }
 

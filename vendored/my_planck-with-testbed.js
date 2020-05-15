@@ -19480,7 +19480,11 @@ planck.testbed = function(opts, callback) {
       if (targetBody) {
         var force = Vec2.sub(point, targetBody.getPosition());
         force = force.mul(testbed.mouseForce)
-        console.log('$ Move player with', force, 'at step', world.m_stepCount)
+        console.log(world.m_stepCount + ': ["move", Vec2('
+                  + force.x
+                  + ', '
+                  + force.y
+                  + ')],')
         targetBody.applyForceToCenter(force, true);
         targetBody = null;
       }

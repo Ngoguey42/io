@@ -77,7 +77,7 @@ function putDigitFixtures(b, digit, op, def) {
   else {
     var dense_coords = DIGITS_DEFN[digit]['exterior']
     var light_coords = simplify_coords(dense_coords)
-    console.log('> Digit ', digit, 'from', dense_coords.length, 'coords to', light_coords.length, 'coords')
+    /* console.log('> Digit ', digit, 'from', dense_coords.length, 'coords to', light_coords.length, 'coords')*/
     var fn = Vec2.scaleFn(digit_scale, digit_scale)
     shape = triangulate(light_coords)
     for (var j = 0; j < shape.length; j++) {
@@ -326,7 +326,12 @@ async function main(world, canvas) {
     /* console.log('> main | stopping remaining velocity')*/
     var done = true
 
-    console.log('$ Kill all velocities at step', world.m_stepCount)
+    console.log(world.m_stepCount
+              + ': ["freeze", '
+              + g_player.c_position.c.x
+              + ", "
+              + g_player.c_position.c.y
+              + '],')
     for (b of bodies_of_world(world)) {
       const ud = b.getUserData()
       b.setLinearVelocity({x: 0, y: 0})
@@ -345,57 +350,77 @@ async function main(world, canvas) {
   }
 }
 
+
+function onPreSolveContact(contact) {
+  var [player, wall, pin, dead_pin, two_pins] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
+
+  if (dead_pin) {
+    contact.setEnabled(false)
+  }
+  if (two_pins) {
+    var [p0, p1] = two_pins
+    var ud0 = p0.getUserData()
+    var ud1 = p1.getUserData()
+    /* console.log('> collision of value', ud0.digit, ud1.digit)*/
+    if (ud0.digit + ud1.digit == 10) {
+      /* console.log('> Deactivating pins', ud0.idx, ud1.idx)*/
+      ud0.alive = false
+      ud1.alive = false
+      contact.setEnabled(false)
+      if (!BENCHMARK) {
+        setTimeout(function () {
+          console.log(world.m_stepCount + ': ["destroy", ' + ud0.idx + ", " + ud1.idx + '],')
+          world.destroyBody(p0)
+          world.destroyBody(p1)
+        }, 1)
+      }
+    }
+  }
+}
+
 const events = {
-341: ["move", Vec2(240.1662049861507,-5703.947368421052)],
-441: ["kill", null],
-531: ["move", Vec2(-2820.8290555793856,-6036.213400113114)],
-631: ["kill", null],
-715: ["move", Vec2(-1736.55385958767,-3411.6692174901973)],
-815: ["kill", null],
-856: ["move", Vec2(-1041.171975122699,3593.823529510891)],
-956: ["kill", null],
-980: ["move", Vec2(4733.654411589059,3166.799313221475)],
-1080: ["kill", null],
-1113: ["move", Vec2(-17.093097375925524,-1340.3992276017466)],
-1193: ["kill", null],
-1220: ["move", Vec2(-1129.8613039671036,308.59253228426354)],
-1300: ["kill", null],
-1346: ["move", Vec2(-1398.3770246544534,2974.625200066688)],
-1446: ["kill", null],
-1500: ["move", Vec2(-2364.7833128116185,2322.2723386013568)],
-1580: ["kill", null],
-1632: ["move", Vec2(7806.195502194902,-2787.3350251991046)],
-1732: ["kill", null],
-1776: ["move", Vec2(6427.646998463051,2943.9443420052603)],
-1896: ["kill", null],
-1947: ["move", Vec2(5653.20522739833,1563.7359598174446)],
-2067: ["kill", null],
-2101: ["move", Vec2(10620.536910455594,2466.2084211951524)],
-2201: ["kill", null],
-2249: ["move", Vec2(7252.811366527396,1837.5453575562017)],
-2369: ["kill", null],
-2447: ["move", Vec2(4552.732852694188,2912.8256820490224)],
-2567: ["kill", null],
-2615: ["move", Vec2(601.6774713747501,714.7106300227429)],
-2695: ["kill", null],
-2753: ["move", Vec2(2188.5141732617585,-3687.9861812140452)],
-2853: ["kill", null],
-2937: ["move", Vec2(-6318.810615206455,55.4625802640948)],
-3057: ["kill", null],
-3080: ["move", Vec2(-1359.0393539641766,-1059.9360569064927)],
-3160: ["kill", null],
-3195: ["move", Vec2(3381.648148558141,-473.88793485278825)],
-3295: ["kill", null],
-3369: ["move", Vec2(-7288.671960412422,1722.5066239616947)],
-3489: ["kill", null],
-3539: ["move", Vec2(1010.6328161897775,-2574.7708658619085)],
-3619: ["kill", null],
+123: ["move", Vec2(8189.966101694915, -4457.457627118645)],
+223: ["freeze", -3.2583717709039686, 5.370508766869994],
+248: ["move", Vec2(8458.22119235671, -939.902197160893)],
+348: ["freeze", 2.989605675013066, 0.2059742198642078],
+388: ["move", Vec2(1024.3861528739465, 2848.758127464377)],
+488: ["freeze", 2.967847163431716, 6.991383162408699],
+544: ["move", Vec2(-2809.9671863977383, -990.7772456671967)],
+624: ["freeze", -4.891969865155296, 5.574849331193486],
+719: ["move", Vec2(-6069.67233069066, -5034.288440221952)],
+724: ["destroy", 6, 2],
+819: ["freeze", 3.9102816060715266, 4.963682086599173],
+854: ["move", Vec2(-6188.885173189342, -6739.586979483325)],
+864: ["destroy", 9, 4],
+954: ["freeze", -2.697437621110727, 3.8587470814325413],
+1011: ["move", Vec2(6910.147524179155, -2584.3886275939394)],
+1019: ["destroy", 7, 1],
+1111: ["freeze", 5.8340167914163406, 5.6451718263968065],
+1154: ["move", Vec2(-4272.744619052654, -2480.019468031071)],
+1174: ["destroy", 8, 0],
+1254: ["freeze", -4.5922095652817285, 3.115764014886168],
+1300: ["move", Vec2(9441.62653689355, -3129.3305608644823)],
+1420: ["freeze", 7.111925344546387, -1.2115397152983276],
+1484: ["move", Vec2(-1965.7318633396485, -4547.7265287109885)],
+1604: ["freeze", -5.895234301331919, 0.41081798524056573],
+1636: ["move", Vec2(-1597.622237471704, 3667.5956108017076)],
+1736: ["freeze", -5.736635361041712, -4.799957148184972],
+1773: ["move", Vec2(2611.188547523195, -2669.373706518094)],
+1873: ["freeze", 4.795966425364605, 2.288058353191983],
+1917: ["move", Vec2(-3448.442641258729, 5718.958247162038)],
+2037: ["freeze", 6.233844595696732, -6.729582409346531],
+2083: ["move", Vec2(3244.053149073121, 5182.094278610428)],
+2183: ["freeze", -1.5249097242065228, -5.388947096575334],
+2240: ["move", Vec2(-6653.493793174352, -789.9025607584284)],
+2254: ["destroy", 5, 3],
+2360: ["freeze", 0.6719982830393725, 0.14290374267577768],
 }
 
 if (BENCHMARK) {
   for (j = 0; j < BENCH_LOOP_COUNT; j++) {
     t0 = Date.now() / 1000
     var world = pl.World({});
+    world.on('pre-solve', onPreSolveContact)
     /* world.setContinuousPhysics(false)*/
 
     g_player = putPlayer(world, 0, Vec2(0, 0), 0)
@@ -413,19 +438,39 @@ if (BENCHMARK) {
 
     t1 = Date.now() / 1000
     for (i = 0; i < 3619; i++) {
+      world.step(1/60);
+
+      for (b of bodies_of_world(world))  {
+        var [player, wall, pin, dead_pin, two_pins] = classify(b, b)
+        if (dead_pin)
+          world.destroyBody(b)
+      }
+
       var ev = events[i]
       if (ev !== undefined) {
         if (ev[0] == 'move') {
           g_player.applyForceToCenter(ev[1], true);
         }
-        else {
+        else if (ev[0] == 'freeze') {
           for (b of bodies_of_world(world)) {
             b.setLinearVelocity({x: 0, y: 0})
             b.setAngularVelocity(0)
           }
+          /* console.log('> freeze player at', g_player.c_position.c.x, g_player.c_position.c.y, 'was', ev[1], ev[2])*/
         }
+        /* else if (ev[0] == 'destroy') {
+         *   for (b of bodies_of_world(world)) {
+         *     if (b.getUserData().idx == ev[1]) {
+         *       console.log('> destroy ball', ev[1])
+         *       world.destroyBody(b)
+         *     }
+         *     if (b.getUserData().idx == ev[2]) {
+         *       world.destroyBody(b)
+         *       console.log('> destroy ball', ev[2])
+         *     }
+         *   }*/
+        /* }*/
       }
-      world.step(1/60);
     }
     t2 = Date.now() / 1000
 
@@ -471,30 +516,7 @@ else {
     testbed.mouseForce = mouseForce;
     setTimeout(main, 0, world)
 
-    world.on('pre-solve', function(contact) {
-      var [player, wall, pin, dead_pin, two_pins] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
-
-      if (dead_pin) {
-        contact.setEnabled(false)
-      }
-      if (two_pins) {
-        var [p0, p1] = two_pins
-        var ud0 = p0.getUserData()
-        var ud1 = p1.getUserData()
-        /* console.log('> collision of value', ud0.digit, ud1.digit)*/
-        if (ud0.digit + ud1.digit == 10) {
-          /* console.log('> Deactivating pins', ud0.idx, ud1.idx)*/
-          ud0.alive = false
-          ud1.alive = false
-          contact.setEnabled(false)
-          setTimeout(function () {
-            /* console.log('> Destroying pins', ud0.idx, ud1.idx)*/
-            world.destroyBody(p0)
-            world.destroyBody(p1)
-          }, 1)
-        }
-      }
-    })
+    world.on('pre-solve', onPreSolveContact)
 
     canvas.onmouseup = function (_) {
       /* console.log('canvas:onmouseup', 'mouse value:', mouse, 'has-callback:', g_knock_ball !== null)*/

@@ -7,46 +7,76 @@ open struct
   module Firebug = Js_of_ocaml.Firebug
 end
 
-type entry = [ `Pagebuilder | `Tfjs | `Cryptojs | `Pako | `Reactjs ]
+type entry = [ `Pagebuilder | `Tfjs | `Cryptojs | `Pako | `Reactjs | `Bootstrap ]
 
-external import_js : Js.js_string Js.t -> unit Misc.promise Js.t = "ft_js_import"
+let type_of_url url =
+  match Filename.extension url with
+  | ".js" -> `Js
+  | ".css" -> `Css
+  | _ -> Printf.sprintf "Unknown type_of_url of %s" url |> failwith
 
-let import_js name =
-  if Webworker.is_web_worker then (
-    Worker.import_scripts [ name ];
-    Lwt.return () )
-  else name |> Js.string |> import_js |> Misc.wrap_promise
-
-let urls_of_entry : entry -> string list = function
+let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
+ fun ?(what = `Both) entry ->
+  let is_url_accepted url =
+    match (what, type_of_url url) with
+    | `Js, `Css -> false
+    | `Css, `Js -> false
+    | `Js, `Js | `Css, `Css -> true
+    | `Both, `Css | `Both, `Js -> true
+  in
+  ( match entry with
   | `Tfjs ->
       [
-        "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js";
-        "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js";
+        [ "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" ];
+        [
+          "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js";
+        ];
       ]
   | `Cryptojs ->
       [
-        "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js";
-        "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js";
-        "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js";
+        [ "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js" ];
+        [
+          "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js";
+          "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js";
+        ];
       ]
-  | `Pako -> [ "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" ]
+  | `Pako -> [ [ "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" ] ]
   | `Reactjs ->
       [
-        "https://unpkg.com/react@16/umd/react.development.js";
-        "https://unpkg.com/react-dom@16/umd/react-dom.development.js";
+        [
+          "https://unpkg.com/react@16/umd/react.development.js";
+          "https://unpkg.com/react-dom@16/umd/react-dom.development.js";
+        ];
       ]
   | `Pagebuilder ->
       [
-        Filename.concat
-          (Misc.origin_of_url (Dom_html.window##.location##.href |> Js.to_string))
-          "build/default/bin/page_builder.bc.js";
+        [
+          Filename.concat
+            (Misc.origin_of_url (Dom_html.window##.location##.href |> Js.to_string))
+            "build/default/bin/page_builder.bc.js";
+        ];
       ]
+  | `Bootstrap ->
+      [
+        [ "https://code.jquery.com/jquery-3.5.1.slim.min.js" ];
+        [
+          "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css";
+          "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.bundle.min.js";
+        ];
+      ] )
+  |> List.map (List.filter is_url_accepted)
+  |> List.filter (fun l -> List.length l > 0)
 
-let import entry =
+let import ?(what = `Both) entry =
   let open Lwt.Infix in
-  let rec aux = function [] -> Lwt.return () | hd :: tl -> import_js hd >>= fun () -> aux tl in
-  aux (urls_of_entry entry)
-
-let import_sync entry =
-  if not Webworker.is_web_worker then failwith "From import_sync: Only works from webworker";
-  Worker.import_scripts (urls_of_entry entry)
+  let rec aux = function
+    | [] -> Lwt.return ()
+    | urls :: tl ->
+        List.map
+          (fun url ->
+            match type_of_url url with `Js -> Misc.import_js url | `Css -> Misc.import_css url)
+          urls
+        |> Lwt.join
+        >>= fun () -> aux tl
+  in
+  aux (urls_of_entry ~what entry)

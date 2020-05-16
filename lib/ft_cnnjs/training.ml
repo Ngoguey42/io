@@ -112,7 +112,8 @@ module Webworker_routine = struct
       let on_in_message msg =
         match postprocess_in_msg msg with
         | `Prime params ->
-            Ft_js.Scripts.import_sync `Tfjs;
+            Ft_js.Scripts.urls_of_entry ~what:`Js `Tfjs
+            |> List.iter Js_of_ocaml.Worker.import_scripts;
             let routine () = routine params fire_routine_event user_status in
             Js_of_ocaml_lwt.Lwt_js_events.async routine
         | #user_status as msg -> set_user_status msg

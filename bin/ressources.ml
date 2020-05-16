@@ -23,6 +23,7 @@ module Vset = Set.Make (Vertex)
 let dependencies =
   [
     (`Pagebuilder, []);
+    (`Bootstrap, []);
     (`Reactjs, []);
     (`Pako, []);
     (`Tfjs, []);
@@ -35,11 +36,12 @@ let dependencies =
 
 let name_of_entry : Vertex.t -> string = function
   | #Mnist.entry as entry -> Mnist.filename_of_entry entry
-  | `Pagebuilder -> "OCaml code"
+  | `Pagebuilder -> "Website OCaml code"
   | `Reactjs -> "ReactJS"
   | `Tfjs -> "TensorFlow.js"
   | `Pako -> "pako"
   | `Cryptojs -> "CryptoJS"
+  | `Bootstrap -> "Bootstrap"
 
 let description_of_entry : Vertex.t -> string = function
   | `Pagebuilder ->
@@ -48,13 +50,14 @@ let description_of_entry : Vertex.t -> string = function
   | `Tfjs -> "Tensor computations js library running on cpu or gpu using WebGL"
   | `Pako -> "Compression js library"
   | `Cryptojs -> "Cryptography js library"
+  | `Bootstrap -> "User interface js/css library"
   | `Train_imgs -> "MNIST train-set images"
   | `Train_labs -> "MNIST train-set labels"
   | `Test_imgs -> "MNIST test-set images"
   | `Test_labs -> "MNIST test-set labels"
 
 let urls_of_entry : Vertex.t -> string list = function
-  | #Ft_js.Scripts.entry as entry -> Ft_js.Scripts.urls_of_entry entry
+  | #Ft_js.Scripts.entry as entry -> Ft_js.Scripts.urls_of_entry entry |> List.concat
   | #Mnist.entry as entry -> [ Mnist.url_of_entry entry ]
 
 (* Some hard-coded compressed file sizes that I couldn't retrieve through XHR *)
@@ -66,9 +69,12 @@ let byte_count_of_url_opt : string -> Int64.t option = function
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js" -> Some 1463L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js" -> Some 700L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js" -> Some 830L
-  | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7417L
+  | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7412L
   | "https://unpkg.com/react@16/umd/react.development.js" -> Some 30840L
   | "https://unpkg.com/react-dom@16/umd/react-dom.development.js" -> Some 245565L
+  | "https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.4.0/cjs/popper.min.js" -> Some 7954L
+  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" -> Some 22555L
+  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" -> Some 14099L
   | _ -> None
 
 let string_of_byte_count count =
@@ -143,10 +149,12 @@ let construct_tr (entry, events) =
           let s = Printf.sprintf "\u{00a0}(%s)" (string_of_byte_count size) in
           [ of_tag "div" ~class_:"entry-size" [ of_string s ] ]
     in
+    ignore tt;
     of_tag "tr"
       [
         of_tag "th" ~class_:"entry-info"
-          [ of_tag "div" ([ of_tag "div" ~class_:"tooltip" [ of_string name; tt ] ] @ size) ];
+          [ of_tag "div" ([ of_tag "div" [ of_string name ] ] @ size) ];
+        (* [ of_tag "div" ([ of_tag "div" ~class_:"tooltip" [ of_string name; tt ] ] @ size) ]; *)
         of_tag "th" ~class_:"entry-status" [ of_string s ];
       ]
   in

@@ -178,3 +178,40 @@ let to_dom_html cast html =
 let select elt query cast =
   let elt = elt##querySelector (Js.string query) in
   Js.coerce_opt elt cast (fun _ -> assert false)
+
+let import_css url : unit Lwt.t =
+  let lwt, lwt' = Lwt.wait () in
+  let elt = Dom_html.createLink Dom_html.window##.document in
+  elt##.href := Js.string url;
+  elt##.rel := Js.string "stylesheet";
+  elt##._type := Js.string "text/css";
+  let onload _ =
+    Lwt.wakeup lwt' ();
+    Js._true
+  in
+  let onerror _ =
+    Lwt.wakeup_exn lwt' (Failure "CSS load failed");
+    Js._true
+  in
+  (Js.Unsafe.coerce elt)##.onload := Js.wrap_callback onload;
+  (Js.Unsafe.coerce elt)##.onerror := Js.wrap_callback onerror;
+  Dom.appendChild Dom_html.window##.document##.head elt;
+  lwt
+
+let import_js url : unit Lwt.t =
+  let lwt, lwt' = Lwt.wait () in
+  let elt = Dom_html.createScript Dom_html.window##.document in
+  elt##.src := Js.string url;
+  elt##.async := Js._true;
+  let onload _ =
+    Lwt.wakeup lwt' ();
+    Js._true
+  in
+  let onerror _ =
+    Lwt.wakeup_exn lwt' (Failure "JS load failed");
+    Js._true
+  in
+  (Js.Unsafe.coerce elt)##.onload := Js.wrap_callback onload;
+  (Js.Unsafe.coerce elt)##.onerror := Js.wrap_callback onerror;
+  Dom.appendChild Dom_html.window##.document##.head elt;
+  lwt

@@ -12,13 +12,15 @@ module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
+  let textdiv = [%html "<div class='textdiv'></div>"] |> Tyxml_js.To_dom.of_element in
+  Dom.appendChild body textdiv;
 
-  Ft_js.Scripts.import `Reactjs >>= fun () ->
+  Lwt.join [ Ft_js.import_css "styles.css"; Ft_js.Scripts.import `Reactjs ] >>= fun () ->
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
   let lwt, lwt' = Lwt.wait () in
   let send_event res = Lwt.wakeup lwt' res in
-  Dom.appendChild body container;
+  Dom.appendChild textdiv container;
   Reactjs.render (Reactjs.Jsx.of_constructor Ressources.construct send_event) container;
   lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
@@ -45,7 +47,7 @@ let main () =
           };
       }
   in
-  Dom.appendChild body container;
+  Dom.appendChild textdiv container;
   Reactjs.(
     Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event) |> Fun.flip render container);
   lwt >|= function `Crash exn -> raise exn | `End -> () | `Abort -> ()

@@ -16,8 +16,9 @@ let main () =
   let header =
     [%html
       "<div id='header'>" "<a href='index.html'>&#127968; Homepage</a> | "
-        "<a href='cinquante.html'>&#x1f3ae; Cinquante (wip)</a> | "
-        "<a href='about.html'>&#128196; Making-of (wip)</a>" "</div>"]
+        "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | "
+        "<a href='mnist-js.html'>&#x1f5b3; MNIST Js</a> | "
+        "<a href='about.html'>&#128196; Making-of</a>" "</div>"]
   in
   let error exn =
     let msg = Printexc.to_string exn in
@@ -41,7 +42,7 @@ let main () =
     | "index" | "/" ->
         display @@ Index.create_content ();
         Lwt.return ()
-    | "cinquante" -> Cinquante.main ()
+    | "mnist-js" -> Mnist_js.main ()
     | "about" ->
         display @@ About.create_content ();
         Lwt.return ()

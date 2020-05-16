@@ -19,16 +19,15 @@ perspectives:
     - [ ./persp.yaml, ./README.md,    ./build.sh ]
     - [ <up>,         ./.ocamlformat, ./dune-project ]
   "+0":
-    - [ ./index.html,        ./styles.css ]
-    - [ ./about.html,        <up> ]
-    - [ ./cinquante.html, <up> ]
+    - [ ./index.html, ./cinquante.html,   ./styles.css ]
+    - [ ./about.html, ./mnist-js.html,    <up> ]
   "++0":
     - [./ft.opam, ./, ./fnn.opam]
     - [./ft_js.opam, ./, ./pshape.opam]
     - [./ft_cnnjs.opam, ./, ./]
   "1": [[ bin/dune, bin/page_builder.ml ]]
   "+1": [[ bin/index.ml, bin/about.ml ]]
-  "2": [[ bin/cinquante.ml, bin/ressources.ml ]]
+  "2": [[ bin/mnist-js.ml, bin/ressources.ml ]]
 
   "10":
     - [ lib/game/shapes.ml ]

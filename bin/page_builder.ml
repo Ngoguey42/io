@@ -16,7 +16,7 @@ let main () =
   let header =
     [%html
       "<div id='header'>" "<a href='index.html'>&#127968; Homepage</a> | "
-        "<a href='lrcraft-game.html'>&#x1f3ae; Learning Rate Craft (wip)</a> | "
+        "<a href='cinquante.html'>&#x1f3ae; Cinquante (wip)</a> | "
         "<a href='about.html'>&#128196; Making-of (wip)</a>" "</div>"]
   in
   let error exn =
@@ -41,7 +41,7 @@ let main () =
     | "index" | "/" ->
         display @@ Index.create_content ();
         Lwt.return ()
-    | "lrcraft-game" -> Lrcraft.main ()
+    | "cinquante" -> Cinquante.main ()
     | "about" ->
         display @@ About.create_content ();
         Lwt.return ()

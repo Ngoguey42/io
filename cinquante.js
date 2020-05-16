@@ -14,9 +14,10 @@ const mouseForce = width * 30
 const ARE_BULLETS = true
 const MIN_CONTACT_STEP_DISTANCE = 20
 const MAX_HP = 100
-const BENCHMARK = true
+const BENCHMARK = false
 const USE_BALLS = false
 const BENCH_LOOP_COUNT = 10
+const RANDOM_START = true
 
 function putWalls(world) {
   var thickness = width / 4
@@ -260,13 +261,17 @@ async function main(world, canvas) {
    */
   putWalls(world)
   const r = 0.75 * width / 2
-  /* const a0 = Math.random() * Math.PI * 2*/
-  const a0 = 0 * Math.PI * 2
-
   var digits = Array.from({length:9},(v,k)=>k+1)
   digits.push(5)
-  /* console.log(digits)*/
-  /* shuffle(digits)*/
+  var a0
+
+  if (!RANDOM_START) {
+    a0 = 0 * Math.PI * 2
+  }
+  else {
+    a0 = Math.random() * Math.PI * 2
+    shuffle(digits)
+  }
 
   for (var i = 0; i < 10; i++) {
     var a = a0 + Math.PI * 2 / 10 * i
@@ -350,32 +355,31 @@ async function main(world, canvas) {
   }
 }
 
+function createPreSolveCallback(world) {
+  function onPreSolveContact(contact) {
+    var [player, wall, pin, dead_pin, two_pins] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
 
-function onPreSolveContact(contact) {
-  var [player, wall, pin, dead_pin, two_pins] = classify(contact.getFixtureA().getBody(), contact.getFixtureB().getBody())
-
-  if (dead_pin) {
-    contact.setEnabled(false)
-  }
-  if (two_pins) {
-    var [p0, p1] = two_pins
-    var ud0 = p0.getUserData()
-    var ud1 = p1.getUserData()
-    /* console.log('> collision of value', ud0.digit, ud1.digit)*/
-    if (ud0.digit + ud1.digit == 10) {
-      /* console.log('> Deactivating pins', ud0.idx, ud1.idx)*/
-      ud0.alive = false
-      ud1.alive = false
+    if (dead_pin) {
       contact.setEnabled(false)
-      if (!BENCHMARK) {
+    }
+    if (two_pins) {
+      var [p0, p1] = two_pins
+      var ud0 = p0.getUserData()
+      var ud1 = p1.getUserData()
+      /* console.log('> collision of value', ud0.digit, ud1.digit)*/
+      if (ud0.digit + ud1.digit == 10) {
+        /* console.log('> Deactivating pins', ud0.idx, ud1.idx)*/
+        ud0.alive = false
+        ud1.alive = false
+        contact.setEnabled(false)
         setTimeout(function () {
-          console.log(world.m_stepCount + ': ["destroy", ' + ud0.idx + ", " + ud1.idx + '],')
           world.destroyBody(p0)
           world.destroyBody(p1)
         }, 1)
       }
     }
   }
+  return onPreSolveContact
 }
 
 const events = {
@@ -420,7 +424,7 @@ if (BENCHMARK) {
   for (j = 0; j < BENCH_LOOP_COUNT; j++) {
     t0 = Date.now() / 1000
     var world = pl.World({});
-    world.on('pre-solve', onPreSolveContact)
+    world.on('pre-solve', createPreSolveCallback(world))
     /* world.setContinuousPhysics(false)*/
 
     g_player = putPlayer(world, 0, Vec2(0, 0), 0)
@@ -516,7 +520,7 @@ else {
     testbed.mouseForce = mouseForce;
     setTimeout(main, 0, world)
 
-    world.on('pre-solve', onPreSolveContact)
+    world.on('pre-solve', createPreSolveCallback(world))
 
     canvas.onmouseup = function (_) {
       /* console.log('canvas:onmouseup', 'mouse value:', mouse, 'has-callback:', g_knock_ball !== null)*/

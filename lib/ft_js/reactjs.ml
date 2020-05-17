@@ -24,11 +24,25 @@ class type component = object end
 class type jsx = object end
 
 type 'props construction =
-  ('props -> jsx Js.t) * (unit -> unit) * (unit -> unit) * (component Js.t -> unit) list
+  ('props -> jsx Js.t)
+  * (unit -> unit)
+  * (unit -> unit)
+  * (unit -> unit)
+  * (component Js.t -> unit) list
 
-let construct ?mount ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4 render :
-    'props construction =
+class type ref_ =
+  object
+    method current : Dom_html.element Js.t Js.Opt.t Js.readonly_prop
+  end
+
+let create_ref () : ref_ Js.t =
+  let open Js.Unsafe in
+  fun_call global##._React##.createRef [||]
+
+let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4 render
+    : 'props construction =
   let mount = match mount with None -> fun () -> () | Some mount -> mount in
+  let update = match update with None -> fun () -> () | Some update -> update in
   let unmount = match unmount with None -> fun () -> () | Some unmount -> unmount in
 
   let setup_signal signal idx self =
@@ -51,7 +65,7 @@ let construct ?mount ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signa
         s4 |> Option.to_list |> List.map (fun s -> setup_signal s 4);
       ]
   in
-  (render, mount, unmount, setup_signals)
+  (render, mount, update, unmount, setup_signals)
 
 module Jsx = struct
   external _ft_js_create_component_type :
@@ -64,22 +78,43 @@ module Jsx = struct
 
   let of_string s : jsx Js.t = s |> Js.string |> Obj.magic
 
-  let of_tag :
-      string ->
+  let _create_element :
+      'a ->
+      ?ref:ref_ Js.t ->
+      ?key:string ->
       ?on_click:(event -> unit) ->
       ?disabled:bool ->
       ?colspan:string ->
-      ?class_:string ->
+      ?href:string ->
+      ?placement:string ->
+      ?overlay:jsx Js.t ->
+      ?bordered:bool ->
+      ?size:string ->
+      ?title:string ->
+      ?id:string ->
+      ?class_:string list ->
       ?style:(string * string) list ->
       jsx Js.t list ->
       jsx Js.t =
-   fun name ?on_click ?disabled ?colspan ?class_ ?style children ->
+   fun ctor ?ref ?key ?on_click ?disabled ?colspan ?href ?placement ?overlay ?bordered ?size ?title
+       ?id ?class_ ?style children ->
     let open Js.Unsafe in
     let props = object%js end in
+    Option.iter (fun v -> set props (Js.string "ref") v) ref;
+    Option.iter (fun v -> set props (Js.string "key") v) key;
     Option.iter (fun fn -> set props (Js.string "onClick") (Js.wrap_callback fn)) on_click;
     Option.iter (fun v -> set props (Js.string "disabled") v) disabled;
     Option.iter (fun v -> set props (Js.string "colSpan") (Js.string v)) colspan;
-    Option.iter (fun v -> set props (Js.string "className") (Js.string v)) class_;
+    Option.iter (fun v -> set props (Js.string "href") (Js.string v)) href;
+    Option.iter (fun v -> set props (Js.string "title") (Js.string v)) title;
+    Option.iter (fun v -> set props (Js.string "placement") (Js.string v)) placement;
+    Option.iter (fun v -> set props (Js.string "overlay") v) overlay;
+    Option.iter (fun v -> set props (Js.string "bordered") v) bordered;
+    Option.iter (fun v -> set props (Js.string "size") (Js.string v)) size;
+    Option.iter (fun v -> set props (Js.string "id") v) id;
+    Option.iter
+      (fun l -> set props (Js.string "className") (String.concat " " l |> Js.string))
+      class_;
     Option.iter
       (fun l ->
         let style = object%js end in
@@ -87,10 +122,18 @@ module Jsx = struct
         set props (Js.string "style") style)
       style;
 
-    let args = [| name |> Js.string |> inject; inject props |] in
-    let children = List.map inject children |> Array.of_list in
-    let args = Array.concat [ args; children ] in
+    let args =
+      Array.concat [ [| ctor; inject props |]; List.map inject children |> Array.of_list ]
+    in
     fun_call global##._React##.createElement args
+
+  let of_tag name =
+    let open Js.Unsafe in
+    _create_element (name |> Js.string |> inject)
+
+  let of_bootstrap name =
+    let open Js.Unsafe in
+    _create_element (get global##._ReactBootstrap (Js.string name))
 
   (* Constructor is called with `props`. `render` is also called with `props` because React doesn't
      re-instanciate the component when `props` changes. Two design patterns can be adopted:
@@ -114,9 +157,10 @@ module Jsx = struct
       | None ->
           let cls =
             let g self props =
-              let render, mount, unmount, setup_signals = constructor props##.data in
+              let render, mount, update, unmount, setup_signals = constructor props##.data in
               (Js.Unsafe.coerce self)##.ftJsRender := Js.wrap_callback render;
               (Js.Unsafe.coerce self)##.ftJsMount := Js.wrap_callback mount;
+              (Js.Unsafe.coerce self)##.ftJsUpdate := Js.wrap_callback update;
               (Js.Unsafe.coerce self)##.ftJsUnmount := Js.wrap_callback unmount;
               List.iter (fun fn -> fn self) setup_signals
             in
@@ -144,9 +188,10 @@ module Jsx = struct
       | None ->
           let cls =
             let g self _ =
-              let render, mount, unmount, setup_signals = construct render in
+              let render, mount, update, unmount, setup_signals = construct render in
               (Js.Unsafe.coerce self)##.ftJsRender := Js.wrap_callback render;
               (Js.Unsafe.coerce self)##.ftJsMount := Js.wrap_callback mount;
+              (Js.Unsafe.coerce self)##.ftJsUpdate := Js.wrap_callback update;
               (Js.Unsafe.coerce self)##.ftJsUnmount := Js.wrap_callback unmount;
               List.iter (fun fn -> fn self) setup_signals
             in

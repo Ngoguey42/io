@@ -3,6 +3,8 @@ open struct
   module Reactjs = Ft_js.Reactjs
   module Mnist = Ft_cnnjs.Mnist
   module Scripts = Ft_js.Scripts
+  module Firebug = Js_of_ocaml.Firebug
+  module Js = Js_of_ocaml.Js
 end
 
 type uint8_ba = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
@@ -23,7 +25,6 @@ module Vset = Set.Make (Vertex)
 let dependencies =
   [
     (`Pagebuilder, []);
-    (`Bootstrap, []);
     (`Reactjs, []);
     (`Pako, []);
     (`Tfjs, []);
@@ -45,16 +46,16 @@ let name_of_entry : Vertex.t -> string = function
 
 let description_of_entry : Vertex.t -> string = function
   | `Pagebuilder ->
-      "Webpage source code and OCaml external libraries transpiled to one JavaScript file"
+      "Webpage source code, OCaml runtime and OCaml external libraries transpiled to one JavaScript file"
   | `Reactjs -> "User interface js library"
   | `Tfjs -> "Tensor computations js library running on cpu or gpu using WebGL"
   | `Pako -> "Compression js library"
   | `Cryptojs -> "Cryptography js library"
   | `Bootstrap -> "User interface js/css library"
-  | `Train_imgs -> "MNIST train-set images"
-  | `Train_labs -> "MNIST train-set labels"
-  | `Test_imgs -> "MNIST test-set images"
-  | `Test_labs -> "MNIST test-set labels"
+  | `Train_imgs -> "MNIST dataset train-set images"
+  | `Train_labs -> "MNIST dataset train-set labels"
+  | `Test_imgs -> "MNIST dataset test-set images"
+  | `Test_labs -> "MNIST dataset test-set labels"
 
 let urls_of_entry : Vertex.t -> string list = function
   | #Ft_js.Scripts.entry as entry -> Ft_js.Scripts.urls_of_entry entry |> List.concat
@@ -72,9 +73,11 @@ let byte_count_of_url_opt : string -> Int64.t option = function
   | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7412L
   | "https://unpkg.com/react@16/umd/react.development.js" -> Some 30840L
   | "https://unpkg.com/react-dom@16/umd/react-dom.development.js" -> Some 245565L
-  | "https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.4.0/cjs/popper.min.js" -> Some 7954L
+  | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" ->
+      Some 33519L
+  | "https://code.jquery.com/jquery-3.5.1.slim.min.js" -> Some 23311L
   | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" -> Some 22555L
-  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" -> Some 14099L
+  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.bundle.min.js" -> Some 20581L
   | _ -> None
 
 let string_of_byte_count count =
@@ -141,21 +144,22 @@ let construct_tr (entry, events) =
   let render _ =
     let open Reactjs.Jsx in
     let s = match React.S.value signal with `Ongoing s -> s | `Done -> "\u{02713}" in
-    let tt = of_tag "span" ~class_:"tooltiptext" [ of_string description ] in
     let size =
       match React.S.value size_option_signal with
-      | None -> []
-      | Some size ->
-          let s = Printf.sprintf "\u{00a0}(%s)" (string_of_byte_count size) in
-          [ of_tag "div" ~class_:"entry-size" [ of_string s ] ]
+      | None -> ""
+      | Some size -> Printf.sprintf "\u{00a0}(%s)" (string_of_byte_count size)
     in
-    ignore tt;
+    let tt =
+      of_bootstrap "Tooltip" ~id:"tooltip-right" [ of_tag "div" [ of_string description ] ]
+    in
     of_tag "tr"
       [
-        of_tag "th" ~class_:"entry-info"
-          [ of_tag "div" ([ of_tag "div" [ of_string name ] ] @ size) ];
-        (* [ of_tag "div" ([ of_tag "div" ~class_:"tooltip" [ of_string name; tt ] ] @ size) ]; *)
-        of_tag "th" ~class_:"entry-status" [ of_string s ];
+        of_tag "th" ~class_:[ "entry-name" ]
+          [
+            of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt
+              [ of_tag "div" [ of_string (name ^ size) ] ];
+          ];
+        of_tag "th" ~class_:[ "entry-status" ] [ of_string s ];
       ]
   in
   let mount () =
@@ -166,6 +170,7 @@ let construct_tr (entry, events) =
         | None -> Ft_js.size_of_urls [ url ] fire_size_fetch_event)
       urls
   in
+
   Reactjs.construct ~signal ~signal:size_option_signal ~mount render
 
 let construct : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
@@ -244,12 +249,13 @@ let construct : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
 
   let render _ =
     let open Reactjs.Jsx in
-    let head = of_tag "tr" [ of_tag "th" ~colspan:"2" [ of_string "Ressources" ] ] in
+    let head = of_tag "tr" [ of_tag "th" ~colspan:"3" [ of_string "Ressources" ] ] in
     let entries = List.map fst dependencies in
     let tails =
       List.map (fun entry -> of_constructor ~key:entry construct_tr (entry, events)) entries
     in
-    of_tag "table" ~class_:"ressources" [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
+    of_bootstrap "Table" ~class_:[ "ressources" ] ~bordered:true ~size:"sm"
+      [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
   in
 
   let mount () =

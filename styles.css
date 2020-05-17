@@ -29,17 +29,9 @@ h1, h2 { border-bottom: 1px solid black; }
 h2, h3 { padding-left: 9px; }
 h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 /* ************************************************************************** */
-.ressources {
-    border: 1px solid black; border-radius: 3px; font-family: "Fira Sans", sans-serif;
-    table-layout: fixed; width: 100%;
-}
-.ressources > thead > tr { background: #EBEBEB; }
-.ressources > tbody > tr { height: 25px; }
-.ressources .entry-info { text-align: right; }
-.ressources div { display: inline-block; }
-.ressources .entry-size { font-size: small; }
-.ressources .entry-status { text-align: center; width: 175px; }
-.ressources > thead > tr { height: 33px; }
+.ressources > thead > tr { background: #EBEBEB; text-align: center }
+.ressources .entry-name { text-align: right; width: 50%; }
+.ressources .entry-status { text-align: center; }
 /* ************************************************************************** */
 .mnist-pred {
     border: 1px solid black;
@@ -66,20 +58,3 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 .mnist-pred .highest-one { font-weight: bold; }
 .mnist-pred .not-highest-one { font-style: italic; }
 /* ************************************************************************** */
-.tooltip { position: relative; display: inline-block; border-bottom: 1px dotted black; }
-.tooltip .tooltiptext {
-  visibility: hidden;
-  font-family: "Fira Sans", sans-serif;
-  font-size: small;
-  width: 200px;
-  word-wrap:break-word;
-  background-color: black;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  padding: 7px;
-  position: absolute;
-  z-index: 1;
-  text-align: left;
-}
-.tooltip:hover .tooltiptext { visibility: visible; }

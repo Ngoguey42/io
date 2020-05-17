@@ -47,6 +47,7 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
           "https://unpkg.com/react@16/umd/react.development.js";
           "https://unpkg.com/react-dom@16/umd/react-dom.development.js";
         ];
+        [ "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" ];
       ]
   | `Pagebuilder ->
       [

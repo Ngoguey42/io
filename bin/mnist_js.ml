@@ -1,13 +1,15 @@
-module Dom_html = Js_of_ocaml.Dom_html
-module Dom = Js_of_ocaml.Dom
-module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
-module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
-module Js = Js_of_ocaml.Js
-module Firebug = Js_of_ocaml.Firebug
-module Ndarray = Owl_base_dense_ndarray_generic
-module Typed_array = Js_of_ocaml.Typed_array
-module Reactjs = Ft_js.Reactjs
-module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+open struct
+  module Dom_html = Js_of_ocaml.Dom_html
+  module Dom = Js_of_ocaml.Dom
+  module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
+  module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
+  module Js = Js_of_ocaml.Js
+  module Firebug = Js_of_ocaml.Firebug
+  module Ndarray = Owl_base_dense_ndarray_generic
+  module Typed_array = Js_of_ocaml.Typed_array
+  module Reactjs = Ft_js.Reactjs
+  module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+end
 
 let main () =
   let open Lwt.Infix in
@@ -15,7 +17,9 @@ let main () =
   let textdiv = [%html "<div class='textdiv'></div>"] |> Tyxml_js.To_dom.of_element in
   Dom.appendChild body textdiv;
 
+  (* ************************************************************************ *)
   Lwt.join [ Ft_js.import_css "styles.css"; Ft_js.Scripts.import `Reactjs ] >>= fun () ->
+  Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
   let lwt, lwt' = Lwt.wait () in

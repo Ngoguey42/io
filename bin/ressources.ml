@@ -26,6 +26,7 @@ let dependencies =
   [
     (`Pagebuilder, []);
     (`Reactjs, []);
+    (`Reactjsbootstrap, [ `Reactjs ]);
     (`Pako, []);
     (`Tfjs, []);
     (`Cryptojs, []);
@@ -35,10 +36,11 @@ let dependencies =
     (`Test_labs, [ `Pako ]);
   ]
 
-let name_of_entry : Vertex.t -> string = function
+let name_of_entry : [< Vertex.t ] -> string = function
   | #Mnist.entry as entry -> Mnist.filename_of_entry entry
-  | `Pagebuilder -> "Website OCaml code"
+  | `Pagebuilder -> "Website's OCaml source code"
   | `Reactjs -> "ReactJS"
+  | `Reactjsbootstrap -> "ReactJS Bootstrap"
   | `Tfjs -> "TensorFlow.js"
   | `Pako -> "pako"
   | `Cryptojs -> "CryptoJS"
@@ -46,8 +48,10 @@ let name_of_entry : Vertex.t -> string = function
 
 let description_of_entry : Vertex.t -> string = function
   | `Pagebuilder ->
-      "Webpage source code, OCaml runtime and OCaml external libraries transpiled to one JavaScript file"
+      "Website source code, OCaml runtime and OCaml external libraries transpiled to one \
+       JavaScript file"
   | `Reactjs -> "User interface js library"
+  | `Reactjsbootstrap -> "User interface js library"
   | `Tfjs -> "Tensor computations js library running on cpu or gpu using WebGL"
   | `Pako -> "Compression js library"
   | `Cryptojs -> "Cryptography js library"
@@ -64,19 +68,16 @@ let urls_of_entry : Vertex.t -> string list = function
 (* Some hard-coded compressed file sizes that I couldn't retrieve through XHR *)
 let byte_count_of_url_opt : string -> Int64.t option = function
   | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" -> Some 204294L
-  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js"
-    ->
-      Some 11545L
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js" -> Some 11545L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js" -> Some 1463L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js" -> Some 700L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js" -> Some 830L
   | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7412L
   | "https://unpkg.com/react@16/umd/react.development.js" -> Some 30840L
   | "https://unpkg.com/react-dom@16/umd/react-dom.development.js" -> Some 245565L
-  | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" ->
-      Some 33519L
-  | "https://code.jquery.com/jquery-3.5.1.slim.min.js" -> Some 23311L
+  | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" -> Some 33519L
   | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" -> Some 22555L
+  | "https://code.jquery.com/jquery-3.5.1.slim.min.js" -> Some 23311L
   | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.bundle.min.js" -> Some 20581L
   | _ -> None
 
@@ -199,7 +200,10 @@ let construct : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
 
   let launch_script_fetch : Ft_js.Scripts.entry -> _ =
    fun entry ->
-    if entry = `Reactjs || entry = `Pagebuilder then fire_event ((entry :> Vertex.t), `Done)
+    if entry = `Reactjs || entry = `Pagebuilder || entry = `Reactjsbootstrap then
+      Lwt_js_events.async (fun () ->
+          fire_event ((entry :> Vertex.t), `Done);
+          Lwt.return ())
     else
       Lwt_js_events.async (fun () ->
           let open Lwt.Infix in
@@ -225,6 +229,7 @@ let construct : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) -> _ =
       to_launch |> Vset.to_seq |> List.of_seq
       |> List.filter_map (function #Scripts.entry as e -> Some e | #Mnist.entry -> None)
     in
+
     List.iter launch_script_fetch script_tasks
   in
 

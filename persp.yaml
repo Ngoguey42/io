@@ -27,7 +27,7 @@ perspectives:
     - [./ft_cnnjs.opam, ./, ./]
   "1": [[ bin/dune, bin/page_builder.ml ]]
   "+1": [[ bin/index.ml, bin/about.ml ]]
-  "2": [[ bin/mnist-js.ml, bin/ressources.ml ]]
+  "2": [[ bin/mnist_js.ml, bin/ressources.ml ]]
 
   "10":
     - [ lib/game/shapes.ml ]

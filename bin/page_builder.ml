@@ -1,11 +1,14 @@
-module Dom_html = Js_of_ocaml.Dom_html
-module Dom = Js_of_ocaml.Dom
-module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
-module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
-module Js = Js_of_ocaml.Js
-module Firebug = Js_of_ocaml.Firebug
-module Webworker = Ft_js.Webworker
-module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
+(* Website and webworkers entry point *)
+open struct
+  module Dom_html = Js_of_ocaml.Dom_html
+  module Dom = Js_of_ocaml.Dom
+  module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
+  module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
+  module Js = Js_of_ocaml.Js
+  module Firebug = Js_of_ocaml.Firebug
+  module Webworker = Ft_js.Webworker
+  module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
+end
 
 let display x =
   let body = Dom_html.window##.document##.body in
@@ -17,7 +20,7 @@ let main () =
     [%html
       "<div id='header'>" "<a href='index.html'>&#127968; Homepage</a> | "
         "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | "
-        "<a href='mnist-js.html'>&#x1f5b3; MNIST Js</a> | "
+        "<a href='mnist-js.html'>&#x1f4bb; MNIST Js</a> | "
         "<a href='about.html'>&#128196; Making-of</a>" "</div>"]
   in
   let error exn =

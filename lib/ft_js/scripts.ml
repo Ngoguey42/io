@@ -7,7 +7,7 @@ open struct
   module Firebug = Js_of_ocaml.Firebug
 end
 
-type entry = [ `Pagebuilder | `Tfjs | `Cryptojs | `Pako | `Reactjs | `Bootstrap ]
+type entry = [ `Pagebuilder | `Tfjs | `Cryptojs | `Pako | `Reactjs | `Bootstrap | `Reactjsbootstrap ]
 
 let type_of_url url =
   match Filename.extension url with
@@ -47,7 +47,13 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
           "https://unpkg.com/react@16/umd/react.development.js";
           "https://unpkg.com/react-dom@16/umd/react-dom.development.js";
         ];
-        [ "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" ];
+      ]
+  | `Reactjsbootstrap ->
+      [
+        [
+          "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js";
+          "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css";
+        ];
       ]
   | `Pagebuilder ->
       [

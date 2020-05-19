@@ -102,6 +102,7 @@ module Jsx = struct
       ?default_value:string ->
       ?value:string ->
       ?on_change:(Dom_html.inputElement Js.t event Js.t -> unit) ->
+      ?as_:string ->
       ?size:string ->
       ?title:string ->
       ?id:string ->
@@ -110,7 +111,7 @@ module Jsx = struct
       jsx Js.t list ->
       jsx Js.t =
    fun ctor ?ref ?key ?on_click ?disabled ?colspan ?href ?placement ?overlay ?bordered ?sm
-       ?placeholder ?type_ ?min ?step ?default_value ?value ?on_change ?size ?title ?id ?class_
+       ?placeholder ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?id ?class_
        ?style children ->
     let open Js.Unsafe in
     let props = object%js end in
@@ -132,6 +133,7 @@ module Jsx = struct
     Option.iter (fun v -> set props (Js.string "defaultValue") (Js.string v)) default_value;
     Option.iter (fun v -> set props (Js.string "value") (Js.string v)) value;
     Option.iter (fun fn -> set props (Js.string "onChange") (Js.wrap_callback fn)) on_change;
+    Option.iter (fun v -> set props (Js.string "as") (Js.string v)) as_;
 
     Option.iter (fun v -> set props (Js.string "size") (Js.string v)) size;
     Option.iter (fun v -> set props (Js.string "id") v) id;

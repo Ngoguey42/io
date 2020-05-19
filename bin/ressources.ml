@@ -285,7 +285,7 @@ let construct_react_table : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) 
         (fun entry -> of_constructor ~key:entry construct_react_row (entry, procedure_events))
         entries
     in
-    of_bootstrap "Table" ~class_:[ "ressources" ] ~bordered:true ~size:"sm"
+    of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm"
       [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
   in
 

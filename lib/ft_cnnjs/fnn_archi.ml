@@ -47,15 +47,15 @@ let[@ocamlformat "disable"] encoder_mobilenet (module Builder : Fnn.BUILDER) o :
   let open Builder in
   let open Pshape.Size in
   input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
-  |> conv2d ~o (`Full 18) (2, 2) ~s:(2, 2) ~b:`Assert_fit |> bias (* expansion (pooling) *)
+  |> conv2d ~o (`Full 100) (2, 2) ~s:(2, 2) ~b:`Assert_fit |> bias (* expansion (pooling) *)
   |> (fun up -> [
           up
           |> cropping2d [1]
-          |> conv2d ~o (`Full 6) (2, 2) ~s:(2, 2) ~b:`Assert_fit |> bias (* projection (pooling) *)
+          |> conv2d ~o (`Full 50) (2, 2) ~s:(2, 2) ~b:`Assert_fit |> bias (* projection (pooling) *)
           |> Fnn.downcast
         ; up
           |> relu |> conv2d ~o (`Depthwise 1) (4, 4) ~s:(2, 2) ~b:`Assert_fit |> bias (* transformation (pooling) *)
-          |> relu |> conv2d ~o (`Full 6) (1, 1) ~b:`Assert_fit |> bias (* projection *)
+          |> relu |> conv2d ~o (`Full 50) (1, 1) ~b:`Assert_fit |> bias (* projection *)
           |> Fnn.downcast
      ])
   |> sum
@@ -64,12 +64,53 @@ let[@ocamlformat "disable"] encoder_mobilenet (module Builder : Fnn.BUILDER) o :
           |> cropping2d [1]
           |> Fnn.downcast
         ; up
-          |> relu |> conv2d ~o (`Full 18) (1, 1) ~b:`Assert_fit |> bias (* expansion *)
+          |> relu |> conv2d ~o (`Full 100) (1, 1) ~b:`Assert_fit |> bias (* expansion *)
           |> relu |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias (* transformation *)
-          |> relu |> conv2d ~o (`Full 6) (1, 1) ~b:`Assert_fit |> bias (* projection *)
+          |> relu |> conv2d ~o (`Full 50) (1, 1) ~b:`Assert_fit |> bias (* projection *)
           |> Fnn.downcast
      ])
   |> sum
+  |> Fnn.downcast
+
+let[@ocamlformat "disable"] encoder_mobilenet_bis (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U) `Float32
+  |> conv2d ~o (`Full 20) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias (* expansion (pooling) *)
+  |> (fun up -> [
+          up
+          |> cropping2d [1]
+          |> Fnn.downcast
+        ; up
+          |> relu |> conv2d ~o (`Full 200) (1, 1) ~b:`Assert_fit |> bias (* expansion *)
+          |> relu |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias (* transformation *)
+          |> relu |> conv2d ~o (`Full 20) (1, 1) ~b:`Assert_fit |> bias (* projection *)
+          |> Fnn.downcast
+     ])
+  |> sum
+  |> (fun up -> [
+          up
+          |> cropping2d [1]
+          |> Fnn.downcast
+        ; up
+          |> relu |> conv2d ~o (`Full 200) (1, 1) ~b:`Assert_fit |> bias (* expansion *)
+          |> relu |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias (* transformation *)
+          |> relu |> conv2d ~o (`Full 20) (1, 1) ~b:`Assert_fit |> bias (* projection *)
+          |> Fnn.downcast
+     ])
+  |> sum
+  |> (fun up -> [
+          up
+          |> cropping2d [1]
+          |> Fnn.downcast
+        ; up
+          |> relu |> conv2d ~o (`Full 200) (1, 1) ~b:`Assert_fit |> bias (* expansion *)
+          |> relu |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias (* transformation *)
+          |> relu |> conv2d ~o (`Full 20) (1, 1) ~b:`Assert_fit |> bias (* projection *)
+          |> Fnn.downcast
+     ])
+  |> sum
+
   |> Fnn.downcast
 
 (* Features:
@@ -106,24 +147,60 @@ let[@ocamlformat "disable"] encoder_dilatedconvs (module Builder : Fnn.BUILDER) 
 
    Successive widths: 28, 4
  *)
+
+let[@ocamlformat "disable"] encoder_noop (module Builder : Fnn.BUILDER) _ : Fnn.network =
+  let open Builder in
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+  |> Fnn.downcast
+
 let[@ocamlformat "disable"] encoder_oneconv (module Builder : Fnn.BUILDER) o : Fnn.network =
   let open Builder in
   let open Pshape.Size in
-  (* let batch_norm = batch_norm ~affine:false in (\* TODO: Remove line *\) *)
-  (* input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:U ~s1:U `Float32 *)
   input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-  (* |> conv2d ~o (`Full 50) (16, 16) ~s:(4, 4) ~b:`Assert_fit |> bias *)
-  (* |> normalisation [ `C; `C ] *)
-  (* |> normalisation [ `S0; `C; `S1 ] *)
+  |> conv2d ~o (`Full 50) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias |> relu
+  |> Fnn.downcast
 
-  (* |> normalisation [ `S0; `C; `S1 ] ~stats:(`Global 1e-5) (\* TODO: Header of all branches *\) *)
-  (* |> normalisation [ `S0; `C; `S1 ] ~stats:(`Local 1e-5) (\* TODO: Header of all branches *\) *)
+let[@ocamlformat "disable"] encoder_twoconv (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+  |> conv2d ~o (`Full 50) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
+  |> conv2d ~o (`Full 50) (3, 3) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
+  |> Fnn.downcast
 
-  |> conv2d ~o (`Full 50) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias
-  (* |> conv2d ~o (`Full 50) (16, 16) ~s:(3, 3) ~b:`Assert_fit |> bias *)
-  (* |> batch_norm ~affine:false *)
+let[@ocamlformat "disable"] encoder_3conv (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+  |> conv2d ~o (`Full 50) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
+  |> conv2d ~o (`Full 50) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
+  |> conv2d ~o (`Full 50) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
+  |> Fnn.downcast
 
-  |> relu
+let[@ocamlformat "disable"] encoder_3conv_res (module Builder : Fnn.BUILDER) o : Fnn.network =
+  let open Builder in
+  let open Pshape.Size in
+  input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+  |> conv2d ~o (`Full 50) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias
+  |> (fun up -> [
+          up
+          |> cropping2d [1]
+          |> Fnn.downcast
+        ; up
+          |> relu |> conv2d ~o (`Full 50) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias
+          |> Fnn.downcast
+     ])
+  |> sum
+  |> (fun up -> [
+          up
+          |> cropping2d [1]
+          |> Fnn.downcast
+        ; up
+          |> relu |> conv2d ~o (`Full 50) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias
+          |> Fnn.downcast
+     ])
+  |> sum
   |> Fnn.downcast
 
 (* ********************************************************************************************** *)
@@ -142,9 +219,12 @@ let[@ocamlformat "disable"] create_nn rng =
     [
       (* encoder_padding_batchnorm builder o; *)
       (* encoder_pooling builder o; *)
-      (* encoder_mobilenet builder o; *)
+      (* encoder_mobilenet_bis builder o; *)
       (* encoder_dilatedconvs (); *)
-      encoder_oneconv builder o;
+      (* encoder_noop builder o; *)
+      (* encoder_oneconv builder o; *)
+      encoder_twoconv builder o;
+      (* encoder_3conv builder o; *)
     ]
   in
   Printf.eprintf "encoder: %s\n%!" (List.hd encoders)#to_string;
@@ -163,10 +243,10 @@ let[@ocamlformat "disable"] create_nn rng =
     (* |> conv2d ~o (`Depthwise 1) (3, 3) ~b:`Assert_fit |> bias *)
 
     (* Classify using a maxpool and a fully connected layer *)
-    (* |> maxpool2d ~b:`Assert_fit (w, w) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] |> dense ~o:`Sgd [`C, 10] ~id:(Some "classif") |> bias *)
+    |> maxpool2d ~b:`Assert_fit (w, w) |> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C] |> dense ~o:`Sgd [`C, 10] ~id:(Some "classif") |> bias
 
     (* Classify and flatten using flatten and fully-connected *)
-    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ] |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif") |> bias
+    (* |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ] |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif") |> bias *)
 
     |> softmax `C |> Fnn.downcast
   in

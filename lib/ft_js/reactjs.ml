@@ -15,7 +15,10 @@ module WeakJsObjDict = Ephemeron.K1.Make (struct
   let hash = Hashtbl.hash
 end)
 
-class type event = object end
+class type ['target] event =
+  object
+    method target : 'target Js.readonly_prop
+  end
 
 class type ['props] component_class = object end
 
@@ -84,13 +87,21 @@ module Jsx = struct
       'a ->
       ?ref:ref_ Js.t ->
       ?key:string ->
-      ?on_click:(event -> unit) ->
+      ?on_click:(Dom_html.buttonElement Js.t event Js.t -> unit) ->
       ?disabled:bool ->
       ?colspan:string ->
       ?href:string ->
       ?placement:string ->
       ?overlay:jsx Js.t ->
       ?bordered:bool ->
+      ?sm:int ->
+      ?placeholder:string ->
+      ?type_:string ->
+      ?min:float ->
+      ?step:float ->
+      ?default_value:string ->
+      ?value:string ->
+      ?on_change:(Dom_html.inputElement Js.t event Js.t -> unit) ->
       ?size:string ->
       ?title:string ->
       ?id:string ->
@@ -98,8 +109,9 @@ module Jsx = struct
       ?style:(string * string) list ->
       jsx Js.t list ->
       jsx Js.t =
-   fun ctor ?ref ?key ?on_click ?disabled ?colspan ?href ?placement ?overlay ?bordered ?size ?title
-       ?id ?class_ ?style children ->
+   fun ctor ?ref ?key ?on_click ?disabled ?colspan ?href ?placement ?overlay ?bordered ?sm
+       ?placeholder ?type_ ?min ?step ?default_value ?value ?on_change ?size ?title ?id ?class_
+       ?style children ->
     let open Js.Unsafe in
     let props = object%js end in
     Option.iter (fun v -> set props (Js.string "ref") v) ref;
@@ -112,6 +124,15 @@ module Jsx = struct
     Option.iter (fun v -> set props (Js.string "placement") (Js.string v)) placement;
     Option.iter (fun v -> set props (Js.string "overlay") v) overlay;
     Option.iter (fun v -> set props (Js.string "bordered") v) bordered;
+    Option.iter (fun v -> set props (Js.string "sm") v) sm;
+    Option.iter (fun v -> set props (Js.string "placeholder") (Js.string v)) placeholder;
+    Option.iter (fun v -> set props (Js.string "type") (Js.string v)) type_;
+    Option.iter (fun v -> set props (Js.string "min") v) min;
+    Option.iter (fun v -> set props (Js.string "step") v) step;
+    Option.iter (fun v -> set props (Js.string "defaultValue") (Js.string v)) default_value;
+    Option.iter (fun v -> set props (Js.string "value") (Js.string v)) value;
+    Option.iter (fun fn -> set props (Js.string "onChange") (Js.wrap_callback fn)) on_change;
+
     Option.iter (fun v -> set props (Js.string "size") (Js.string v)) size;
     Option.iter (fun v -> set props (Js.string "id") v) id;
     Option.iter
@@ -133,9 +154,21 @@ module Jsx = struct
     let open Js.Unsafe in
     _create_element (name |> Js.string |> inject)
 
-  let of_bootstrap name =
+  let of_bootstrap path =
     let open Js.Unsafe in
-    _create_element (get global##._ReactBootstrap (Js.string name))
+    let fail name = Printf.sprintf "Could not find %s in ReactBootstrap.%s" name path |> failwith in
+    let o =
+      match global##._ReactBootstrap |> Js.Optdef.to_option with
+      | None -> fail "ReactBootstrap"
+      | Some o -> o
+    in
+    let o =
+      List.fold_left
+        (fun o name ->
+          match get o (Js.string name) |> Js.Optdef.to_option with None -> fail name | Some o -> o)
+        o (String.split_on_char '.' path)
+    in
+    _create_element o
 
   (* Constructor is called with `props`. `render` is also called with `props` because React doesn't
      re-instanciate the component when `props` changes. Two design patterns can be adopted:

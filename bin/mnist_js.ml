@@ -20,8 +20,9 @@ let main () =
   [%html "<div id='chart'></div>"] |> Tyxml_js.To_dom.of_element |> Dom.appendChild textdiv;
 
   (* ************************************************************************ *)
-  Lwt.join [ Ft_js.import_css "styles.css"; Ft_js.Scripts.import `Reactjs ] >>= fun () ->
+  Ft_js.Scripts.import `Reactjs >>= fun () ->
   Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->
+  Ft_js.import_css "styles.css" >>= fun () ->
   Ft_js.import_js "https://cdn.plot.ly/plotly-latest.min.js" >>= fun () ->
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
@@ -32,33 +33,40 @@ let main () =
   lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
-  (* Lwt.return () *)
-
   (* ************************************************************************ *)
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
-  let lwt, lwt' = Lwt.wait () in
-  let send_event res = Lwt.wakeup lwt' res in
-  let params =
-    Ft_cnnjs.Training.
-      {
-        db = (train_imgs, train_labs, test_imgs, test_labs);
-        networks = Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]);
-        config =
-          {
-            (* backend = `Tfjs_cpu; *)
-            (* batch_size = 50; *)
-            backend = `Tfjs_webgl;
-            batch_size = 500;
-            lr = `Down (1e-3, 0.);
-            batch_count = 3;
-            seed = 42;
-            verbose = true;
-          };
-      }
-  in
   Dom.appendChild textdiv container;
-  Reactjs.(
-    Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event) |> Fun.flip render container);
-  lwt >|= function `Crash exn -> raise exn | `End -> () | `Abort -> ()
+  Reactjs.render
+    (Reactjs.Jsx.of_constructor Ft_cnnjs.Network_construction.construct_react_component send_event)
+    container;
+
+  Lwt.return ()
+
+(* (\* ************************************************************************ *\) *)
+(* let container = Html.div [] |> Tyxml_js.To_dom.of_element in *)
+(* let lwt, lwt' = Lwt.wait () in *)
+(* let send_event res = Lwt.wakeup lwt' res in *)
+(* let params = *)
+(*   Ft_cnnjs.Training. *)
+(*     { *)
+(*       db = (train_imgs, train_labs, test_imgs, test_labs); *)
+(*       networks = Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]); *)
+(*       config = *)
+(*         { *)
+(*           (\* backend = `Tfjs_cpu; *\) *)
+(*           (\* batch_size = 50; *\) *)
+(*           backend = `Tfjs_webgl; *)
+(*           batch_size = 500; *)
+(*           lr = `Down (1e-3, 0.); *)
+(*           batch_count = 3; *)
+(*           seed = 42; *)
+(*           verbose = true; *)
+(*         }; *)
+(*     } *)
+(* in *)
+(* Dom.appendChild textdiv container; *)
+(* Reactjs.( *)
+(*   Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event) |> Fun.flip render container); *)
+(* lwt >|= function `Crash exn -> raise exn | `End -> () | `Abort -> () *)
 
 (* ************************************************************************ *)

@@ -34,7 +34,7 @@ perspectives:
 
   # ft_cnnjs
   "4": [[ lib/ft_cnnjs/dune, lib/ft_cnnjs/ft_cnnjs.ml, lib/ft_cnnjs/misc.ml ]]
-  "5": [[ lib/ft_cnnjs/training_types.ml, lib/ft_cnnjs/training.ml ]]
+  "5": [[ lib/ft_cnnjs/training_types.ml, lib/ft_cnnjs/training_conf.ml, lib/ft_cnnjs/training.ml ]]
   "+5": [[lib/ft_cnnjs/fnn_archi.ml, lib/ft_cnnjs/mnist.ml]]
   "6": [[lib/ft_cnnjs/tfjs_api.ml, lib/ft_cnnjs/fnn_tfjs.ml, lib/ft_cnnjs/mnist_tfjs.ml]]
 

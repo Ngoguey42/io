@@ -5,3 +5,4 @@
 - Ensure good propagation of exceptions throughout reactml/reactjs/webworker/lwt
 - Handle the case of corrupted cache/indexeddb
 - constrain the dependencies (with >=)
+- Find a better pattern than `?signal ?signal ?signal` in `Reactjs`

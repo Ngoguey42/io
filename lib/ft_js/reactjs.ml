@@ -30,6 +30,9 @@ type 'props construction =
   * (unit -> unit)
   * (component Js.t -> unit) list
 
+type 'props constructor =
+  'props -> 'props construction
+
 class type ref_ =
   object
     method current : Dom_html.element Js.t Js.Opt.t Js.readonly_prop
@@ -141,7 +144,7 @@ module Jsx = struct
        re-instanciations (a.k.a. Fully uncontrolled component with a key).
      - Ignore the mutable props passed to construct and read the props passed to `render`.
   *)
-  let of_constructor : ?key:'a -> ('props -> 'props construction) -> 'props -> jsx Js.t =
+  let of_constructor : ?key:'a -> 'props constructor -> 'props -> jsx Js.t =
    fun ?key constructor props ->
     let open Js.Unsafe in
     let props =

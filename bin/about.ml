@@ -51,10 +51,10 @@ let create_content () =
       <a href="https://ocsigen.org/tyxml"><cite>TyXML</cite></a>
       <cite>OCaml</cite> library or using the
       <a href="https://reactjs.org/"><cite>React</cite></a> <cite>JavaScript</cite> library
-      when complex interactions are required. This small
+      when complex interactions are required.
       <a href="|}
       url_ftreact
-      {|">wrapper</a>
+      {|">This small wrapper</a>
       enhances the <cite>React (js)</cite> experience in <cite>OCaml</cite> by hidding most of the
       boilerplate and hiding the <cite>states</cite> behind the functionnal reactive primitives of
       <cite>React (ml)</cite>.

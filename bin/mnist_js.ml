@@ -32,33 +32,33 @@ let main () =
   lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) ->
   ignore (train_imgs, train_labs, test_imgs, test_labs);
 
-  Lwt.return ()
+  (* Lwt.return () *)
 
-(* (\* ************************************************************************ *\) *)
-(* let container = Html.div [] |> Tyxml_js.To_dom.of_element in *)
-(* let lwt, lwt' = Lwt.wait () in *)
-(* let send_event res = Lwt.wakeup lwt' res in *)
-(* let params = *)
-(*   Ft_cnnjs.Training. *)
-(*     { *)
-(*       db = (train_imgs, train_labs, test_imgs, test_labs); *)
-(*       networks = Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]); *)
-(*       config = *)
-(*         { *)
-(*           (\* backend = `Tfjs_cpu; *\) *)
-(*           (\* batch_size = 50; *\) *)
-(*           backend = `Tfjs_webgl; *)
-(*           batch_size = 500; *)
-(*           lr = `Down (1e-3, 0.); *)
-(*           batch_count = 15; *)
-(*           seed = 42; *)
-(*           verbose = true; *)
-(*         }; *)
-(*     } *)
-(* in *)
-(* Dom.appendChild textdiv container; *)
-(* Reactjs.( *)
-(*   Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event) |> Fun.flip render container); *)
-(* lwt >|= function `Crash exn -> raise exn | `End -> () | `Abort -> () *)
+  (* ************************************************************************ *)
+  let container = Html.div [] |> Tyxml_js.To_dom.of_element in
+  let lwt, lwt' = Lwt.wait () in
+  let send_event res = Lwt.wakeup lwt' res in
+  let params =
+    Ft_cnnjs.Training.
+      {
+        db = (train_imgs, train_labs, test_imgs, test_labs);
+        networks = Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]);
+        config =
+          {
+            (* backend = `Tfjs_cpu; *)
+            (* batch_size = 50; *)
+            backend = `Tfjs_webgl;
+            batch_size = 500;
+            lr = `Down (1e-3, 0.);
+            batch_count = 3;
+            seed = 42;
+            verbose = true;
+          };
+      }
+  in
+  Dom.appendChild textdiv container;
+  Reactjs.(
+    Jsx.of_constructor Ft_cnnjs.Training.construct (params, send_event) |> Fun.flip render container);
+  lwt >|= function `Crash exn -> raise exn | `End -> () | `Abort -> ()
 
 (* ************************************************************************ *)

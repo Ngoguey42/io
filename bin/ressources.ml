@@ -165,6 +165,7 @@ let create_download_procedure fire_upstream_event =
     (g, leaves)
   in
 
+  (* List.assq `Train_imgs mnist_tensors,  Lwt.catch main error |> ignore *)
   let reduce ((g, ongoing, mnist_tensors) as prev_state) (entry, event) =
     assert (Vset.mem entry ongoing);
     match event with
@@ -192,6 +193,7 @@ let create_download_procedure fire_upstream_event =
         (g, ongoing, mnist_tensors)
   in
   let launch () =
+    (* List.assq `Train_imgs [] |> ignore; *)
     let g =
       List.fold_left
         (fun g (entry, deps) ->
@@ -204,7 +206,8 @@ let create_download_procedure fire_upstream_event =
   in
   (events, launch)
 
-let construct_react_row : _ Reactjs.constructor = fun (entry, procedure_events) ->
+let construct_react_row : _ Reactjs.constructor =
+ fun (entry, procedure_events) ->
   let name = name_of_entry entry in
   let description = description_of_entry entry in
   let urls = urls_of_entry entry in
@@ -268,7 +271,8 @@ let construct_react_row : _ Reactjs.constructor = fun (entry, procedure_events) 
 
   Reactjs.construct ~signal ~signal:size_option_signal ~mount render
 
-let construct_react_table : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor =
+let construct_react_table : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor
+    =
  fun fire_upstream_event ->
   let procedure_events, launch = create_download_procedure fire_upstream_event in
 

@@ -16,6 +16,7 @@ let display x =
 
 let main () =
   let open Lwt.Infix in
+  (* Printexc.record_backtrace true; *)
   let header =
     [%html
       "<div id='header'>" "<a href='index.html'>&#127968; Homepage</a> | "
@@ -24,11 +25,13 @@ let main () =
         "<a href='about.html'>&#128196; Making-of</a>" "</div>"]
   in
   let error exn =
+    Printf.eprintf "> Exception:\n%!";
+    Firebug.console##log exn;
+
     let msg = Printexc.to_string exn in
     let stack = Printexc.get_backtrace () in
-    let err = Printf.sprintf "there was an error: %s %s" msg stack in
-    print_endline err;
-    err |> Html.txt |> display;
+    Printf.sprintf "Exception raised: `%s`. Stacktrace: %s" msg stack |> Html.txt |> display;
+
     Lwt.return ()
   in
   let main () =

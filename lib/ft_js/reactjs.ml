@@ -30,8 +30,7 @@ type 'props construction =
   * (unit -> unit)
   * (component Js.t -> unit) list
 
-type 'props constructor =
-  'props -> 'props construction
+type 'props constructor = 'props -> 'props construction
 
 class type ref_ =
   object
@@ -158,6 +157,11 @@ module Jsx = struct
       match WeakJsObjDict.find_opt _class_of_constructor (inject constructor) with
       | Some cls -> Obj.magic cls
       | None ->
+          let name =
+            Js.Unsafe.get constructor (Js.string "name")
+            |> Fun.flip Js.Optdef.get (fun () -> "no_name")
+            |> Js.string
+          in
           let cls =
             let g self props =
               let render, mount, update, unmount, setup_signals = constructor props##.data in
@@ -169,6 +173,7 @@ module Jsx = struct
             in
             _ft_js_create_component_type g
           in
+          Js.Unsafe.set cls (Js.string "displayName") name;
           WeakJsObjDict.add _class_of_constructor (inject constructor) (inject cls);
           Obj.magic cls
     in

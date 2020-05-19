@@ -16,15 +16,12 @@ type decoder = [ `Maxpool_fc | `Fc ] [@@deriving yojson, enum]
 type conf = { encoder : encoder; encoding_channels : int; decoder : decoder; seed : int }
 
 let lol =
-  {|(* OCaml code with FNN *)
+  {|(* OCaml code to create the Fnn.network object *)
 let rng = Random.State.make [| SEED |] in
-let builder = Fnn.create_builder ~rng () in
-let o = `Adam (0.9, 0.999, 1e-4) in
-
-let module Builder = (val builder) in
-let open Builder in
+let open (val Fnn.create_builder ~rng ()) in
 let open Pshape.Size in
 
+let o = `Adam (0.9, 0.999, 1e-4) in
 input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
 
 (* encoder *)
@@ -42,7 +39,7 @@ let code_of_decoder = function
 |}
   | `Fc ->
       {||> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C]
-|> dense ~o:`Sgd [ (`C, 10) ]
+|> dense ~o:`Sgd [`C, 10]
 |> bias
 |> softmax `C
 |}
@@ -125,11 +122,11 @@ module Encoder = struct
     | Error _ -> failwith "unreachable"
 
   let to_name = function
-    | `ZeroConv -> "No-op, only decoder"
-    | `OneConv -> "A single 16x16 convolution"
-    | `TwoConv -> "One 4x4 and one 3x3"
-    | `ThreeConv -> "Three 4x4 convolutions"
-    | `ThreeConvRes -> "One 4x4 and two residual 4x4"
+    | `ZeroConv -> "No encoder, only decoder"
+    | `OneConv -> "A single 16x16(s6) convolution"
+    | `TwoConv -> "One 4x4(s3) and one 3x3(s3)"
+    | `ThreeConv -> "One 4x4(s3) and two 4x4(s1)"
+    | `ThreeConvRes -> "One 4x4(s3) and two residual 4x4(s1)"
 
   let default = `OneConv
 

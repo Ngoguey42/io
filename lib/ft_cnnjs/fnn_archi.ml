@@ -184,21 +184,13 @@ let[@ocamlformat "disable"] encoder_3conv_res (module Builder : Fnn.BUILDER) o :
   input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
   |> conv2d ~o (`Full 50) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias
   |> (fun up -> [
-          up
-          |> cropping2d [1]
-          |> Fnn.downcast
-        ; up
-          |> relu |> conv2d ~o (`Full 50) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias
-          |> Fnn.downcast
+          up |> cropping2d [1] |> Fnn.downcast
+        ; up |> relu |> conv2d ~o (`Full 50) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast
      ])
   |> sum
   |> (fun up -> [
-          up
-          |> cropping2d [1]
-          |> Fnn.downcast
-        ; up
-          |> relu |> conv2d ~o (`Full 50) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias
-          |> Fnn.downcast
+          up |> cropping2d [1] |> Fnn.downcast
+        ; up |> relu |> conv2d ~o (`Full 50) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast
      ])
   |> sum
   |> Fnn.downcast

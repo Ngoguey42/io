@@ -8,43 +8,222 @@ open struct
   module Dom = Js_of_ocaml.Dom
 end
 
+(* Encoders ************************************************************************************* *)
 type encoder = [ `ZeroConv | `OneConv | `TwoConv | `ThreeConv | `ThreeConvRes ]
 [@@deriving yojson, enum]
 
-type decoder = [ `Maxpool_fc | `Fc ] [@@deriving yojson, enum]
+module type ENCODER = sig
+  val create : (module Fnn.BUILDER) -> Fnn.optimizer -> int -> Fnn.network
 
-type conf = { encoder : encoder; encoding_channels : int; decoder : decoder; seed : int }
+  val param_count : int -> int
 
-let lol =
-  {|(* OCaml code to create the Fnn.network object *)
-let rng = Random.State.make [| SEED |] in
-let open (val Fnn.create_builder ~rng ()) in
-let open Pshape.Size in
+  val code : int -> string
 
-let o = `Adam (0.9, 0.999, 1e-4) in
-input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+  val description : string
+end
 
-(* encoder *)
-ENCODER
-(* decoder *)
-DECODER|}
+module Noop : ENCODER = struct
+  let create (module Builder : Fnn.BUILDER) _ _ : Fnn.network =
+    let open Builder in
+    let open Pshape.Size in
+    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32 |> Fnn.downcast
 
-let code_of_decoder = function
-  | `Maxpool_fc ->
-      {||> maxpool2d ~b:`Assert_fit (SIZE, SIZE)
-|> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C]
-|> dense ~o:`Sgd [`C, 10]
-|> bias
-|> softmax `C
+  let param_count _ = 0
+
+  let code _ = ""
+
+  let description = "No encoder, only decoder"
+end
+
+module Oneconv : ENCODER = struct
+  let create (module Builder : Fnn.BUILDER) o f : Fnn.network =
+    let open Builder in
+    let open Pshape.Size in
+    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+    |> conv2d ~o (`Full f) (16, 16) ~s:(6, 6) ~b:`Assert_fit
+    |> bias |> relu |> Fnn.downcast
+
+  let param_count f =
+    let total = 0 in
+    let k, f0, f1 = (16, 1, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    total
+
+  let code f =
+    Printf.sprintf "|> conv2d ~o (`Full %d) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias |> relu\n" f
+
+  let description = "A single 16x16(s6) convolution"
+end
+
+module Twoconv : ENCODER = struct
+  let create (module Builder : Fnn.BUILDER) o f : Fnn.network =
+    let open Builder in
+    let open Pshape.Size in
+    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+    |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit
+    |> bias |> relu
+    |> conv2d ~o (`Full f) (3, 3) ~s:(3, 3) ~b:`Assert_fit
+    |> bias |> relu |> Fnn.downcast
+
+  let param_count f =
+    let total = 0 in
+    let k, f0, f1 = (4, 1, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    let k, f0, f1 = (3, f, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    total
+
+  let code f =
+    Printf.sprintf
+      "|> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu\n\
+       |> conv2d ~o (`Full %d) (3, 3) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu\n"
+      f f
+
+  let description = "One 4x4(s3) and one 3x3(s3)"
+end
+
+module Threeconv = struct
+  let create (module Builder : Fnn.BUILDER) o f : Fnn.network =
+    let open Builder in
+    let open Pshape.Size in
+    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+    |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit
+    |> bias |> relu
+    |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit
+    |> bias |> relu
+    |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit
+    |> bias |> relu |> Fnn.downcast
+
+  let param_count f =
+    let total = 0 in
+    let k, f0, f1 = (4, 1, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    let k, f0, f1 = (4, f, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    let k, f0, f1 = (4, f, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    total
+
+  let code f =
+    Printf.sprintf
+      {||> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
+|> conv2d ~o (`Full %d) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
+|> conv2d ~o (`Full %d) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
 |}
-  | `Fc ->
-      {||> transpose ~mapping:[`C, `C; `S0, `C; `S1, `C]
-|> dense ~o:`Sgd [`C, 10]
-|> bias
-|> softmax `C
-|}
+      f f f
 
-module type Entry = sig
+  let description = "One 4x4(s3) and two 4x4(s1)"
+end
+
+module Threeconvres : ENCODER = struct
+  let create (module Builder : Fnn.BUILDER) o f : Fnn.network =
+    let open Builder in
+    let open Pshape.Size in
+    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+    |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit
+    |> bias
+    |> (fun up ->
+         [
+           up |> cropping2d [ 1 ] |> Fnn.downcast;
+           up |> relu |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
+         ])
+    |> sum
+    |> (fun up ->
+         [
+           up |> cropping2d [ 1 ] |> Fnn.downcast;
+           up |> relu |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
+         ])
+    |> sum |> Fnn.downcast
+
+  let param_count f =
+    let total = 0 in
+    let k, f0, f1 = (4, 1, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    let k, f0, f1 = (4, f, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    let k, f0, f1 = (4, f, f) in
+    let total = total + (k * k * f0 * f1) + f1 in
+    total
+
+  let code f =
+    Printf.sprintf
+      {||> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias
+|> (fun up -> [
+        up |> cropping2d [1] |> Fnn.downcast
+      ; up |> relu |> conv2d ~o (`Full %d) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast
+   ])
+|> sum
+|> (fun up -> [
+        up |> cropping2d [1] |> Fnn.downcast
+      ; up |> relu |> conv2d ~o (`Full %d) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast
+   ])
+|> sum
+|}
+      f f f
+
+  let description = "One 4x4(s3) and two residual 4x4(s1)"
+end
+
+(* Decoders ************************************************************************************* *)
+type decoder_tag = [ `Maxpool_fc | `Fc ] [@@deriving enum]
+
+module type DECODER = sig
+  val tag : decoder_tag
+
+  val create : (module Fnn.BUILDER) -> int -> int -> Fnn.network
+
+  val param_count : int -> int -> int
+
+  val code : int -> int -> string
+
+  val description : string
+end
+
+module Maxpool_fc : DECODER = struct
+  let tag = `Maxpool_fc
+
+  let create (module Builder : Fnn.BUILDER) w f : Fnn.network =
+    let open Builder in
+    let open Pshape.Size in
+    input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
+    |> maxpool2d ~b:`Assert_fit (w, w)
+    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
+    |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif")
+    |> bias
+    |> softmax `C
+    |> Fnn.downcast
+
+  let param_count _ f = 1 * 1 * f * 10
+
+  let code _ _ = ""
+
+  let description = "Max-pooling and fully-connected"
+end
+
+module Fc : DECODER = struct
+  let tag = `Fc
+
+  let create (module Builder : Fnn.BUILDER) w f : Fnn.network =
+    let open Builder in
+    let open Pshape.Size in
+    input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
+    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
+    |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif")
+    |> bias
+    |> softmax `C
+    |> Fnn.downcast
+
+  let param_count w f = w * w * f * 10
+
+  let code _ _ = ""
+
+  let description = "Fully-connected"
+end
+
+(* Conf ***************************************************************************************** *)
+type conf = { encoder : encoder; encoding_parameters : int; decoder : decoder_tag; seed : int }
+
+module type ENTRY = sig
   type t
 
   val default : t
@@ -58,8 +237,8 @@ module type Entry = sig
   val description : string
 end
 
-module type Enum = sig
-  include Entry
+module type ENUM = sig
+  include ENTRY
 
   val values : t list
 
@@ -70,8 +249,8 @@ module type Enum = sig
   val to_name : t -> string
 end
 
-module type Int = sig
-  include Entry with type t = int
+module type INT = sig
+  include ENTRY with type t = int
 
   val min : int
 end
@@ -93,20 +272,20 @@ module Seed = struct
     "RNG seed to initialize the network's weights and sample the digits during training."
 end
 
-module Encoding_channels = struct
+module Encoding_parameters = struct
   type t = int
 
   let min = 1
 
-  let default = 25
+  let default = 2000
 
-  let of_conf c = c.encoding_channels
+  let of_conf c = c.encoding_parameters
 
-  let update_conf encoding_channels conf = { conf with encoding_channels }
+  let update_conf encoding_parameters conf = { conf with encoding_parameters }
 
   let name = "Decoder Channels"
 
-  let description = "Channel count out of the encoder"
+  let description = "Trainable parameter count in encoder"
 end
 
 module Encoder = struct
@@ -140,16 +319,16 @@ module Encoder = struct
 end
 
 module Decoder = struct
-  type t = decoder
+  type t = decoder_tag
 
-  let values = List.init (max_decoder + 1) decoder_of_enum |> List.map Option.get
+  let modules : (module DECODER) list = [ (module Maxpool_fc); (module Fc) ]
 
-  let to_string v = decoder_to_yojson v |> Yojson.Safe.to_string
+  let values = List.init (max_decoder_tag + 1) decoder_tag_of_enum |> List.map Option.get
+
+  let to_string v = decoder_tag_to_enum v |> string_of_int
 
   let of_string v =
-    match Yojson.Safe.from_string v |> decoder_of_yojson with
-    | Ok v -> v
-    | Error _ -> failwith "unreachable"
+    match int_of_string v |> decoder_tag_of_enum with Some v -> v | None -> failwith "unreachable"
 
   let to_name = function
     | `Maxpool_fc -> "Max-pooling and fully-connected"
@@ -166,7 +345,27 @@ module Decoder = struct
   let description = "Second part of the network"
 end
 
-let construct_int_input : ((module Int) * ((conf -> conf) -> unit)) Reactjs.constructor =
+(* ********************************************************************************************** *)
+let tooltip_chunks =
+  [
+    {|(* OCaml code to create the Fnn.network object *)
+let rng = Random.State.make [| |};
+    {| |] in
+let open (val Fnn.create_builder ~rng ()) in
+let open Pshape.Size in
+
+let o = `Adam (0.9, 0.999, 1e-4) in
+input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+
+(* encoder *)
+|};
+    {|
+(* decoder *)
+|};
+  ]
+
+(* React components ***************************************************************************** *)
+let construct_int_input : ((module INT) * ((conf -> conf) -> unit)) Reactjs.constructor =
  fun ((module M), update_conf) ->
   let signal, set_val = React.S.create None in
   let on_change ev =
@@ -200,7 +399,7 @@ let construct_int_input : ((module Int) * ((conf -> conf) -> unit)) Reactjs.cons
   in
   Reactjs.construct ~signal render
 
-let construct_select : ((module Enum) * ((conf -> conf) -> unit)) Reactjs.constructor =
+let construct_select : ((module ENUM) * ((conf -> conf) -> unit)) Reactjs.constructor =
  fun ((module M), update_conf) ->
   let on_change ev =
     let v = ev##.target##.value |> Js.to_string |> M.of_string in
@@ -230,7 +429,7 @@ let construct_react_component : _ Reactjs.constructor =
     React.S.create
       {
         encoder = Encoder.default;
-        encoding_channels = Encoding_channels.default;
+        encoding_parameters = Encoding_parameters.default;
         decoder = Decoder.default;
         seed = Seed.default;
       }
@@ -247,7 +446,7 @@ let construct_react_component : _ Reactjs.constructor =
       [
         of_constructor construct_select ((module Encoder), update_conf);
         of_constructor construct_select ((module Decoder), update_conf);
-        of_constructor construct_int_input ((module Encoding_channels), update_conf);
+        of_constructor construct_int_input ((module Encoding_parameters), update_conf);
         of_constructor construct_int_input ((module Seed), update_conf);
         of_bootstrap "Button" ~type_:"submit" [ of_string "Create" ];
       ]

@@ -165,7 +165,7 @@ let[@ocamlformat "disable"] encoder_twoconv (module Builder : Fnn.BUILDER) o : F
   let open Builder in
   let open Pshape.Size in
   input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-  |> conv2d ~o (`Full 50) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
+  |> conv2d ~o (`Full 25) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
   |> conv2d ~o (`Full 50) (3, 3) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
   |> Fnn.downcast
 

@@ -689,7 +689,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
   (* The network objects cannot be implicitly downcasted to a `network` type, an explicit cast is
      required, this functions provides a way to downcast a layer.
-   *)
+  *)
   let downcast : _ any -> network =
    fun net ->
     match net#classify_layer with

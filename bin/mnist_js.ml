@@ -37,7 +37,8 @@ let main () =
   let container = Html.div [] |> Tyxml_js.To_dom.of_element in
   Dom.appendChild textdiv container;
   Reactjs.render
-    (Reactjs.Jsx.of_constructor Ft_cnnjs.Network_construction.construct_react_component send_event)
+    (Reactjs.Jsx.of_constructor Ft_cnnjs.Network_construction.construct_react_component
+       (send_event, true))
     container;
 
   (* Lwt.return () *)

@@ -365,8 +365,9 @@ input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
   ]
 
 (* React components ***************************************************************************** *)
-let construct_int_input : ((module INT) * ((conf -> conf) -> unit)) Reactjs.constructor =
- fun ((module M), update_conf) ->
+let construct_controlled_int_input :
+    ((module INT) * ((conf -> conf) -> unit) * bool) Reactjs.constructor =
+ fun ((module M), update_conf, _) ->
   let signal, set_val = React.S.create None in
   let on_change ev =
     let txt = ev##.target##.value |> Js.to_string in
@@ -380,15 +381,16 @@ let construct_int_input : ((module INT) * ((conf -> conf) -> unit)) Reactjs.cons
         set_val (Some v);
         update_conf (M.update_conf v) )
   in
-  let render _ =
+  let render (_, _, enabled) =
     let open Reactjs.Jsx in
     let control =
       match React.S.value signal with
       | None ->
-          of_bootstrap "Form.Control" ~placeholder:(string_of_int M.default) ~value:""
-            ~type_:"number" ~on_change []
+          of_bootstrap "Form.Control" ~placeholder:(string_of_int M.default) ~disabled:(not enabled)
+            ~value:"" ~type_:"number" ~on_change []
       | Some value ->
-          of_bootstrap "Form.Control" ~value:(string_of_int value) ~type_:"number" ~on_change []
+          of_bootstrap "Form.Control" ~value:(string_of_int value) ~disabled:(not enabled)
+            ~type_:"number" ~on_change []
     in
     of_bootstrap "Form.Group"
       [
@@ -399,18 +401,20 @@ let construct_int_input : ((module INT) * ((conf -> conf) -> unit)) Reactjs.cons
   in
   Reactjs.construct ~signal render
 
-let construct_select : ((module ENUM) * ((conf -> conf) -> unit)) Reactjs.constructor =
- fun ((module M), update_conf) ->
+let construct_uncontrolled_select :
+    ((module ENUM) * ((conf -> conf) -> unit) * bool) Reactjs.constructor =
+ fun ((module M), update_conf, _) ->
   let on_change ev =
     let v = ev##.target##.value |> Js.to_string |> M.of_string in
     update_conf (M.update_conf v)
   in
-  let render _ =
+  let render (_, _, enabled) =
     let open Reactjs.Jsx in
     let control =
       M.values
       |> List.map (fun v -> of_tag "option" ~value:(M.to_string v) [ of_string (M.to_name v) ])
-      |> of_bootstrap "Form.Control" ~as_:"select" ~on_change ~default_value:(M.to_string M.default)
+      |> of_bootstrap "Form.Control" ~as_:"select" ~disabled:(not enabled) ~on_change
+           ~default_value:(M.to_string M.default)
     in
     of_bootstrap "Form.Group"
       [
@@ -422,7 +426,7 @@ let construct_select : ((module ENUM) * ((conf -> conf) -> unit)) Reactjs.constr
   Reactjs.construct render
 
 let construct_react_component : _ Reactjs.constructor =
- fun fire_upstream_event ->
+ fun (fire_upstream_event, _) ->
   ignore fire_upstream_event;
 
   let config_signal, update_conf =
@@ -440,15 +444,27 @@ let construct_react_component : _ Reactjs.constructor =
     update_conf conf
   in
 
-  let render _ =
+  let render (_, enabled) =
     let open Reactjs.Jsx in
+    let tt =
+      of_bootstrap "Tooltip" ~id:"tooltip-right" [ of_tag "div" [ of_string "Network:\ncoucou" ] ]
+    in
+    let button =
+      (* https://stackoverflow.com/a/61659811 *)
+      let ( |> ) v f = f [ v ] in
+      of_string "Create"
+      |> of_bootstrap ~disabled:(not enabled) "Button" ~type_:"submit"
+      |> of_tag "span"
+      |> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt
+    in
     let groups =
       [
-        of_constructor construct_select ((module Encoder), update_conf);
-        of_constructor construct_select ((module Decoder), update_conf);
-        of_constructor construct_int_input ((module Encoding_parameters), update_conf);
-        of_constructor construct_int_input ((module Seed), update_conf);
-        of_bootstrap "Button" ~type_:"submit" [ of_string "Create" ];
+        of_constructor construct_uncontrolled_select ((module Encoder), update_conf, enabled);
+        of_constructor construct_uncontrolled_select ((module Decoder), update_conf, enabled);
+        of_constructor construct_controlled_int_input
+          ((module Encoding_parameters), update_conf, enabled);
+        of_constructor construct_controlled_int_input ((module Seed), update_conf, enabled);
+        button;
       ]
       |> List.map (fun v -> of_bootstrap "Col" ~sm:6 [ v ])
     in

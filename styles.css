@@ -73,3 +73,10 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 form {
     padding: 15px
 }
+button:disabled {
+    /* https://stackoverflow.com/a/61659811 */
+    pointer-events: none !important
+}
+/* .btn[disabled] { */
+/* pointer-events: all !important; */
+/* } */

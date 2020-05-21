@@ -12,7 +12,7 @@ type storable_layer =
   | `Maxpool2d of string option * Fnn.boundary_mode * (int * int) * (int * int)
   | `Parameter32 of
     string option
-    * Fnn__.Init.float32_init
+    * Fnn__.Init.float32
     * [ `Adam of float * float * float * int * Fnn.float32_tensor * Fnn.float32_tensor | `Sgd ]
     * Fnn.float32_tensor
   | `Normalisation of
@@ -58,7 +58,7 @@ let _storable_of_fnn : Fnn.network -> storable_layer =
  fun nn ->
   match nn#classify_layer with
   | `Input nn -> `Input (nn#id, storable_of_pshape nn#out_shape, nn#out_dtype)
-  | `Parameter32 nn -> `Parameter32 (nn#id, nn#initialization, nn#optimizer, nn#tensor)
+  | `Parameter32 nn -> `Parameter32 (nn#id, nn#init, nn#optimizer, nn#tensor)
   | `Normalisation nn -> `Normalisation (nn#id, nn#axes, nn#algorithm)
   | `Sum nn -> `Sum nn#id
   | `Prod nn -> `Prod nn#id

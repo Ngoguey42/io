@@ -367,10 +367,15 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
+    ; init : Init.float32
+    ; init_deterministic : Init.Deterministic.float32
     ; tensor : float32_tensor
-    ; numel : int
-    ; initialization : Init.float32_init
-    ; optimizer : [ `Sgd | `Adam of float * float * float * int * float32_tensor * float32_tensor ] >
+    ; tensor_opt : float32_tensor option
+    ; optimizer_conf : optimizer
+    ; optimizer : [ `Sgd | `Adam of float * float * float * int * float32_tensor * float32_tensor ]
+    ; optimizer_opt :
+        [ `Sgd | `Adam of float * float * float * int * float32_tensor * float32_tensor ] option
+    ; numel : int >
 
   and sum =
     < upstreams : network list
@@ -916,7 +921,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?id:Id.t ->
       ?rng:Random.State.t ->
       int array ->
-      [< Init.float32_init ] ->
+      [< Init.float32 ] ->
       [< optimizer ] ->
       parameter32
 
@@ -936,7 +941,6 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       [< Pshape.Axis.t ] list ->
       ?stats:[< `Local of float | `Global of float | `Exp_moving of float * float ] ->
       ?id:Id.t ->
-      ?rng:Random.State.t ->
       _ any ->
       normalisation
 
@@ -990,7 +994,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     val dense :
       ?id:Id.t ->
       ([< Pshape.Axis.t ] * int) list ->
-      ?i:[< Init.float_init ] ->
+      ?i:[< Init.float ] ->
       ?o:[< optimizer ] ->
       ?rng:Random.State.t ->
       _ any ->
@@ -1012,7 +1016,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?s:int * int ->
       ?d:int * int ->
       ?b:[< boundary_mode ] ->
-      ?i:[< Init.float_init ] ->
+      ?i:[< Init.float ] ->
       ?o:[< optimizer ] ->
       ?rng:Random.State.t ->
       _ any ->
@@ -1030,7 +1034,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     val bias :
       ?id:Id.t ->
       ?axes:[< Pshape.Axis.t ] list ->
-      ?i:[< Init.float_init ] ->
+      ?i:[< Init.float ] ->
       ?o:[< optimizer ] ->
       ?rng:Random.State.t ->
       _ any ->
@@ -1047,7 +1051,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     val scale :
       ?id:Id.t ->
       ?axes:[< Pshape.Axis.t ] list ->
-      ?i:[< Init.float_init ] ->
+      ?i:[< Init.float ] ->
       ?o:[< optimizer ] ->
       ?rng:Random.State.t ->
       _ any ->
@@ -1063,7 +1067,6 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     val batch_norm :
       ?id:Id.t ->
-      ?rng:Random.State.t ->
       ?affine:bool ->
       ?stats:[< `Local of float | `Global of float | `Exp_moving of float * float ] ->
       _ any ->
@@ -1183,40 +1186,41 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       in
       instanciate id
 
-    let parameter32 ?id ?rng dimensions init optimizer =
-      let init = (init :> Init.float32_init) in
-      ( match optimizer with
+    let parameter32 ?id ?rng dimensions init optimizer_conf =
+      let init = (init :> Init.float32) in
+      let optimizer_conf = (optimizer_conf :> optimizer) in
+      ( match optimizer_conf with
       | `Sgd -> ()
       | `Adam (epsilon, beta1, beta2) ->
-          if epsilon <= 0. then invalid_arg "In parameter: epsilon should be > 0.";
+          if epsilon <= 0. then invalid_arg "In parameter32: epsilon should be > 0.";
           if beta1 <= 0. || beta1 >= 1. then
-            invalid_arg "In parameter: beta1 should be between 0 and 1 (excluded)";
+            invalid_arg "In parameter32: beta1 should be between 0 and 1 (excluded)";
           if beta2 <= 0. || beta2 >= 1. then
-            invalid_arg "In parameter: beta2 should be between 0 and 1 (excluded)";
+            invalid_arg "In parameter32: beta2 should be between 0 and 1 (excluded)";
           () );
-      let rec instanciate tensor_optim id rng =
+      let rec instanciate ?id ?rng dimensions optimizer_conf tensor_opt optim_opt =
         let id = match id with None -> Id.create_default () | Some id -> id in
-        let dimensions, tensor, optim =
-          match tensor_optim with
-          | None ->
-              (* Take dimensions from closure, create tensor from dimensions *)
-              let rng = match rng with Some v -> v | None -> State.get_state () in
-              let tensor = Init.run ~rng init Bigarray.Float32 dimensions |> Tensor.of_ba in
-              let optim =
-                match optimizer with
-                | `Sgd -> `Sgd
-                | `Adam (epsilon, beta1, beta2) ->
-                    let rgrad = Init.run ~rng (`FloatConstant 0.) Bigarray.Float32 dimensions in
-                    let rgrad = Tensor.of_ba rgrad in
-                    let rgrad_sq = Init.run ~rng (`FloatConstant 0.) Bigarray.Float32 dimensions in
-                    let rgrad_sq = Tensor.of_ba rgrad_sq in
-                    `Adam (epsilon, beta1, beta2, 0, rgrad, rgrad_sq)
-              in
-              (dimensions, tensor, optim)
-          | Some (tensor, optim) ->
-              (* Take tensor from inputs, create dimensions from tensor *)
-              let dimensions = Tensor.dimensions tensor in
-              (dimensions, tensor, optim)
+        let init_deter = Init.float32_to_deterministic ?rng init in
+
+        let get_tensor () =
+          match tensor_opt with
+          | Some v -> v
+          | None -> Init.Deterministic.run init_deter Bigarray.Float32 dimensions |> Tensor.of_ba
+        in
+        let get_optim () =
+          match optim_opt with
+          | Some v -> v
+          | None -> (
+              match optimizer_conf with
+              | `Sgd -> `Sgd
+              | `Adam (epsilon, beta1, beta2) ->
+                  let rgrad =
+                    Init.run (`Float_constant 0.) Bigarray.Float32 dimensions |> Tensor.of_ba
+                  in
+                  let rgrad_sq =
+                    Init.run (`Float_constant 0.) Bigarray.Float32 dimensions |> Tensor.of_ba
+                  in
+                  `Adam (epsilon, beta1, beta2, 0, rgrad, rgrad_sq) )
         in
         let shape = Pshape.from_int_array dimensions in
         object (self : parameter32)
@@ -1234,11 +1238,24 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?(reinit = false) ?rng upstreams =
             if List.length upstreams <> 0 then invalid_arg "parameter32#copy takes 0 upstreams";
-            if reinit then instanciate None (Some id) rng
-            else instanciate (Some (tensor, optim)) (Some id) rng
+            if reinit then instanciate ~id ?rng dimensions optimizer_conf None None
+            else instanciate ~id dimensions optimizer_conf tensor_opt optim_opt
 
           method replicate ?(id = self#id) tensor optim =
-            instanciate (Some (tensor, optim)) (Some id) None
+            let newdims = Tensor.dimensions tensor in
+            ( match optim with
+            | `Sgd -> ()
+            | `Adam (_, _, _, _, rgrad, rgrad_sq) ->
+                if Tensor.dimensions rgrad <> newdims then
+                  invalid_arg "In parameter32#replicate: bad rgrad shape";
+                if Tensor.dimensions rgrad_sq <> newdims then
+                  invalid_arg "In parameter32#replicate: bad rgrad_sq shape" );
+            let optimizer_conf =
+              match optim with
+              | `Sgd -> `Sgd
+              | `Adam (epsilon, beta1, beta2, _, _, _) -> `Adam (epsilon, beta1, beta2)
+            in
+            instanciate ~id newdims optimizer_conf (Some tensor) (Some optim)
 
           method id = id
 
@@ -1246,18 +1263,26 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method to_string = Printf.sprintf "<parameter32 %s>" (Pshape.to_string shape)
 
-          method tensor = tensor
+          method init = init
+
+          method init_deterministic = init_deter
+
+          method tensor = get_tensor ()
+
+          method tensor_opt = tensor_opt
+
+          method optimizer_conf = optimizer_conf
+
+          method optimizer = get_optim ()
+
+          method optimizer_opt = optim_opt
 
           method numel =
             let (K n) = Pshape.numel shape in
             n
-
-          method initialization = init
-
-          method optimizer = optim
         end
       in
-      instanciate None id rng
+      instanciate ?id ?rng dimensions optimizer_conf None None
 
     let sum =
       let rec instanciate id upstreams =
@@ -1481,7 +1506,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           if momentum <= 0. || momentum >= 1. then
             invalid_arg "In normalisation: momentum should be > 0 and < 1" );
 
-      let rec instanciate algorithm id rng upstream =
+      let rec instanciate algorithm id upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype =
           match upstream#out_dtype with
@@ -1505,7 +1530,6 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
         (* Allocation: algorithm *)
         let algorithm =
-          let rng = match rng with None -> State.get_state () | Some rng -> rng in
           match (dtype, algorithm, stats) with
           | #float_dtype, Some (`Local _ as algorithm), _ -> algorithm
           | `Float32, Some (`Global32 (_, _, avg, var) as algorithm), _ ->
@@ -1522,15 +1546,15 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
               algorithm
           | #float_dtype, None, `Local epsilon -> `Local epsilon
           | `Float32, None, `Global epsilon ->
-              let avg = Init.run ~rng (`FloatConstant 0.) Bigarray.Float32 dimensions in
+              let avg = Init.run (`Float_constant 0.) Bigarray.Float32 dimensions in
               let avg = Tensor.of_ba avg in
-              let var = Init.run ~rng (`FloatConstant 1.) Bigarray.Float32 dimensions in
+              let var = Init.run (`Float_constant 1.) Bigarray.Float32 dimensions in
               let var = Tensor.of_ba var in
               `Global32 (epsilon, 0, avg, var)
           | `Float32, None, `Exp_moving (epsilon, momentum) ->
-              let avg = Init.run ~rng (`FloatConstant 0.) Bigarray.Float32 dimensions in
+              let avg = Init.run (`Float_constant 0.) Bigarray.Float32 dimensions in
               let avg = Tensor.of_ba avg in
-              let var = Init.run ~rng (`FloatConstant 1.) Bigarray.Float32 dimensions in
+              let var = Init.run (`Float_constant 1.) Bigarray.Float32 dimensions in
               let var = Tensor.of_ba var in
               `Exp_moving32 (epsilon, momentum, avg, var)
           | `Float64, _, _ -> failwith "In normalisation: `Float64 not implemented"
@@ -1549,13 +1573,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = true
 
-          method copy ?(id = self#id) ?(reinit = false) ?rng upstreams =
+          method copy ?(id = self#id) ?(reinit = false) ?rng:_ upstreams =
             match upstreams with
-            | [ up ] -> instanciate (if reinit then None else Some algorithm) (Some id) rng up
+            | [ up ] -> instanciate (if reinit then None else Some algorithm) (Some id) up
             | _ -> invalid_arg "normalisation#copy takes 1 upstream"
 
           method replicate ?(id = self#id) algorithm upstream =
-            instanciate (Some algorithm) (Some id) None upstream
+            instanciate (Some algorithm) (Some id) upstream
 
           method id = id
 
@@ -1578,7 +1602,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method is_group_norm = match axes with [ `N; `C ] | [ `C; `N ] -> true | _ -> false
         end
       in
-      fun ?id ?rng upstream -> instanciate None id rng (downcast upstream)
+      fun ?id upstream -> instanciate None id (downcast upstream)
 
     let transpose ?ndim ?mapping =
       let rec instanciate id upstream =
@@ -2112,7 +2136,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let dense ?id new_sizes ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
       (* Cast *)
       let new_sizes = (new_sizes :> (Pshape.Axis.t * int) list) in
-      let init = Option.value (init :> Init.float_init option) ~default:`Tanh in
+      let init = Option.value (init :> Init.float option) ~default:`Tanh in
       let optimizer = Option.value (optimizer :> optimizer option) ~default:`Sgd in
       let upstream = downcast upstream in
 
@@ -2153,8 +2177,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       in
       let weights =
         match (dtype, init) with
-        | `Float32, (#Init.float32_init as init) -> parameter32 ~rng dimensions init optimizer
-        | `Float64, #Init.float64_init -> failwith "not implemented"
+        | `Float32, (#Init.float32 as init) -> parameter32 ~rng dimensions init optimizer
+        | `Float64, #Init.float64 -> failwith "not implemented"
         | _, _ -> invalid_arg "In dense: init is incompatible with upstream's dtype"
       in
       tensordot ~id mapping_up mapping_w upstream (weights :> network)
@@ -2163,7 +2187,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
       (* Cast *)
       let filters = (filters :> [ `Full of int | `Depthwise of int | `Grouped of int * int ]) in
-      let init = Option.value (init :> Init.float_init option) ~default:`Tanh in
+      let init = Option.value (init :> Init.float option) ~default:`Tanh in
       let optimizer = Option.value (optimizer :> optimizer option) ~default:`Sgd in
       let upstream = downcast upstream in
       let boundary_mode = Option.value ~default:`Same (boundary_mode :> boundary_mode option) in
@@ -2199,8 +2223,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
       let weights =
         match (dtype, init) with
-        | `Float32, (#Init.float32_init as init) -> parameter32 ~rng dimensions init optimizer
-        | `Float64, #Init.float64_init -> failwith "not implemented"
+        | `Float32, (#Init.float32 as init) -> parameter32 ~rng dimensions init optimizer
+        | `Float64, #Init.float64 -> failwith "not implemented"
         | _, _ -> invalid_arg "In conv2d: init is incompatible with upstream's dtype"
       in
       conv2d2 ~id ~g:group_count ~s:stride ~d:dilation ~b:boundary_mode
@@ -2210,7 +2234,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let bias ?id ?axes ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
       (* Cast *)
       let axes = Option.value (axes :> Pshape.Axis.t list option) ~default:[ `C ] in
-      let init = Option.value (init :> Init.float_init option) ~default:(`FloatConstant 0.) in
+      let init = Option.value (init :> Init.float option) ~default:(`Float_constant 0.) in
       let optimizer = Option.value (optimizer :> optimizer option) ~default:`Sgd in
       let upstream = downcast upstream in
 
@@ -2236,8 +2260,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | _ -> invalid_arg "In bias: Can only be applied on floating point input dtype"
       in
       ( match (dtype, init) with
-      | `Float32, (#Init.float32_init as init) -> parameter32 ~rng dimensions init optimizer
-      | `Float64, #Init.float64_init -> failwith "not implemented"
+      | `Float32, (#Init.float32 as init) -> parameter32 ~rng dimensions init optimizer
+      | `Float64, #Init.float64 -> failwith "not implemented"
       | _, _ -> invalid_arg "In bias: init is incompatible with upstream's dtype" )
       |> transpose ~mapping |> downcast
       |> fun w -> sum ~id [ upstream; w ]
@@ -2245,7 +2269,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let scale ?id ?axes ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
       (* Cast *)
       let axes = Option.value (axes :> Pshape.Axis.t list option) ~default:[ `C ] in
-      let init = Option.value (init :> Init.float_init option) ~default:(`FloatConstant 1.) in
+      let init = Option.value (init :> Init.float option) ~default:(`Float_constant 1.) in
       let optimizer = Option.value (optimizer :> optimizer option) ~default:`Sgd in
       let upstream = downcast upstream in
 
@@ -2271,13 +2295,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | _ -> invalid_arg "In scale: Can only be applied on floating point input dtype"
       in
       ( match (dtype, init) with
-      | `Float32, (#Init.float32_init as init) -> parameter32 ~rng dimensions init optimizer
-      | `Float64, #Init.float64_init -> failwith "not implemented"
+      | `Float32, (#Init.float32 as init) -> parameter32 ~rng dimensions init optimizer
+      | `Float64, #Init.float64 -> failwith "not implemented"
       | _, _ -> invalid_arg "In scale: init is incompatible with upstream's dtype" )
       |> transpose ~mapping |> downcast
       |> fun w -> prod ~id [ upstream; w ]
 
-    let batch_norm ?id ?(rng = State.get_state ()) ?(affine = true) ?stats upstream =
+    let batch_norm ?id ?(affine = true) ?stats upstream =
       let stats =
         Option.value
           ~default:(`Exp_moving (1e-5, 0.99))
@@ -2286,8 +2310,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
       let upstream = downcast upstream in
       let id = match id with None -> Id.create_default () | Some id -> id in
-      if affine then normalisation ~id ~rng ~stats [ `C ] upstream |> scale |> bias |> downcast
-      else normalisation ~id ~rng ~stats [ `C ] upstream |> downcast
+      if affine then normalisation ~id ~stats [ `C ] upstream |> scale |> bias |> downcast
+      else normalisation ~id ~stats [ `C ] upstream |> downcast
   end
 
   module Builder = Make_builder (struct

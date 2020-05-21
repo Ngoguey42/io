@@ -12,15 +12,13 @@ type storable_layer =
   | `Maxpool2d of string option * Fnn.boundary_mode * (int * int) * (int * int)
   | `Parameter32 of
     string option
+    * int array
     * Fnn__.Init.float32
-    * [ `Adam of float * float * float * int * Fnn.float32_tensor * Fnn.float32_tensor | `Sgd ]
-    * Fnn.float32_tensor
+    * Fnn.optimizer_conf
+    * Fnn.float32_tensor option
+    * Fnn.optimizer32 option
   | `Normalisation of
-    string option
-    * Pshape.Axis.t list
-    * [ `Exp_moving32 of float * float * Fnn.float32_tensor * Fnn.float32_tensor
-      | `Global32 of float * int * Fnn.float32_tensor * Fnn.float32_tensor
-      | `Local of float ]
+    string option * Pshape.Axis.t list * Fnn.normalization_algo_conf * Fnn.normalization_algo option
   | `Relu of string option
   | `Softmax of string option * Pshape.Axis.t
   | `Sum of string option
@@ -58,8 +56,15 @@ let _storable_of_fnn : Fnn.network -> storable_layer =
  fun nn ->
   match nn#classify_layer with
   | `Input nn -> `Input (nn#id, storable_of_pshape nn#out_shape, nn#out_dtype)
-  | `Parameter32 nn -> `Parameter32 (nn#id, nn#init, nn#optimizer, nn#tensor)
-  | `Normalisation nn -> `Normalisation (nn#id, nn#axes, nn#algorithm)
+  | `Parameter32 nn ->
+      `Parameter32
+        ( nn#id,
+          nn#out_shape |> Pshape.to_int_array,
+          nn#init,
+          nn#optimizer_conf,
+          nn#tensor_opt,
+          nn#optimizer_opt )
+  | `Normalisation nn -> `Normalisation (nn#id, nn#axes, nn#algorithm_conf, nn#algorithm_opt)
   | `Sum nn -> `Sum nn#id
   | `Prod nn -> `Prod nn#id
   | `Concatenate nn -> `Concatenate (nn#id, nn#axis)
@@ -99,21 +104,20 @@ let _fnn_of_storable builder store upstreams : Fnn.network =
   | `Input (id, shape, dtype), [] ->
       Builder.input ~id:(repair id) (pshape_of_storable shape) dtype |> Fnn.downcast
   | `Input _, _ -> failwith "corrupted upstreams"
-  | `Parameter32 (id, init, optimizer, tensor), [] ->
-      let o = match optimizer with `Sgd -> `Sgd | `Adam (a, b, c, _, _, _) -> `Adam (a, b, c) in
-      let nn = Builder.parameter32 ~id:(repair id) (Bigarray.Genarray.dims tensor) init o in
-      let nn = nn#replicate tensor optimizer in
+  | `Parameter32 (id, dimensions, init, o, tensor_opt, optim_opt), [] ->
+      let nn = Builder.parameter32 ~id:(repair id) dimensions init o in
+      let nn =
+        match (tensor_opt, optim_opt) with
+        | None, None -> nn
+        | Some tensor, Some optim -> nn#replicate tensor optim
+        | Some tensor, None -> nn#replicate tensor nn#optimizer
+        | None, Some optim -> nn#replicate nn#tensor optim
+      in
       nn |> Fnn.downcast
   | `Parameter32 _, _ -> failwith "corrupted upstreams"
-  | `Normalisation (id, axes, algorithm), [ up ] ->
-      let stats =
-        match algorithm with
-        | `Local eps -> `Local eps
-        | `Global32 (eps, _, _, _) -> `Global eps
-        | `Exp_moving32 (eps, mom, _, _) -> `Exp_moving (eps, mom)
-      in
-      let nn = Builder.normalisation ~id:(repair id) axes ~stats up in
-      let nn = nn#replicate algorithm up in
+  | `Normalisation (id, axes, algo_conf, algo_opt), [ up ] ->
+      let nn = Builder.normalisation ~id:(repair id) axes ~algo_conf up in
+      let nn = match algo_opt with None -> nn | Some algo -> nn#replicate algo up in
       nn |> Fnn.downcast
   | `Normalisation _, _ -> failwith "corrupted upstreams"
   | `Sum id, ups -> Builder.sum ~id:(repair id) ups |> Fnn.downcast

@@ -11,11 +11,12 @@ A network is immutable.
 A network is a purely symbolic graph, it is totally agnostic to any deep learning training or
 inference procedure.
 
-The network object type is contained in a network module parameterized by a {| Tensor |} and an
-{| Id |} module. {| ('a, 'b) Tensor.t |} is the type of a frozen tensor stored in layers such as
-normalisation or parameter32. In the default module
-{| Tensor.t = ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t |}. {| Id.t |} is the type of the
-identifier of a node. In the default module {| Id.t = string option |}.
+A network is a directed acyclic graph, it is impossible to induce loops when building one.
+
+The network object type is contained in a {| Network(Tensor, Id) |} module. {| ('a, 'b) Tensor.t |}
+is the type of a frozen tensor stored in layers such as normalisation or parameter32, {| Id.t |} is the
+type of the identifier of a node. In the default module
+{| Tensor.t = ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t |} and {| Id.t = string option |}.
 
 A node has a node_type that defines the number of input nodes:
 - A `node01` has no upstream parent.
@@ -24,18 +25,19 @@ A node has a node_type that defines the number of input nodes:
 - A `noden1` has n upstream parents, determined when building the network.
 
 In order to improve separation of concerns and allow complex network definitions, the network
-parameters are inputs to the nodes that use them. In a classic use case a {| conv2d |}
-node accesses its kernel weights through a {| parameter32 |} input node. In some meta-learning use
-cases you want those kernel weights to be the result of a computation. In some other use-cases you
-may want to reuse a kernel weight several times throughout a network.
+parameters are standalone layers that are inputs to the nodes that use them. For example:
+- In the classic convolution use case, a {| conv2d |} node accesses its kernel weights through a
+  {| parameter32 |} input node.
+- In some meta-learning use convolution use cases the kernel weights are the result of a
+  computation.
+- In some other use-cases you may want to reuse a kernel weight several times throughout a network.
 
 ---
 
 # Network building
 
-To build a network you have to use a {| Builder |} module that is parameterized by a {| State |}
-module that provides a global random number generator state. All the functions available there
-are meant to be user friendly.
+To build a network you have to use a {| Builder(State) |} module. The State provides a global random
+number generator state. All the functions available in {| Builder |} are meant to be user friendly.
 
 Example: A classical residual network
 {|
@@ -108,11 +110,28 @@ First layer: <input {n=_ ; c=3 ; s0=1024 ; s1=1024}>
 
 ---
 
+# Tensors stored inside layers
+
+When building a stateful layer, the tensors are not directly allocated, only a recipe to build
+them deterministically is kept. A tensor is stored inside a layer only after calling a `#replicate`
+method.
+
+For example, when constructing a `parameter32` layer, the `init` parameter of type `Init.t`
+will be internally converted to a `Init.Deterministic.t` by sampling an initialization seed using
+`Builder.state`. When calling `#tensor` on that layer, the tensor will be deterministically computed
+and returned (but not stored, remember that the layers are immutable). After calling `#replicate` on
+that layer, `#tensor` will return the tensor passed to `#replicate` instead of initializing a new
+tensor.
+
+This features makes the newly created networks very light.
+
+---
+
 # Shapes
 
 This library avoids making dimension ordering assumptions when unnecessary (such as
 `channel-last`). Although the axes still requires to be designated. Depending on the context
- you can either use an absolute or a symbolic designation.
+you can either use an absolute or a symbolic designation.
 
 For exemple:
 - Absolute designation is not reliable to locate the `channel` dimension:
@@ -143,12 +162,21 @@ The Pshape (Polymorphic shape) library provides that abstraction.
 - slice
 - node01 noise layer
 - non-trainable node01 layers (bilinear upsampling kernel) (`buffer_float32` trainable=False, `constant_float32` ?)
-- custom layers: Don't care because user can create its own network objects?
+- custom layers:
+  - Don't care because user can create its own network objects?
     But what about the variants like classified_layer and layer_type? Make those open / extensible?
-
-### Module name
-fnn (functional neural network)
-fsnn (functional symbolic neural network)
+  - Create an Fnn.custom_layer class and a `Builder.custom custom_defn ...` function?
+  Extensible GADT?
+- Transform `parameter32` to `parameter`?
+- Rewrite the library without the use of ocaml objects because:
+  - Those are impossible to serialize in js
+  - Polymorphic variants and top-level functions could provide roughly the same properties:
+    - e.g. `val kernel_size : [< `Maxpool2d | `Conv2d ] network -> int * int`
+    Does this mean that `val upstreams : [< any_network ] network -> any_network list` requires
+      a massive pattern matching?
+        - Is this pattern matching a problem?
+        - I picked ocaml object to avoid those pattern matching
+        - Maybe this pattern matching can be avoided by giving a proper definition to 'a network
 
  *)
 
@@ -219,7 +247,20 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
   type int64_tensor = (int64, Bigarray.int64_elt) Tensor.t
 
-  type optimizer = [ `Sgd | `Adam of float * float * float ]
+  type optimizer32 =
+    [ `Sgd | `Adam of float * float * float * int * float32_tensor * float32_tensor ]
+
+  type optimizer_conf = [ `Sgd | `Adam of float * float * float ]
+
+  type normalization_algo =
+    [ `Local of float
+    | `Global32 of float * int * float32_tensor * float32_tensor
+    | `Exp_moving32 of float * float * float32_tensor * float32_tensor
+    | `Global64 of float * int * float64_tensor * float64_tensor
+    | `Exp_moving64 of float * float * float64_tensor * float64_tensor ]
+
+  type normalization_algo_conf =
+    [ `Local of float | `Global of float | `Exp_moving of float * float ]
 
   type boundary_mode = [ `Same | `Valid | `Pad_fit | `Assert_fit ]
 
@@ -359,11 +400,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_dtype : [ `Float32 ]
     ; stateful : bool
     ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> parameter32
-    ; replicate :
-        ?id:Id.t ->
-        float32_tensor ->
-        [ `Sgd | `Adam of float * float * float * int * float32_tensor * float32_tensor ] ->
-        parameter32
+    ; replicate : ?id:Id.t -> float32_tensor -> optimizer32 -> parameter32
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -371,10 +408,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; init_deterministic : Init.Deterministic.float32
     ; tensor : float32_tensor
     ; tensor_opt : float32_tensor option
-    ; optimizer_conf : optimizer
-    ; optimizer : [ `Sgd | `Adam of float * float * float * int * float32_tensor * float32_tensor ]
-    ; optimizer_opt :
-        [ `Sgd | `Adam of float * float * float * int * float32_tensor * float32_tensor ] option
+    ; optimizer_conf : optimizer_conf
+    ; optimizer : optimizer32
+    ; optimizer_opt : optimizer32 option
     ; numel : int >
 
   and sum =
@@ -463,22 +499,15 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_dtype : float_dtype
     ; stateful : bool
     ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> normalisation
-    ; replicate :
-        ?id:Id.t ->
-        [ `Local of float
-        | `Global32 of float * int * float32_tensor * float32_tensor
-        | `Exp_moving32 of float * float * float32_tensor * float32_tensor ] ->
-        network ->
-        normalisation
+    ; replicate : ?id:Id.t -> normalization_algo -> network -> normalisation
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
     ; upstream : network
     ; axes : Pshape.Axis.t list
-    ; algorithm :
-        [ `Local of float
-        | `Global32 of float * int * float32_tensor * float32_tensor
-        | `Exp_moving32 of float * float * float32_tensor * float32_tensor ]
+    ; algorithm_conf : normalization_algo_conf
+    ; algorithm : normalization_algo
+    ; algorithm_opt : normalization_algo option
     ; is_batch_norm : bool
     ; is_layer_norm : bool
     ; is_instance_norm : bool
@@ -658,6 +687,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     | `Padding node -> (node :> network)
     | `Parameter32 node -> (node :> network)
 
+  (* The network objects cannot be implicitly downcasted to a `network` type, an explicit cast is
+     required, this functions provides a way to downcast a layer.
+   *)
   let downcast : _ any -> network =
    fun net ->
     match net#classify_layer with
@@ -822,7 +854,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         - {| ~sub |} can be used to update the parameter layers after training.
         - {| ~sub |} can be used to append a network to another.
         - {| ~sub |} can be used to change the dtypes and the shapes of a network. It may fail under
-          certain conditions.
+          certain conditions. (see below)
         - {| ~bind |} can be used to update the stateful layers (like batch_norm) after training.
         - {| ~bind |} can be used to change the configuration of a node.
         - If you need a more complex use-case you should implement your own network traversal
@@ -922,7 +954,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?rng:Random.State.t ->
       int array ->
       [< Init.float32 ] ->
-      [< optimizer ] ->
+      [< optimizer_conf ] ->
       parameter32
 
     val sum : ?id:Id.t -> _ any list -> sum
@@ -939,7 +971,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     val normalisation :
       [< Pshape.Axis.t ] list ->
-      ?stats:[< `Local of float | `Global of float | `Exp_moving of float * float ] ->
+      ?algo_conf:[< normalization_algo_conf ] ->
       ?id:Id.t ->
       _ any ->
       normalisation
@@ -995,7 +1027,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?id:Id.t ->
       ([< Pshape.Axis.t ] * int) list ->
       ?i:[< Init.float ] ->
-      ?o:[< optimizer ] ->
+      ?o:[< optimizer_conf ] ->
       ?rng:Random.State.t ->
       _ any ->
       tensordot
@@ -1017,7 +1049,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?d:int * int ->
       ?b:[< boundary_mode ] ->
       ?i:[< Init.float ] ->
-      ?o:[< optimizer ] ->
+      ?o:[< optimizer_conf ] ->
       ?rng:Random.State.t ->
       _ any ->
       conv2d
@@ -1035,7 +1067,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?id:Id.t ->
       ?axes:[< Pshape.Axis.t ] list ->
       ?i:[< Init.float ] ->
-      ?o:[< optimizer ] ->
+      ?o:[< optimizer_conf ] ->
       ?rng:Random.State.t ->
       _ any ->
       sum
@@ -1052,7 +1084,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?id:Id.t ->
       ?axes:[< Pshape.Axis.t ] list ->
       ?i:[< Init.float ] ->
-      ?o:[< optimizer ] ->
+      ?o:[< optimizer_conf ] ->
       ?rng:Random.State.t ->
       _ any ->
       prod
@@ -1066,11 +1098,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ]} *)
 
     val batch_norm :
-      ?id:Id.t ->
-      ?affine:bool ->
-      ?stats:[< `Local of float | `Global of float | `Exp_moving of float * float ] ->
-      _ any ->
-      network
+      ?id:Id.t -> ?affine:bool -> ?algo_conf:[< normalization_algo_conf ] -> _ any -> network
   end
 
   module Make_builder (State : STATE) : BUILDER = struct
@@ -1188,7 +1216,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     let parameter32 ?id ?rng dimensions init optimizer_conf =
       let init = (init :> Init.float32) in
-      let optimizer_conf = (optimizer_conf :> optimizer) in
+      let optimizer_conf = (optimizer_conf :> optimizer_conf) in
       ( match optimizer_conf with
       | `Sgd -> ()
       | `Adam (epsilon, beta1, beta2) ->
@@ -1482,11 +1510,11 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       in
       fun ?id upstream -> instanciate id (downcast upstream)
 
-    let normalisation axes ?stats =
-      let stats =
+    let normalisation axes ?algo_conf =
+      let algo_conf =
         Option.value
           ~default:(`Exp_moving (1e-5, 0.99))
-          (stats :> [ `Local of float | `Global of float | `Exp_moving of float * float ] option)
+          (algo_conf :> normalization_algo_conf option)
       in
       let axes = (axes :> Pshape.Axis.t list) in
 
@@ -1496,7 +1524,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         invalid_arg "In normalisation: Axis provided twice";
 
       (* Check: algorithm *)
-      ( match stats with
+      ( match algo_conf with
       | `Local epsilon ->
           if epsilon <= 0. then invalid_arg "In normalisation: epsilon should be > 0"
       | `Global epsilon ->
@@ -1506,7 +1534,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           if momentum <= 0. || momentum >= 1. then
             invalid_arg "In normalisation: momentum should be > 0 and < 1" );
 
-      let rec instanciate algorithm id upstream =
+      let rec instanciate ?id algo_conf algo_opt upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype =
           match upstream#out_dtype with
@@ -1528,37 +1556,64 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           |> Array.of_list
         in
 
-        (* Allocation: algorithm *)
-        let algorithm =
-          match (dtype, algorithm, stats) with
-          | #float_dtype, Some (`Local _ as algorithm), _ -> algorithm
-          | `Float32, Some (`Global32 (_, _, avg, var) as algorithm), _ ->
-              if Tensor.dimensions avg <> dimensions then
-                invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
-              if Tensor.dimensions var <> dimensions then
-                invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
-              algorithm
-          | `Float32, Some (`Exp_moving32 (_, _, avg, var) as algorithm), _ ->
-              if Tensor.dimensions avg <> dimensions then
-                invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
-              if Tensor.dimensions var <> dimensions then
-                invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
-              algorithm
-          | #float_dtype, None, `Local epsilon -> `Local epsilon
-          | `Float32, None, `Global epsilon ->
-              let avg = Init.run (`Float_constant 0.) Bigarray.Float32 dimensions in
-              let avg = Tensor.of_ba avg in
-              let var = Init.run (`Float_constant 1.) Bigarray.Float32 dimensions in
-              let var = Tensor.of_ba var in
-              `Global32 (epsilon, 0, avg, var)
-          | `Float32, None, `Exp_moving (epsilon, momentum) ->
-              let avg = Init.run (`Float_constant 0.) Bigarray.Float32 dimensions in
-              let avg = Tensor.of_ba avg in
-              let var = Init.run (`Float_constant 1.) Bigarray.Float32 dimensions in
-              let var = Tensor.of_ba var in
-              `Exp_moving32 (epsilon, momentum, avg, var)
-          | `Float64, _, _ -> failwith "In normalisation: `Float64 not implemented"
+        let get_algo () =
+          match algo_opt with
+          | Some v -> v
+          | None -> (
+              match (dtype, algo_conf) with
+              | `Float32, `Local epsilon | `Float64, `Local epsilon -> `Local epsilon
+              | `Float32, `Global epsilon ->
+                  let avg =
+                    Init.run (`Float_constant 0.) Bigarray.Float32 dimensions |> Tensor.of_ba
+                  in
+                  let var =
+                    Init.run (`Float_constant 1.) Bigarray.Float32 dimensions |> Tensor.of_ba
+                  in
+                  `Global32 (epsilon, 0, avg, var)
+              | `Float32, `Exp_moving (epsilon, momentum) ->
+                  let avg =
+                    Init.run (`Float_constant 0.) Bigarray.Float32 dimensions |> Tensor.of_ba
+                  in
+                  let var =
+                    Init.run (`Float_constant 1.) Bigarray.Float32 dimensions |> Tensor.of_ba
+                  in
+                  `Exp_moving32 (epsilon, momentum, avg, var)
+              | `Float64, `Global epsilon ->
+                  let avg =
+                    Init.run (`Float_constant 0.) Bigarray.Float64 dimensions |> Tensor.of_ba
+                  in
+                  let var =
+                    Init.run (`Float_constant 1.) Bigarray.Float64 dimensions |> Tensor.of_ba
+                  in
+                  `Global64 (epsilon, 0, avg, var)
+              | `Float64, `Exp_moving (epsilon, momentum) ->
+                  let avg =
+                    Init.run (`Float_constant 0.) Bigarray.Float64 dimensions |> Tensor.of_ba
+                  in
+                  let var =
+                    Init.run (`Float_constant 1.) Bigarray.Float64 dimensions |> Tensor.of_ba
+                  in
+                  `Exp_moving64 (epsilon, momentum, avg, var) )
         in
+        ( match (dtype, algo_opt) with
+        | `Float64, Some (`Global32 _) -> failwith "In normalisation: incompatible dtypes"
+        | `Float64, Some (`Exp_moving32 _) -> failwith "In normalisation: incompatible dtypes"
+        | `Float32, Some (`Global64 _) -> failwith "In normalisation: incompatible dtypes"
+        | `Float32, Some (`Exp_moving64 _) -> failwith "In normalisation: incompatible dtypes"
+        | `Float32, Some (`Global32 (_, _, avg, var))
+        | `Float32, Some (`Exp_moving32 (_, _, avg, var)) ->
+            if Tensor.dimensions avg <> dimensions then
+              invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
+            if Tensor.dimensions var <> dimensions then
+              invalid_arg "In normalisation: Invalid copy, shapes are not compatible"
+        | `Float64, Some (`Global64 (_, _, avg, var))
+        | `Float64, Some (`Exp_moving64 (_, _, avg, var)) ->
+            if Tensor.dimensions avg <> dimensions then
+              invalid_arg "In normalisation: Invalid copy, shapes are not compatible";
+            if Tensor.dimensions var <> dimensions then
+              invalid_arg "In normalisation: Invalid copy, shapes are not compatible"
+        | _, None -> ()
+        | _, Some (`Local _) -> () );
 
         object (self : normalisation)
           method upstreams = [ upstream ]
@@ -1575,11 +1630,18 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?(reinit = false) ?rng:_ upstreams =
             match upstreams with
-            | [ up ] -> instanciate (if reinit then None else Some algorithm) (Some id) up
+            | [ up ] -> instanciate ~id algo_conf (if reinit then None else algo_opt) up
             | _ -> invalid_arg "normalisation#copy takes 1 upstream"
 
           method replicate ?(id = self#id) algorithm upstream =
-            instanciate (Some algorithm) (Some id) upstream
+            let algo_conf =
+              match algorithm with
+              | `Local epsilon -> `Local epsilon
+              | `Global64 (epsilon, _, _, _) | `Global32 (epsilon, _, _, _) -> `Global epsilon
+              | `Exp_moving32 (epsilon, momentum, _, _) | `Exp_moving64 (epsilon, momentum, _, _) ->
+                  `Exp_moving (epsilon, momentum)
+            in
+            instanciate ~id algo_conf (Some algorithm) upstream
 
           method id = id
 
@@ -1591,7 +1653,11 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method axes = axes
 
-          method algorithm = algorithm
+          method algorithm_conf = algo_conf
+
+          method algorithm = get_algo ()
+
+          method algorithm_opt = algo_opt
 
           method is_batch_norm = axes = [ `C ]
 
@@ -1602,7 +1668,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method is_group_norm = match axes with [ `N; `C ] | [ `C; `N ] -> true | _ -> false
         end
       in
-      fun ?id upstream -> instanciate None id (downcast upstream)
+      fun ?id upstream -> instanciate ?id algo_conf None (downcast upstream)
 
     let transpose ?ndim ?mapping =
       let rec instanciate id upstream =
@@ -2137,7 +2203,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       (* Cast *)
       let new_sizes = (new_sizes :> (Pshape.Axis.t * int) list) in
       let init = Option.value (init :> Init.float option) ~default:`Tanh in
-      let optimizer = Option.value (optimizer :> optimizer option) ~default:`Sgd in
+      let optimizer = Option.value (optimizer :> optimizer_conf option) ~default:`Sgd in
       let upstream = downcast upstream in
 
       let id = match id with None -> Id.create_default () | Some id -> id in
@@ -2188,7 +2254,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       (* Cast *)
       let filters = (filters :> [ `Full of int | `Depthwise of int | `Grouped of int * int ]) in
       let init = Option.value (init :> Init.float option) ~default:`Tanh in
-      let optimizer = Option.value (optimizer :> optimizer option) ~default:`Sgd in
+      let optimizer = Option.value (optimizer :> optimizer_conf option) ~default:`Sgd in
       let upstream = downcast upstream in
       let boundary_mode = Option.value ~default:`Same (boundary_mode :> boundary_mode option) in
 
@@ -2235,7 +2301,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       (* Cast *)
       let axes = Option.value (axes :> Pshape.Axis.t list option) ~default:[ `C ] in
       let init = Option.value (init :> Init.float option) ~default:(`Float_constant 0.) in
-      let optimizer = Option.value (optimizer :> optimizer option) ~default:`Sgd in
+      let optimizer = Option.value (optimizer :> optimizer_conf option) ~default:`Sgd in
       let upstream = downcast upstream in
 
       let id = match id with None -> Id.create_default () | Some id -> id in
@@ -2270,7 +2336,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       (* Cast *)
       let axes = Option.value (axes :> Pshape.Axis.t list option) ~default:[ `C ] in
       let init = Option.value (init :> Init.float option) ~default:(`Float_constant 1.) in
-      let optimizer = Option.value (optimizer :> optimizer option) ~default:`Sgd in
+      let optimizer = Option.value (optimizer :> optimizer_conf option) ~default:`Sgd in
       let upstream = downcast upstream in
 
       let id = match id with None -> Id.create_default () | Some id -> id in
@@ -2301,17 +2367,17 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       |> transpose ~mapping |> downcast
       |> fun w -> prod ~id [ upstream; w ]
 
-    let batch_norm ?id ?(affine = true) ?stats upstream =
-      let stats =
+    let batch_norm ?id ?(affine = true) ?algo_conf upstream =
+      let algo_conf =
         Option.value
           ~default:(`Exp_moving (1e-5, 0.99))
-          (stats :> [ `Local of float | `Global of float | `Exp_moving of float * float ] option)
+          (algo_conf :> normalization_algo_conf option)
       in
 
       let upstream = downcast upstream in
       let id = match id with None -> Id.create_default () | Some id -> id in
-      if affine then normalisation ~id ~stats [ `C ] upstream |> scale |> bias |> downcast
-      else normalisation ~id ~stats [ `C ] upstream |> downcast
+      if affine then normalisation ~id ~algo_conf [ `C ] upstream |> scale |> bias |> downcast
+      else normalisation ~id ~algo_conf [ `C ] upstream |> downcast
   end
 
   module Builder = Make_builder (struct

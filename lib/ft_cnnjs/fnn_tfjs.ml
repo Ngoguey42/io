@@ -176,6 +176,8 @@ let _unpack_normalisation_algorithm axes = function
       let forward = normaliser#normalise in
       let pack () = `Exp_moving32 (epsilon, momentum, normaliser#get_avg, normaliser#get_var) in
       (forward, pack)
+  | `Global64 _ -> failwith "Unhandled float64 normalisation"
+  | `Exp_moving64 _ -> failwith "Unhandled float64 normalisation"
 
 let _unpack_optimizer optim var =
   match optim with

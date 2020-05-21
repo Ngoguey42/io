@@ -13,7 +13,7 @@ type encoder = [ `ZeroConv | `OneConv | `TwoConv | `ThreeConv | `ThreeConvRes ]
 [@@deriving yojson, enum]
 
 module type ENCODER = sig
-  val create : (module Fnn.BUILDER) -> Fnn.optimizer -> int -> Fnn.network
+  val create : (module Fnn.BUILDER) -> Fnn.optimizer_conf -> int -> Fnn.network
 
   val param_count : int -> int
 

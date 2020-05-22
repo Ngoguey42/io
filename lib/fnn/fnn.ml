@@ -788,8 +788,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
   let inputs : _ any list -> input list = fun network_ends -> find_layers Input network_ends
 
-  let parameters : _ any list -> network list =
-   fun network_ends -> List.concat [ (find_layers Parameter32 network_ends :> network list) ]
+  let parameters : _ any list -> < network ; numel : int > list =
+   fun network_ends ->
+    List.concat [ (find_layers Parameter32 network_ends :> < network ; numel : int > list) ]
 
   let iter_top_down : (network -> unit) -> _ any list -> unit =
    fun f network_ends ->

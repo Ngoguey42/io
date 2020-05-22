@@ -6,10 +6,11 @@ open struct
   module Webworker = Ft_js.Webworker
   module Dom_html = Js_of_ocaml.Dom_html
   module Dom = Js_of_ocaml.Dom
+  module Regexp = Js_of_ocaml.Regexp
 end
 
 (* Encoders ************************************************************************************* *)
-type encoder = [ `ZeroConv | `OneConv | `TwoConv | `ThreeConv | `ThreeConvRes ]
+type encoder_tag = [ `ZeroConv | `OneConv | `TwoConv | `ThreeConv | `ThreeConvRes ]
 [@@deriving yojson, enum]
 
 module type ENCODER = sig
@@ -221,16 +222,32 @@ module Fc : DECODER = struct
 end
 
 (* Conf ***************************************************************************************** *)
-type conf = { encoder : encoder; encoding_parameters : int; decoder : decoder_tag; seed : int }
+type raw_conf = {
+  encoder_tag : encoder_tag;
+  parameters : Int64.t;
+  decoder_tag : decoder_tag;
+  seed : Int64.t;
+}
+
+type derived_conf = {
+  encoder_tag : encoder_tag;
+  decoder_tag : decoder_tag;
+  parameters : int;
+  seed : int;
+  encoder_nn : Fnn.network;
+  decoder_nn : Fnn.network;
+  min_parameters : int;
+  max_parameters : int;
+}
 
 module type ENTRY = sig
   type t
 
   val default : t
 
-  val of_conf : conf -> t
+  val of_dconf : derived_conf -> t
 
-  val update_conf : t -> conf -> conf
+  val update_rconf : t -> raw_conf -> raw_conf
 
   val name : string
 
@@ -250,21 +267,17 @@ module type ENUM = sig
 end
 
 module type INT = sig
-  include ENTRY with type t = int
-
-  val min : int
+  include ENTRY with type t = Int64.t
 end
 
 module Seed = struct
-  type t = int
+  type t = Int64.t
 
-  let min = min_int
+  let default = Int64.of_int 42
 
-  let default = 42
+  let of_dconf : derived_conf -> t = fun c -> Int64.of_int c.seed
 
-  let of_conf c = c.seed
-
-  let update_conf seed conf = { conf with seed }
+  let update_rconf : t -> raw_conf -> raw_conf = fun seed rconf -> { rconf with seed }
 
   let name = "Seed"
 
@@ -272,31 +285,29 @@ module Seed = struct
     "RNG seed to initialize the network's weights and sample the digits during training."
 end
 
-module Encoding_parameters = struct
-  type t = int
+module Parameters = struct
+  type t = Int64.t
 
-  let min = 1
+  let default = Int64.of_int 5000
 
-  let default = 2000
+  let of_dconf : derived_conf -> t = fun c -> Int64.of_int c.parameters
 
-  let of_conf c = c.encoding_parameters
+  let update_rconf : t -> raw_conf -> raw_conf = fun parameters rconf -> { rconf with parameters }
 
-  let update_conf encoding_parameters conf = { conf with encoding_parameters }
+  let name = "Parameters"
 
-  let name = "Decoder Channels"
-
-  let description = "Trainable parameter count in encoder"
+  let description = "Network trainable parameter count in encoder"
 end
 
 module Encoder = struct
-  type t = encoder
+  type t = encoder_tag
 
-  let values = List.init (max_encoder + 1) encoder_of_enum |> List.map Option.get
+  let values = List.init (max_encoder_tag + 1) encoder_tag_of_enum |> List.map Option.get
 
-  let to_string v = encoder_to_yojson v |> Yojson.Safe.to_string
+  let to_string v = encoder_tag_to_yojson v |> Yojson.Safe.to_string
 
   let of_string v =
-    match Yojson.Safe.from_string v |> encoder_of_yojson with
+    match Yojson.Safe.from_string v |> encoder_tag_of_yojson with
     | Ok v -> v
     | Error _ -> failwith "unreachable"
 
@@ -309,9 +320,9 @@ module Encoder = struct
 
   let default = `OneConv
 
-  let of_conf c = c.encoder
+  let of_dconf : derived_conf -> t = fun c -> c.encoder_tag
 
-  let update_conf encoder conf = { conf with encoder }
+  let update_rconf : t -> raw_conf -> raw_conf = fun encoder_tag rconf -> { rconf with encoder_tag }
 
   let name = "Encoder"
 
@@ -336,9 +347,9 @@ module Decoder = struct
 
   let default = `Maxpool_fc
 
-  let of_conf c = c.decoder
+  let of_dconf : derived_conf -> t = fun c -> c.decoder_tag
 
-  let update_conf decoder conf = { conf with decoder }
+  let update_rconf : t -> raw_conf -> raw_conf = fun decoder_tag rconf -> { rconf with decoder_tag }
 
   let name = "Decoder"
 
@@ -364,49 +375,109 @@ input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
 |};
   ]
 
+let sub_char_to_tag s char tag =
+  let open Reactjs.Jsx in
+  let rec aux = function
+    | [] -> []
+    | [ hd ] -> [ of_string hd ]
+    | hd :: tl -> of_string hd :: of_tag tag [] :: aux tl
+  in
+  String.split_on_char char s |> aux
+
+let dconf_of_rconf : raw_conf -> derived_conf =
+ fun conf ->
+  let module D =
+  ( val match conf.decoder_tag with
+        | `Maxpool_fc -> (module Maxpool_fc : DECODER)
+        | `Fc -> (module Fc) )
+  in
+  let module E =
+  ( val match conf.encoder_tag with
+        | `ZeroConv -> (module Noop : ENCODER)
+        | `OneConv -> (module Oneconv)
+        | `TwoConv -> (module Twoconv)
+        | `ThreeConv -> (module Threeconv)
+        | `ThreeConvRes -> (module Threeconvres) )
+  in
+  let seed =
+    if Int64.compare conf.seed (Int64.of_int 0) <= 0 then 0
+    else if Int64.compare (Int64.of_int ((2 lsl 29) - 1)) conf.seed <= 0 then (2 lsl 29) - 1
+    else Int64.to_int conf.seed
+  in
+  let parameters =
+    if Int64.compare conf.parameters (Int64.of_int 1) <= 0 then 1
+    else if Int64.compare (Int64.of_int max_int) conf.parameters <= 0 then max_int
+    else Int64.to_int conf.parameters
+  in
+
+  let networks_of_filters f =
+    let o = `Adam (0.9, 0.999, 1e-4) in
+    let make_builder () = Fnn.create_builder ~rng:(Random.State.make [| seed |]) () in
+    let builder = make_builder () in
+    let e = E.create builder o f in
+    let (Pshape.Size.K w) = Pshape.get e#out_shape `S0 |> Pshape.Size.to_known in
+    let (Pshape.Size.K f') = Pshape.get e#out_shape `C |> Pshape.Size.to_known in
+    let d = D.create builder w f' in
+    (e, d)
+  in
+
+  let emin, dmin = networks_of_filters 1 in
+  let pmin = Fnn.parameters [ emin; dmin ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0 in
+
+  let emax, dmax = networks_of_filters 10000 in
+  let pmax = Fnn.parameters [ emax; dmax ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0 in
+
+  Printf.eprintf "> dconf_of_rconf pmin:%d pmax:%d\n%!" pmin pmax;
+
+  let parameters = min (max pmin parameters) pmax in
+
+  {
+    encoder_tag = conf.encoder_tag;
+    decoder_tag = conf.decoder_tag;
+    seed;
+    parameters;
+    min_parameters = pmin;
+    max_parameters = pmax;
+    encoder_nn = emin;
+    decoder_nn = emin;
+  }
+
 (* React components ***************************************************************************** *)
 let construct_controlled_int_input :
-    ((module INT) * ((conf -> conf) -> unit) * bool) Reactjs.constructor =
- fun ((module M), update_conf, _) ->
-  let signal, set_val = React.S.create None in
+    ((module INT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
+    Reactjs.constructor =
+ fun ((module M), update_rconf, dconf_signal, _) ->
   let on_change ev =
-    let txt = ev##.target##.value |> Js.to_string in
-    let is_valid_char = function '0' .. '9' -> true | '-' -> true | _ -> false in
-    if String.length txt = 0 then (
-      set_val None;
-      update_conf (M.update_conf M.default) )
-    else if txt |> String.to_seq |> List.of_seq |> List.for_all is_valid_char then
-      let v = int_of_string txt in
-      if v >= M.min then (
-        set_val (Some v);
-        update_conf (M.update_conf v) )
+    let newtxt = ev##.target##.value |> Js.to_string in
+    if String.length newtxt = 0 then
+      M.default |> M.update_rconf |> update_rconf
+    else
+      match Regexp.string_match (Regexp.regexp "[-+]?[0-9]+") newtxt 0 with
+      | None -> ()
+      | Some _ -> (
+        match Int64.of_string newtxt with
+        | v -> v |> M.update_rconf |> update_rconf
+        | exception Failure _ -> () )
   in
-  let render (_, _, enabled) =
+  let render (_, _, _, enabled) =
     let open Reactjs.Jsx in
-    let control =
-      match React.S.value signal with
-      | None ->
-          of_bootstrap "Form.Control" ~placeholder:(string_of_int M.default) ~disabled:(not enabled)
-            ~value:"" ~type_:"number" ~on_change []
-      | Some value ->
-          of_bootstrap "Form.Control" ~value:(string_of_int value) ~disabled:(not enabled)
-            ~type_:"number" ~on_change []
-    in
+    let v = M.of_dconf (React.S.value dconf_signal) in
     of_bootstrap "Form.Group"
       [
-        of_bootstrap "Form.Label" [ of_string M.name ];
-        control;
+        of_bootstrap "Form.Label" [ Printf.sprintf "%s (%Ld)" M.name v |> of_string ];
+        of_bootstrap "Form.Control" ~placeholder:(Int64.to_string M.default) ~disabled:(not enabled)
+          ~type_:"number" ~on_change [];
         of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ];
       ]
   in
-  Reactjs.construct ~signal render
+  Reactjs.construct ~signal:dconf_signal render
 
 let construct_uncontrolled_select :
-    ((module ENUM) * ((conf -> conf) -> unit) * bool) Reactjs.constructor =
- fun ((module M), update_conf, _) ->
+    ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool) Reactjs.constructor =
+ fun ((module M), update_rconf, _) ->
   let on_change ev =
     let v = ev##.target##.value |> Js.to_string |> M.of_string in
-    update_conf (M.update_conf v)
+    update_rconf (M.update_rconf v)
   in
   let render (_, _, enabled) =
     let open Reactjs.Jsx in
@@ -429,25 +500,31 @@ let construct_react_component : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
   ignore fire_upstream_event;
 
-  let config_signal, update_conf =
-    React.S.create
-      {
-        encoder = Encoder.default;
-        encoding_parameters = Encoding_parameters.default;
-        decoder = Decoder.default;
-        seed = Seed.default;
-      }
+  let rconf0 =
+    {
+      encoder_tag = Encoder.default;
+      parameters = Parameters.default;
+      decoder_tag = Decoder.default;
+      seed = Seed.default;
+    }
   in
-  let update_conf updater =
-    let conf = React.S.value config_signal in
-    let conf = updater conf in
-    update_conf conf
+  (* let dconf0 = dconf_of_rconf rconf0 in *)
+  let rconf_signal, update_rconf = React.S.create rconf0 in
+  let dconf_signal = React.S.map dconf_of_rconf rconf_signal in
+
+  let update_rconf updater =
+    Printf.eprintf "> update_rconf\n%!";
+    let rconf = React.S.value rconf_signal in
+    let rconf = updater rconf in
+    update_rconf rconf
   in
 
   let render (_, enabled) =
     let open Reactjs.Jsx in
     let tt =
-      of_bootstrap "Tooltip" ~id:"tooltip-right" [ of_tag "div" [ of_string "Network:\ncoucou" ] ]
+      let ( |> ) v f = f [ v ] in
+      of_tag "div" ~style:[ ("textAlign", "left") ] (sub_char_to_tag "Network:\ncoucou" '\n' "br")
+      |> of_bootstrap "Tooltip" ~id:"tooltip-right"
     in
     let button =
       (* https://stackoverflow.com/a/61659811 *)
@@ -459,11 +536,12 @@ let construct_react_component : _ Reactjs.constructor =
     in
     let groups =
       [
-        of_constructor construct_uncontrolled_select ((module Encoder), update_conf, enabled);
-        of_constructor construct_uncontrolled_select ((module Decoder), update_conf, enabled);
+        of_constructor construct_uncontrolled_select ((module Encoder), update_rconf, enabled);
+        of_constructor construct_uncontrolled_select ((module Decoder), update_rconf, enabled);
         of_constructor construct_controlled_int_input
-          ((module Encoding_parameters), update_conf, enabled);
-        of_constructor construct_controlled_int_input ((module Seed), update_conf, enabled);
+          ((module Parameters), update_rconf, dconf_signal, enabled);
+        of_constructor construct_controlled_int_input
+          ((module Seed), update_rconf, dconf_signal, enabled);
         button;
       ]
       |> List.map (fun v -> of_bootstrap "Col" ~sm:6 [ v ])

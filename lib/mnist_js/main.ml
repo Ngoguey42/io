@@ -63,9 +63,9 @@ let react_main () =
                 {
                   from_webworker = true;
                   backend = `Tfjs_webgl;
-                  batch_size = 500;
                   lr = `Down (1e-3, 0.);
-                  batch_count = 50;
+                  batch_size = 500;
+                  batch_count = 5000;
                   seed = ev.seed;
                   verbose = true;
                 }
@@ -142,6 +142,6 @@ let main () =
   Ft_js.Scripts.import `Reactjs >>= fun () ->
   Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->
   Ft_js.import_css "styles.css" >>= fun () ->
-  Ft_js.import_js "https://cdn.plot.ly/plotly-latest.min.js" >>= fun () ->
+  (* Ft_js.import_js "https://cdn.plot.ly/plotly-latest.min.js" >>= fun () -> *)
   Reactjs.render (Reactjs.Jsx.of_constructor construct_mnist_js ()) div;
   Lwt.return ()

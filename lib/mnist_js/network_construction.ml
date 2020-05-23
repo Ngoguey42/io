@@ -14,11 +14,14 @@ type encoder_tag = [ `Fc | `Oneconv | `Twoconv | `Threeconv | `Fourconvres ] [@@
 
 type decoder_tag = [ `Maxpool_fc | `Fc ] [@@deriving enum]
 
+type optimizer_tag = [ `Adam0 | `Sgd ] [@@deriving enum]
+
 type raw_conf = {
   encoder_tag : encoder_tag;
   parameters : Int64.t;
   decoder_tag : decoder_tag;
   seed : Int64.t;
+  optimizer_tag : optimizer_tag;
 }
 
 type derived_conf = {
@@ -27,6 +30,7 @@ type derived_conf = {
   parameters : int;
   filters : int;
   seed : int;
+  optimizer_tag : optimizer_tag;
   encoder_nn : Fnn.network;
   decoder_nn : Fnn.network;
 }
@@ -167,12 +171,43 @@ module Decoder = struct
     M.create b o w f
 end
 
+module Optimizer = struct
+  type t = optimizer_tag
+
+  let values = List.init (max_optimizer_tag + 1) optimizer_tag_of_enum |> List.map Option.get
+
+  let to_string v = optimizer_tag_to_enum v |> string_of_int
+
+  let of_string v =
+    match int_of_string v |> optimizer_tag_of_enum with
+    | Some v -> v
+    | None -> failwith "unreachable"
+
+  let name_of_tag = function
+    | `Adam0 -> "ADaptive Moment Estimation (ADAM)"
+    | `Sgd -> "Stochastic Gradient Descent (SGD)"
+
+  let default = `Sgd
+
+  let of_dconf : derived_conf -> t = fun c -> c.optimizer_tag
+
+  let update_rconf : t -> raw_conf -> raw_conf =
+   fun optimizer_tag rconf -> { rconf with optimizer_tag }
+
+  let name = "Optimizer"
+
+  let description = "Algorithm used to update a parameter given the gradient of that parameter."
+
+  let optimizer_of_tag = function `Adam0 -> `Adam (0.9, 0.999, 1e-4) | `Sgd -> `Sgd
+
+  let code_of_tag = function `Adam0 -> "`Adam (0.9, 0.999, 1e-4)" | `Sgd -> "`Sgd"
+end
+
 (* ********************************************************************************************** *)
 let tooltip_chunks =
   [|
-    {|(* OCaml code to create the Fnn.network object *)
-let o = `Adam (0.9, 0.999, 1e-4) in
-let rng = Random.State.make [| |};
+    "(* OCaml code to create the Fnn.network object *)\nlet o = ";
+    " in\nlet rng = Random.State.make [| ";
     {| |] in
 let open (val Fnn.create_builder ~rng ()) in
 let open Pshape.Size in
@@ -180,8 +215,7 @@ let open Pshape.Size in
 input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
 (* encoder *)
 |};
-    {|(* decoder *)
-|};
+    "(* decoder *)\n";
   |]
 
 let jsx_of_line =
@@ -205,10 +239,11 @@ let jsx_of_code s =
 
 let code_of_dconf dconf =
   let (Pshape.Size.K w) = Pshape.get dconf.encoder_nn#out_shape `S0 |> Pshape.Size.to_known in
+  let opti = Optimizer.code_of_tag dconf.optimizer_tag in
   let ecode = Encoder.code_of_tag dconf.encoder_tag dconf.filters in
   let dcode = Decoder.code_of_tag dconf.decoder_tag w dconf.filters in
-  tooltip_chunks.(0) ^ string_of_int dconf.seed ^ tooltip_chunks.(1) ^ ecode ^ tooltip_chunks.(2)
-  ^ dcode
+  tooltip_chunks.(0) ^ opti ^ tooltip_chunks.(1) ^ string_of_int dconf.seed ^ tooltip_chunks.(2)
+  ^ ecode ^ tooltip_chunks.(3) ^ dcode
 
 let dconf_of_rconf : raw_conf -> derived_conf =
  fun conf ->
@@ -224,7 +259,7 @@ let dconf_of_rconf : raw_conf -> derived_conf =
   in
 
   let networks_of_filters f =
-    let o = `Adam (0.9, 0.999, 1e-4) in
+    let o = Optimizer.optimizer_of_tag conf.optimizer_tag in
     let rng = Random.State.make [| seed |] in
     let make_builder () = Fnn.create_builder ~rng () in
     let builder = make_builder () in
@@ -297,6 +332,7 @@ let dconf_of_rconf : raw_conf -> derived_conf =
     parameters;
     encoder_nn;
     decoder_nn;
+    optimizer_tag = conf.optimizer_tag;
   }
 
 (* React components ***************************************************************************** *)
@@ -323,7 +359,7 @@ let construct_int_input :
       [
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%Ld)" M.name v |> of_string ];
         of_bootstrap "Form.Control" ~placeholder:(Int64.to_string M.default) ~disabled:(not enabled)
-          ~type_:"number" ~on_change [];
+          ~size:"sm" ~type_:"number" ~on_change [];
         of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ];
       ]
   in
@@ -341,7 +377,7 @@ let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool)
     let control =
       M.values
       |> List.map (fun v -> of_tag "option" ~value:(M.to_string v) [ of_string (M.name_of_tag v) ])
-      |> of_bootstrap "Form.Control" ~as_:"select" ~disabled:(not enabled) ~on_change
+      |> of_bootstrap "Form.Control" ~as_:"select" ~disabled:(not enabled) ~on_change ~size:"sm"
            ~default_value:(M.to_string M.default)
     in
     of_bootstrap "Form.Group"
@@ -362,6 +398,7 @@ let construct_react_component : _ Reactjs.constructor =
         parameters = Parameters.default;
         decoder_tag = Decoder.default;
         seed = Seed.default;
+        optimizer_tag = Optimizer.default;
       }
   in
 
@@ -383,39 +420,38 @@ let construct_react_component : _ Reactjs.constructor =
     let open Reactjs.Jsx in
     let dconf = React.S.value dconf_signal in
     let tt =
-      let ( |> ) v f = f [ v ] in
       of_tag "div"
         ~class_:[ "text-monospace"; "text-left"; "small" ]
         (jsx_of_code (code_of_dconf dconf))
-      |> of_bootstrap "Tooltip" ~id:"network-code"
+      >> of_bootstrap "Tooltip" ~id:"network-code"
     in
     let button =
       (* https://stackoverflow.com/a/61659811 *)
-      let ( |> ) v f = f [ v ] in
       of_string "Create"
-      |> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit"
-      |> of_tag "span"
-      |> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt
+      >> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit" ~size:"lg"
+      >> of_tag "span"
+      >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt
+      >> of_bootstrap "Col" ~sm:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
     in
-    let groups =
-      [
-        of_constructor construct_select ((module Encoder), update_rconf, enabled);
-        of_constructor construct_select ((module Decoder), update_rconf, enabled);
-        of_constructor construct_int_input ((module Parameters), update_rconf, dconf_signal, enabled);
-        of_constructor construct_int_input ((module Seed), update_rconf, dconf_signal, enabled);
-        button;
-      ]
-      |> List.map (fun v -> of_bootstrap "Col" ~sm:6 [ v ])
+    let select m =
+      of_constructor construct_select (m, update_rconf, enabled) >> of_bootstrap "Col" ~sm:6
+    in
+    let input m =
+      of_constructor construct_int_input (m, update_rconf, dconf_signal, enabled)
+      >> of_bootstrap "Col" ~sm:6
     in
     let tbody =
-      let ( |> ) v f = f [ v ] in
-      of_bootstrap "Row" groups |> of_bootstrap "Form" |> of_tag "th" |> of_tag "tr"
-      |> of_tag "tbody"
+      [
+        select (module Encoder);
+        select (module Decoder);
+        input (module Parameters);
+        input (module Seed);
+        button;
+        select (module Optimizer);
+      ]
+      |> of_bootstrap "Row" >> of_bootstrap "Form" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in
-    let thead =
-      let ( |> ) v f = f [ v ] in
-      of_string "Network Creation" |> of_tag "th" |> of_tag "tr" |> of_tag "thead"
-    in
+    let thead = of_string "Network Creation" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
     of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 

@@ -75,6 +75,8 @@ let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s
   (render, mount, update, unmount, setup_signals)
 
 module Jsx = struct
+  let ( >> ) : jsx Js.t -> (jsx Js.t list -> jsx Js.t) -> jsx Js.t = fun v f -> f [ v ]
+
   external _ft_js_create_component_type :
     (component Js.t -> < data : 'props Js.readonly_prop > Js.t -> unit) ->
     'props component_class Js.t = "ft_js_create_component_type"

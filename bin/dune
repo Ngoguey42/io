@@ -27,8 +27,7 @@
     digestif.ocaml
     ft
     ft_js
-    ft_owlbase
-    ft_cnnjs
+    mnist_js
     lwt_react
     ocamlgraph
   )

@@ -17,9 +17,11 @@
     /!\ The official documentation is not exhaustive.
 
  *)
-module Js = Js_of_ocaml.Js
-module Typed_array = Js_of_ocaml.Typed_array
-module Firebug = Js_of_ocaml.Firebug
+open struct
+  module Js = Js_of_ocaml.Js
+  module Typed_array = Js_of_ocaml.Typed_array
+  module Firebug = Js_of_ocaml.Firebug
+end
 
 (* Types  *************************************************************************************** *)
 

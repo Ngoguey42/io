@@ -10,13 +10,11 @@ open struct
 end
 
 (* Encoders ************************************************************************************* *)
-type encoder_tag = [ `ZeroConv | `OneConv | `TwoConv | `ThreeConv | `ThreeConvRes ]
-[@@deriving yojson, enum]
+type encoder_tag = [ `Zeroconv | `Oneconv | `Twoconv | `Threeconv | `Threeconvres ]
+[@@deriving enum]
 
 module type ENCODER = sig
   val create : (module Fnn.BUILDER) -> Fnn.optimizer_conf -> int -> Fnn.network
-
-  val param_count : int -> int
 
   val code : int -> string
 
@@ -28,8 +26,6 @@ module Noop : ENCODER = struct
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32 |> Fnn.downcast
-
-  let param_count _ = 0
 
   let code _ = ""
 
@@ -43,12 +39,6 @@ module Oneconv : ENCODER = struct
     input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
     |> conv2d ~o (`Full f) (16, 16) ~s:(6, 6) ~b:`Assert_fit
     |> bias |> relu |> Fnn.downcast
-
-  let param_count f =
-    let total = 0 in
-    let k, f0, f1 = (16, 1, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    total
 
   let code f =
     Printf.sprintf "|> conv2d ~o (`Full %d) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias |> relu\n" f
@@ -65,14 +55,6 @@ module Twoconv : ENCODER = struct
     |> bias |> relu
     |> conv2d ~o (`Full f) (3, 3) ~s:(3, 3) ~b:`Assert_fit
     |> bias |> relu |> Fnn.downcast
-
-  let param_count f =
-    let total = 0 in
-    let k, f0, f1 = (4, 1, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    let k, f0, f1 = (3, f, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    total
 
   let code f =
     Printf.sprintf
@@ -95,16 +77,6 @@ module Threeconv = struct
     |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit
     |> bias |> relu |> Fnn.downcast
 
-  let param_count f =
-    let total = 0 in
-    let k, f0, f1 = (4, 1, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    let k, f0, f1 = (4, f, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    let k, f0, f1 = (4, f, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    total
-
   let code f =
     Printf.sprintf
       {||> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
@@ -121,45 +93,61 @@ module Threeconvres : ENCODER = struct
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+    (* |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu *)
+    (* |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu *)
+    (* |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu *)
+    (* |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu *)
     |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit
     |> bias
     |> (fun up ->
          [
            up |> cropping2d [ 1 ] |> Fnn.downcast;
-           up |> relu |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
+           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
          ])
     |> sum
+    (* |> batch_norm *)
     |> (fun up ->
          [
            up |> cropping2d [ 1 ] |> Fnn.downcast;
-           up |> relu |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
+           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
          ])
-    |> sum |> Fnn.downcast
-
-  let param_count f =
-    let total = 0 in
-    let k, f0, f1 = (4, 1, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    let k, f0, f1 = (4, f, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    let k, f0, f1 = (4, f, f) in
-    let total = total + (k * k * f0 * f1) + f1 in
-    total
+    |> sum
+    (* |> batch_norm *)
+    |> (fun up ->
+         [
+           up |> cropping2d [ 1 ] |> Fnn.downcast;
+           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
+         ])
+    (* (\* |> (fun up -> *\) *)
+    (* (\*      [ *\) *)
+    (* (\*        up |> cropping2d [ 1; 2; 1; 2 ] |> Fnn.downcast; *\) *)
+    (* (\*        up |> relu |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast; *\) *)
+    (* (\*      ]) *\) *)
+    (* (\* |> sum *\) *)
+    (* (\* |> (fun up -> *\) *)
+    (* (\*      [ *\) *)
+    (* (\*        up |> cropping2d [ 2; 1; 2; 1 ] |> Fnn.downcast; *\) *)
+    (* (\*        up |> relu |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast; *\) *)
+    (* (\*      ]) *\) *)
+    |> sum
+    (* (\* |> batch_norm *\) *)
+    |> Fnn.downcast
 
   let code f =
     Printf.sprintf
-      {||> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias
-|> (fun up -> [
-        up |> cropping2d [1] |> Fnn.downcast
-      ; up |> relu |> conv2d ~o (`Full %d) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast
-   ])
-|> sum
-|> (fun up -> [
-        up |> cropping2d [1] |> Fnn.downcast
-      ; up |> relu |> conv2d ~o (`Full %d) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast
-   ])
-|> sum
-|}
+      ( "|> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias\n|> (fun up -> [\n"
+      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}up |> cropping2d [ 1; 2; 1; 2 ] |> \
+          Fnn.downcast\n"
+      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}; up |> relu |> conv2d ~o (`Full %d) (4, 4) ~s:(1, \
+          1) ~b:`Assert_fit\n"
+      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}|> bias |> Fnn.downcast\n"
+      ^^ "\u{a0}\u{a0}\u{a0}])\n" ^^ "|> sum\n" ^^ "|> (fun up -> [\n"
+      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}up |> cropping2d [ 2; 1; 2; 1 ] |> \
+          Fnn.downcast\n"
+      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}; up |> relu |> conv2d ~o (`Full %d) (4, 4) ~s:(1, \
+          1) ~b:`Assert_fit\n"
+      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}|> bias |> Fnn.downcast\n"
+      ^^ "\u{a0}\u{a0}\u{a0}])\n" ^^ "|> sum\n" )
       f f f
 
   let description = "One 4x4(s3) and two residual 4x4(s1)"
@@ -172,8 +160,6 @@ module type DECODER = sig
   val tag : decoder_tag
 
   val create : (module Fnn.BUILDER) -> int -> int -> Fnn.network
-
-  val param_count : int -> int -> int
 
   val code : int -> int -> string
 
@@ -189,14 +175,19 @@ module Maxpool_fc : DECODER = struct
     input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
     |> maxpool2d ~b:`Assert_fit (w, w)
     |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
-    |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif")
+    |> dense ~o:(`Adam (0.9, 0.999, 1e-4)) [ (`C, 10) ] ~id:(Some "classif")
+    (* |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif") *)
     |> bias
     |> softmax `C
     |> Fnn.downcast
 
-  let param_count _ f = 1 * 1 * f * 10
-
-  let code _ _ = ""
+  let code w _ =
+    Printf.sprintf
+      {||> maxpool2d ~b:`Assert_fit (%d, %d)
+|> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
+|> dense ~o:`Sgd [ (`C, 10) ] |> bias |> softmax `C
+|}
+      w w
 
   let description = "Max-pooling and fully-connected"
 end
@@ -209,14 +200,16 @@ module Fc : DECODER = struct
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
     |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
-    |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif")
+    |> dense ~o:(`Adam (0.9, 0.999, 1e-4)) [ (`C, 10) ] ~id:(Some "classif")
+    (* |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif") *)
     |> bias
     |> softmax `C
     |> Fnn.downcast
 
-  let param_count w f = w * w * f * 10
-
-  let code _ _ = ""
+  let code _ _ =
+    {||> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
+|> dense ~o:`Sgd [ (`C, 10) ] |> bias |> softmax `C
+|}
 
   let description = "Fully-connected"
 end
@@ -233,11 +226,10 @@ type derived_conf = {
   encoder_tag : encoder_tag;
   decoder_tag : decoder_tag;
   parameters : int;
+  filters : int;
   seed : int;
   encoder_nn : Fnn.network;
   decoder_nn : Fnn.network;
-  min_parameters : int;
-  max_parameters : int;
 }
 
 module type ENTRY = sig
@@ -288,7 +280,7 @@ end
 module Parameters = struct
   type t = Int64.t
 
-  let default = Int64.of_int 5000
+  let default = Int64.of_int 10000
 
   let of_dconf : derived_conf -> t = fun c -> Int64.of_int c.parameters
 
@@ -296,7 +288,7 @@ module Parameters = struct
 
   let name = "Parameters"
 
-  let description = "Network trainable parameter count in encoder"
+  let description = "Network's trainable parameter count"
 end
 
 module Encoder = struct
@@ -304,21 +296,19 @@ module Encoder = struct
 
   let values = List.init (max_encoder_tag + 1) encoder_tag_of_enum |> List.map Option.get
 
-  let to_string v = encoder_tag_to_yojson v |> Yojson.Safe.to_string
+  let to_string v = encoder_tag_to_enum v |> string_of_int
 
   let of_string v =
-    match Yojson.Safe.from_string v |> encoder_tag_of_yojson with
-    | Ok v -> v
-    | Error _ -> failwith "unreachable"
+    match int_of_string v |> encoder_tag_of_enum with Some v -> v | None -> failwith "unreachable"
 
   let to_name = function
-    | `ZeroConv -> "No encoder, only decoder"
-    | `OneConv -> "A single 16x16(s6) convolution"
-    | `TwoConv -> "One 4x4(s3) and one 3x3(s3)"
-    | `ThreeConv -> "One 4x4(s3) and two 4x4(s1)"
-    | `ThreeConvRes -> "One 4x4(s3) and two residual 4x4(s1)"
+    | `Zeroconv -> "No encoder, only decoder"
+    | `Oneconv -> "A single 16x16(s6) convolution"
+    | `Twoconv -> "One 4x4(s3) and one 3x3(s3)"
+    | `Threeconv -> "One 4x4(s3) and two 4x4(s1)"
+    | `Threeconvres -> "One 4x4(s3) and two residual 4x4(s1)"
 
-  let default = `OneConv
+  let default = `Oneconv
 
   let of_dconf : derived_conf -> t = fun c -> c.encoder_tag
 
@@ -345,7 +335,7 @@ module Decoder = struct
     | `Maxpool_fc -> "Max-pooling and fully-connected"
     | `Fc -> "Fully-connected"
 
-  let default = `Maxpool_fc
+  let default = `Fc
 
   let of_dconf : derived_conf -> t = fun c -> c.decoder_tag
 
@@ -358,22 +348,20 @@ end
 
 (* ********************************************************************************************** *)
 let tooltip_chunks =
-  [
+  [|
     {|(* OCaml code to create the Fnn.network object *)
 let rng = Random.State.make [| |};
     {| |] in
 let open (val Fnn.create_builder ~rng ()) in
 let open Pshape.Size in
-
 let o = `Adam (0.9, 0.999, 1e-4) in
-input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
 
+input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
 (* encoder *)
 |};
-    {|
-(* decoder *)
+    {|(* decoder *)
 |};
-  ]
+  |]
 
 let sub_char_to_tag s char tag =
   let open Reactjs.Jsx in
@@ -384,6 +372,26 @@ let sub_char_to_tag s char tag =
   in
   String.split_on_char char s |> aux
 
+let tooltip_text_of_dconf dconf =
+  let module D =
+  ( val match dconf.decoder_tag with
+        | `Maxpool_fc -> (module Maxpool_fc : DECODER)
+        | `Fc -> (module Fc) )
+  in
+  let module E =
+  ( val match dconf.encoder_tag with
+        | `Zeroconv -> (module Noop : ENCODER)
+        | `Oneconv -> (module Oneconv)
+        | `Twoconv -> (module Twoconv)
+        | `Threeconv -> (module Threeconv)
+        | `Threeconvres -> (module Threeconvres) )
+  in
+  let (Pshape.Size.K w) = Pshape.get dconf.encoder_nn#out_shape `S0 |> Pshape.Size.to_known in
+  let ecode = E.code dconf.filters in
+  let dcode = D.code w dconf.filters in
+  tooltip_chunks.(0) ^ string_of_int dconf.seed ^ tooltip_chunks.(1) ^ ecode ^ tooltip_chunks.(2)
+  ^ dcode
+
 let dconf_of_rconf : raw_conf -> derived_conf =
  fun conf ->
   let module D =
@@ -393,11 +401,11 @@ let dconf_of_rconf : raw_conf -> derived_conf =
   in
   let module E =
   ( val match conf.encoder_tag with
-        | `ZeroConv -> (module Noop : ENCODER)
-        | `OneConv -> (module Oneconv)
-        | `TwoConv -> (module Twoconv)
-        | `ThreeConv -> (module Threeconv)
-        | `ThreeConvRes -> (module Threeconvres) )
+        | `Zeroconv -> (module Noop : ENCODER)
+        | `Oneconv -> (module Oneconv)
+        | `Twoconv -> (module Twoconv)
+        | `Threeconv -> (module Threeconv)
+        | `Threeconvres -> (module Threeconvres) )
   in
   let seed =
     if Int64.compare conf.seed (Int64.of_int 0) <= 0 then 0
@@ -412,7 +420,8 @@ let dconf_of_rconf : raw_conf -> derived_conf =
 
   let networks_of_filters f =
     let o = `Adam (0.9, 0.999, 1e-4) in
-    let make_builder () = Fnn.create_builder ~rng:(Random.State.make [| seed |]) () in
+    let rng = Random.State.make [| seed |] in
+    let make_builder () = Fnn.create_builder ~rng () in
     let builder = make_builder () in
     let e = E.create builder o f in
     let (Pshape.Size.K w) = Pshape.get e#out_shape `S0 |> Pshape.Size.to_known in
@@ -421,43 +430,75 @@ let dconf_of_rconf : raw_conf -> derived_conf =
     (e, d)
   in
 
-  let emin, dmin = networks_of_filters 1 in
+  let minf = 1 in
+  let maxp = 1000000 in
+
+  let emin, dmin = networks_of_filters minf in
   let pmin = Fnn.parameters [ emin; dmin ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0 in
 
-  let emax, dmax = networks_of_filters 10000 in
-  let pmax = Fnn.parameters [ emax; dmax ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0 in
+  let rec find_closest_network ((ileft, vleft, _) as left) right =
+    match right with
+    | Some ((iright, vright, _) as right) when ileft + 1 = iright ->
+        (* Stop *)
+        assert (ileft < iright);
+        assert (vleft <= vright);
+        if parameters - vleft <= vright - parameters then left else right
+    | Some ((iright, vright, _) as right) ->
+        (* Dichotomy *)
+        assert (ileft < iright);
+        assert (vleft <= vright);
+        let imid = (ileft + iright) / 2 in
+        let emid, dmid = networks_of_filters imid in
+        let vmid =
+          Fnn.parameters [ emid; dmid ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
+        in
+        let mid = (imid, vmid, (emid, dmid)) in
+        if vmid >= maxp then find_closest_network left (Some mid)
+        else if vmid <= parameters then find_closest_network mid (Some right)
+        else find_closest_network left (Some mid)
+    | None ->
+        (* Looking for right bound *)
+        let imid = ileft * 2 in
+        let emid, dmid = networks_of_filters imid in
+        let vmid =
+          Fnn.parameters [ emid; dmid ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
+        in
+        let mid = (imid, vmid, (emid, dmid)) in
+        if vmid = vleft then find_closest_network left (Some mid)
+        else if vmid >= maxp then find_closest_network left (Some mid)
+        else if vmid <= parameters then find_closest_network mid None
+        else find_closest_network left (Some mid)
+  in
 
-  Printf.eprintf "> dconf_of_rconf pmin:%d pmax:%d\n%!" pmin pmax;
-
-  let parameters = min (max pmin parameters) pmax in
+  let filters, parameters, (encoder_nn, decoder_nn) =
+    find_closest_network (minf, pmin, (emin, dmin)) None
+  in
 
   {
     encoder_tag = conf.encoder_tag;
     decoder_tag = conf.decoder_tag;
     seed;
+    filters;
     parameters;
-    min_parameters = pmin;
-    max_parameters = pmax;
-    encoder_nn = emin;
-    decoder_nn = emin;
+    encoder_nn;
+    decoder_nn;
   }
 
 (* React components ***************************************************************************** *)
-let construct_controlled_int_input :
+let construct_uncontrolled_int_input :
     ((module INT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
     Reactjs.constructor =
  fun ((module M), update_rconf, dconf_signal, _) ->
   let on_change ev =
     let newtxt = ev##.target##.value |> Js.to_string in
-    if String.length newtxt = 0 then
-      M.default |> M.update_rconf |> update_rconf
+    if String.length newtxt = 0 then M.default |> M.update_rconf |> update_rconf
     else
       match Regexp.string_match (Regexp.regexp "[-+]?[0-9]+") newtxt 0 with
       | None -> ()
       | Some _ -> (
-        match Int64.of_string newtxt with
-        | v -> v |> M.update_rconf |> update_rconf
-        | exception Failure _ -> () )
+          match Int64.of_string newtxt with
+          | v -> v |> M.update_rconf |> update_rconf
+          | exception Failure _ -> () )
   in
   let render (_, _, _, enabled) =
     let open Reactjs.Jsx in
@@ -508,29 +549,36 @@ let construct_react_component : _ Reactjs.constructor =
       seed = Seed.default;
     }
   in
-  (* let dconf0 = dconf_of_rconf rconf0 in *)
   let rconf_signal, update_rconf = React.S.create rconf0 in
   let dconf_signal = React.S.map dconf_of_rconf rconf_signal in
 
   let update_rconf updater =
-    Printf.eprintf "> update_rconf\n%!";
     let rconf = React.S.value rconf_signal in
     let rconf = updater rconf in
     update_rconf rconf
   in
 
+  let on_click ev =
+    ev##preventDefault;
+    let dconf = React.S.value dconf_signal in
+    fire_upstream_event (dconf.encoder_nn, dconf.decoder_nn, dconf.seed)
+  in
+
   let render (_, enabled) =
     let open Reactjs.Jsx in
+    let dconf = React.S.value dconf_signal in
     let tt =
       let ( |> ) v f = f [ v ] in
-      of_tag "div" ~style:[ ("textAlign", "left") ] (sub_char_to_tag "Network:\ncoucou" '\n' "br")
+      of_tag "div"
+        ~class_:[ "text-monospace"; "text-left"; "small" ]
+        (sub_char_to_tag (tooltip_text_of_dconf dconf) '\n' "br")
       |> of_bootstrap "Tooltip" ~id:"tooltip-right"
     in
     let button =
       (* https://stackoverflow.com/a/61659811 *)
       let ( |> ) v f = f [ v ] in
       of_string "Create"
-      |> of_bootstrap ~disabled:(not enabled) "Button" ~type_:"submit"
+      |> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit"
       |> of_tag "span"
       |> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt
     in
@@ -538,9 +586,9 @@ let construct_react_component : _ Reactjs.constructor =
       [
         of_constructor construct_uncontrolled_select ((module Encoder), update_rconf, enabled);
         of_constructor construct_uncontrolled_select ((module Decoder), update_rconf, enabled);
-        of_constructor construct_controlled_int_input
+        of_constructor construct_uncontrolled_int_input
           ((module Parameters), update_rconf, dconf_signal, enabled);
-        of_constructor construct_controlled_int_input
+        of_constructor construct_uncontrolled_int_input
           ((module Seed), update_rconf, dconf_signal, enabled);
         button;
       ]
@@ -558,4 +606,4 @@ let construct_react_component : _ Reactjs.constructor =
     of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
-  Reactjs.construct render
+  Reactjs.construct ~signal:dconf_signal render

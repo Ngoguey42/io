@@ -80,3 +80,6 @@ button:disabled {
 /* .btn[disabled] { */
 /* pointer-events: all !important; */
 /* } */
+.tooltip-inner {
+    min-width: 500px; /* the minimum width */
+}

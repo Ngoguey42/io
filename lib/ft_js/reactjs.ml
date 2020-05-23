@@ -18,6 +18,8 @@ end)
 class type ['target] event =
   object
     method target : 'target Js.readonly_prop
+
+    method preventDefault : unit Js.meth
   end
 
 class type ['props] component_class = object end

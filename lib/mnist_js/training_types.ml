@@ -7,6 +7,7 @@ type int32_ba = (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Genarray
 type backend = [ `Tfjs_webgl | `Tfjs_cpu | `Tfjs_wasm ]
 
 type training_config = {
+  from_webworker : bool;
   backend : backend;
   lr : [ `Down of float * float ];
   batch_count : int;
@@ -37,7 +38,7 @@ type routine_event =
 
 type routine_status = [ `Running | `Ended | `Aborted | `Crashed ]
 
-type outcome = [ `End | `Abort | `Crash of exn ]
+type outcome = [ `End of Fnn.network * Fnn.network * int | `Abort | `Crash of exn ]
 
 module type TRAINER = sig
   (* TODO: freeze some networks *)

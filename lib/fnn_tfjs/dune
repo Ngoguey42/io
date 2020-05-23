@@ -1,0 +1,7 @@
+(library
+ (public_name fnn_tfjs)
+ (name fnn_tfjs)
+
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt ft ft_js fnn pshape)
+ (preprocess (pps js_of_ocaml-ppx lwt_ppx))
+ )

@@ -10,9 +10,9 @@ include Training_types
 
 let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = function
   (* | `Owl_cpu -> (module Mnist_owl) *)
-  | `Tfjs_webgl -> (module Mnist_tfjs.Make_backend (struct let v = `Webgl end))
-  | `Tfjs_cpu -> (module Mnist_tfjs.Make_backend (struct let v = `Cpu end))
-  | `Tfjs_wasm -> (module Mnist_tfjs.Make_backend (struct let v = `Wasm end))
+  | `Tfjs_webgl -> (module Training_tfjs.Make_backend (struct let v = `Webgl end))
+  | `Tfjs_cpu -> (module Training_tfjs.Make_backend (struct let v = `Cpu end))
+  | `Tfjs_wasm -> (module Training_tfjs.Make_backend (struct let v = `Wasm end))
 
 let routine { db = train_imgs, train_labs, _, _; networks = encoders, decoder; config } fire_event
     instructions =
@@ -47,7 +47,7 @@ let routine { db = train_imgs, train_labs, _, _; networks = encoders, decoder; c
 module Webworker_routine = struct
   type training_parameters = {
     db : uint8_ba * uint8_ba * uint8_ba * uint8_ba;
-    networks : Misc.storable_nn list * Misc.storable_nn;
+    networks : Fnn.storable_nn list * Fnn.storable_nn;
     config : training_config;
   }
 
@@ -57,7 +57,7 @@ module Webworker_routine = struct
     [ `Init
     | `Batch_begin of int
     | `Batch_end of int * stats
-    | `End of Misc.storable_nn list * Misc.storable_nn * stats
+    | `End of Fnn.storable_nn list * Fnn.storable_nn * stats
     | `Abort
     | `Crash of exn ]
 
@@ -65,21 +65,21 @@ module Webworker_routine = struct
 
   let preprocess_in_msg : _ -> _in_msg = function
     | `Prime Training_types.{ db; networks = encoders, decoder; config } ->
-        let f = Misc.storable_of_fnn in
+        let f = Fnn.storable_of_fnn in
         let networks = (List.map f encoders, f decoder) in
         `Prime { networks; db; config }
     | #user_status as msg -> msg
 
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db; networks = encoders, decoder; config } ->
-        let f = Misc.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
+        let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
         let networks = (List.map f encoders, f decoder) in
         `Prime Training_types.{ networks; db; config }
     | #user_status as msg -> msg
 
   let preprocess_out_msg : Training_types.routine_event -> routine_event = function
     | `End (encoders, decoder, stats) ->
-        let f = Misc.storable_of_fnn in
+        let f = Fnn.storable_of_fnn in
         `End (List.map f encoders, f decoder, stats)
     | `Init as ev -> (ev :> routine_event)
     | `Batch_begin _ as ev -> (ev :> routine_event)
@@ -89,7 +89,7 @@ module Webworker_routine = struct
 
   let postprocess_out_msg : _out_msg -> Training_types.routine_event = function
     | `End (encoders, decoder, stats) ->
-        let f = Misc.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
+        let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
         `End (List.map f encoders, f decoder, stats)
     | `Init as ev -> (ev :> Training_types.routine_event)
     | `Batch_begin _ as ev -> (ev :> Training_types.routine_event)
@@ -192,8 +192,9 @@ let construct (props : props) =
   let routine_status =
     let reduce s ev =
       match (s, ev) with
-      | `Running, `End _ ->
-          on_completion `End;
+      | `Running, `End (encoders, decoder, stats) ->
+          on_completion
+            (`End (List.hd encoders, decoder, stats.batch_count * params.config.batch_size));
           `Ended
       | `Running, `Abort ->
           on_completion `Abort;
@@ -248,16 +249,20 @@ let construct (props : props) =
       ]
   in
   let mount () =
-    let fire_routine_event ev = ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event in
-    let ww =
-      Webworker_routine.create fire_routine_event (fun _err -> Printf.eprintf "Webworker err\n%!")
-    in
-    let user_status = React.S.map Webworker_routine.preprocess_in_msg user_status in
-    React.S.changes user_status |> React.E.map (Webworker_routine.post_in_message ww) |> ignore;
-    Webworker_routine.post_in_message ww (React.S.value user_status);
-    Webworker_routine.post_in_message ww (Webworker_routine.preprocess_in_msg (`Prime params))
-    (* let routine () = routine params fire_routine_event user_status in *)
-    (* Js_of_ocaml_lwt.Lwt_js_events.async routine *)
+    if params.config.from_webworker then (
+      let fire_routine_event ev =
+        ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event
+      in
+      let ww =
+        Webworker_routine.create fire_routine_event (fun _err -> Printf.eprintf "Webworker err\n%!")
+      in
+      let user_status = React.S.map Webworker_routine.preprocess_in_msg user_status in
+      React.S.changes user_status |> React.E.map (Webworker_routine.post_in_message ww) |> ignore;
+      Webworker_routine.post_in_message ww (React.S.value user_status);
+      Webworker_routine.post_in_message ww (Webworker_routine.preprocess_in_msg (`Prime params)) )
+    else
+      let routine () = routine params fire_routine_event user_status in
+      Js_of_ocaml_lwt.Lwt_js_events.async routine
   in
 
   Reactjs.construct ~mount ~signal:routine_progress ~signal:user_status ~signal:routine_status

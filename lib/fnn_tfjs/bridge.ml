@@ -1,9 +1,9 @@
-module Js = Js_of_ocaml.Js
-module Firebug = Js_of_ocaml.Firebug
-module Ndarray = Owl_base_dense_ndarray_generic
-module Lwt_js = Js_of_ocaml_lwt.Lwt_js
-module Typed_array = Js_of_ocaml.Typed_array
-module L = Tfjs_api.Layers
+open struct
+  module Js = Js_of_ocaml.Js
+  module Firebug = Js_of_ocaml.Firebug
+  module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+  module Typed_array = Js_of_ocaml.Typed_array
+end
 
 (* Utility types ******************************************************************************** *)
 

@@ -113,7 +113,6 @@ module Deterministic = struct
     | `Glorot_uniform_seeded of Int.t
     | `Glorot_normal_seeded of Int.t
     | `Lecun_normal_seeded of Int.t
-    | `Bilinear (* Upsampling for conv transpose *)
     | `Float_constant of Float.t ]
 
   type uint8 = [ _uint8_only | _int_intersection ]
@@ -151,7 +150,6 @@ module Deterministic = struct
     | `Glorot_uniform_seeded seed -> uniform kind seed ~-.r1 r1 dimensions
     | `Glorot_normal_seeded seed -> gaussian kind seed 0. r2 dimensions
     | `Lecun_normal_seeded seed -> gaussian kind seed 0. r0 dimensions
-    | `Bilinear -> failwith "not implemented"
     | `Float_constant k -> create kind dimensions k
 
   let _run_int :
@@ -266,3 +264,11 @@ let run :
  fun ?rng t kind dimensions ->
   let t = to_deterministic ?rng t in
   Deterministic.run t kind dimensions
+
+let dimensions_opt : t -> Int.t array option = function
+  | `Float32_array arr -> Some (Bigarray.Genarray.dims arr)
+  | `Float64_array arr -> Some (Bigarray.Genarray.dims arr)
+  | `Int32_array arr -> Some (Bigarray.Genarray.dims arr)
+  | `Int64_array arr -> Some (Bigarray.Genarray.dims arr)
+  | `Uint8_array arr -> Some (Bigarray.Genarray.dims arr)
+  | _ -> None

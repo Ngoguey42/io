@@ -8,11 +8,17 @@ perspectives:
   "9": [[ lib/ft_js/reactjs.ml, lib/ft_js/scripts.ml, lib/ft_js/webworker.ml ]]
   "+9": [[ lib/ft/irmin_mem.ml, lib/ft_js/irmin_indexeddb_js_api.ml, lib/ft_js/irmin_indexeddb_raw_noutf.ml ]]
 
-  # pshape and fnn
-  "17": [[ lib/pshape/pshape.ml, lib/pshape/pshape_sig.ml ]]
-  "+17": [[ lib/pshape/dune, lib/pshape/misc.ml ]]
-  "18": [[ lib/fnn/fnn.ml, lib/fnn/fnn.ml, lib/fnn/fnn.ml ]]
-  "+18": [[ lib/fnn/dune, lib/fnn/init.ml ]]
+  # pshape, fnn, fnn_tfjs
+  "17": [[ lib/pshape/dune, lib/pshape/misc.ml ]]
+  "14": [[ lib/pshape/pshape.ml, lib/pshape/pshape_sig.ml ]]
+
+  "18":
+    - [ lib/fnn/dune, lib/fnn/init.ml, lib/fnn/misc.ml ]
+    - [ lib/fnn/fnn.ml, <up>, <up> ]
+  "15": [[ lib/fnn/make_fnn.ml, lib/fnn/make_fnn.ml, lib/fnn/patch.ml ]]
+
+  "19": [[ lib/fnn_tfjs/dune, lib/fnn_tfjs/fnn_tfjs.ml ]]
+  "16": [[ lib/fnn_tfjs/tfjs_api.ml, lib/fnn_tfjs/bridge.ml ]]
 
   # root and bin
   "0":
@@ -27,16 +33,11 @@ perspectives:
     - [./ft_cnnjs.opam, ./, ./]
   "1": [[ bin/dune, bin/page_builder.ml ]]
   "+1": [[ bin/index.ml, bin/about.ml ]]
-  "2": [[ bin/mnist_js.ml, bin/ressources.ml ]]
 
   "10":
     - [ lib/game/shapes.ml ]
 
-  # ft_cnnjs
-  "4": [[ lib/ft_cnnjs/dune, lib/ft_cnnjs/ft_cnnjs.ml, lib/ft_cnnjs/misc.ml ]]
-  "5": [[ lib/ft_cnnjs/training_types.ml, lib/ft_cnnjs/training_conf.ml, lib/ft_cnnjs/training.ml ]]
-  "+5": [[lib/ft_cnnjs/fnn_archi.ml, lib/ft_cnnjs/mnist.ml]]
-  "6": [[lib/ft_cnnjs/tfjs_api.ml, lib/ft_cnnjs/fnn_tfjs.ml, lib/ft_cnnjs/mnist_tfjs.ml]]
-
-# lib/ft_owlbase/dune
-# lib/ft_owlbase/ft_owlbase.ml
+  # mnist_js
+  "4" : [[ lib/mnist_js/dune, lib/mnist_js/mnist_js.ml, lib/mnist_js/mnist.ml ]]
+  "5" : [[ lib/mnist_js/main.ml, lib/mnist_js/resources.ml, lib/mnist_js/network_construction.ml ]]
+  "6" : [[ lib/mnist_js/training_types.ml, lib/mnist_js/training.ml, lib/mnist_js/training_tfjs.ml ]]

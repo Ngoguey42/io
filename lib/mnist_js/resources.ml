@@ -1,7 +1,6 @@
 open struct
   module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
   module Reactjs = Ft_js.Reactjs
-  module Mnist = Ft_cnnjs.Mnist
   module Scripts = Ft_js.Scripts
   module Firebug = Js_of_ocaml.Firebug
   module Js = Js_of_ocaml.Js
@@ -278,7 +277,7 @@ let construct_react_table : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) 
 
   let render _ =
     let open Reactjs.Jsx in
-    let head = of_tag "tr" [ of_tag "th" ~colspan:"3" [ of_string "Ressources" ] ] in
+    let head = of_tag "tr" [ of_tag "th" ~colspan:"3" [ of_string "Resources" ] ] in
     let entries = List.map fst dependencies in
     let tails =
       List.map

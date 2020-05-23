@@ -77,9 +77,6 @@ button:disabled {
     /* https://stackoverflow.com/a/61659811 */
     pointer-events: none !important
 }
-/* .btn[disabled] { */
-/* pointer-events: all !important; */
-/* } */
-.tooltip-inner {
-    min-width: 500px; /* the minimum width */
+#network-code .tooltip-inner {
+    min-width: 500px;
 }

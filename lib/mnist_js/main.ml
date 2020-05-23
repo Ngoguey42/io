@@ -61,13 +61,11 @@ let react_main () =
             let conf =
               Training_types.
                 {
-                  (* backend = `Tfjs_cpu; *)
-                  (* batch_size = 50; *)
                   from_webworker = true;
                   backend = `Tfjs_webgl;
                   batch_size = 500;
                   lr = `Down (1e-3, 0.);
-                  batch_count = 5;
+                  batch_count = 50;
                   seed = ev.seed;
                   verbose = true;
                 }
@@ -103,9 +101,7 @@ let construct_mnist_js _ =
   let fire_trained = function
     | `Crash exn -> fire_event (Crash exn)
     | `Abort -> fire_event Abort
-    (* | `End (encoder, decoder, images_seen) -> () *)
     | `End (encoder, decoder, images_seen) -> fire_event (End { encoder; decoder; images_seen })
-    (*                      }) *)
   in
   let render _ =
     let open Reactjs.Jsx in
@@ -117,15 +113,13 @@ let construct_mnist_js _ =
         of_tag "div" ~class_:[ "textdiv" ]
           [
             of_constructor ~key:"res" Resources.construct_react_table fire_resources;
-            of_constructor Network_construction.construct_react_component
-              (fire_network, true);
+            of_constructor Network_construction.construct_react_component (fire_network, true);
           ]
     | Creating_training _ ->
         of_tag "div" ~class_:[ "textdiv" ]
           [
             of_constructor ~key:"res" Resources.construct_react_table fire_resources;
-            of_constructor Network_construction.construct_react_component
-              (fire_network, false);
+            of_constructor Network_construction.construct_react_component (fire_network, false);
           ]
     | Training s ->
         let params =
@@ -134,8 +128,7 @@ let construct_mnist_js _ =
         of_tag "div" ~class_:[ "textdiv" ]
           [
             of_constructor ~key:"res" Resources.construct_react_table fire_resources;
-            of_constructor Network_construction.construct_react_component
-              (fire_network, false);
+            of_constructor Network_construction.construct_react_component (fire_network, false);
             of_constructor Training.construct (params, fire_trained);
           ]
   in
@@ -145,68 +138,10 @@ let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
   let div = [%html "<div></div>"] |> Tyxml_js.To_dom.of_element in
-
-  (*   let textdiv = [%html "<div class='textdiv'></div>"] |> Tyxml_js.To_dom.of_element in *)
   Dom.appendChild body div;
-
-  (*   [%html "<div id='chart'></div>"] |> Tyxml_js.To_dom.of_element |> Dom.appendChild textdiv; *)
-
-  (* ************************************************************************ *)
   Ft_js.Scripts.import `Reactjs >>= fun () ->
   Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->
   Ft_js.import_css "styles.css" >>= fun () ->
   Ft_js.import_js "https://cdn.plot.ly/plotly-latest.min.js" >>= fun () ->
   Reactjs.render (Reactjs.Jsx.of_constructor construct_mnist_js ()) div;
   Lwt.return ()
-
-(*   (* ************************************************************************ *) *)
-(*   let container = Html.div [] |> Tyxml_js.To_dom.of_element in *)
-(*   let lwt, lwt' = Lwt.wait () in *)
-(*   let send_event res = Lwt.wakeup lwt' res in *)
-(*   Dom.appendChild textdiv container; *)
-(*   Reactjs.render (Reactjs.Jsx.of_constructor Resources.construct_react_table send_event) container; *)
-(*   lwt >>= fun (train_imgs, train_labs, test_imgs, test_labs) -> *)
-(*   ignore (train_imgs, train_labs, test_imgs, test_labs); *)
-
-(*   (* ************************************************************************ *) *)
-(*   let container = Html.div [] |> Tyxml_js.To_dom.of_element in *)
-(*   let lwt, lwt' = Lwt.wait () in *)
-(*   let send_event res = Lwt.wakeup lwt' res in *)
-(*   Dom.appendChild textdiv container; *)
-(*   Reactjs.render *)
-(*     (Reactjs.Jsx.of_constructor Network_construction.construct_react_component *)
-(*        (send_event, true)) *)
-(*     container; *)
-(*   lwt >>= fun (encoder, decoder, seed) -> *)
-
-(*   (* Lwt.return () *) *)
-
-(*   (* ************************************************************************ *) *)
-(*   let container = Html.div [] |> Tyxml_js.To_dom.of_element in *)
-(*   let lwt, lwt' = Lwt.wait () in *)
-(*   let send_event res = Lwt.wakeup lwt' res in *)
-(*   let params = *)
-(*     Training_types. *)
-(*       { *)
-(*         db = (train_imgs, train_labs, test_imgs, test_labs); *)
-(*         (* networks = Ft_cnnjs.Fnn_archi.create_nn (Random.State.make [| 42 |]); *) *)
-(*         networks = ([encoder], decoder); *)
-(*         config = *)
-(*           { *)
-(*             (* backend = `Tfjs_cpu; *) *)
-(*             (* batch_size = 50; *) *)
-(*             backend = `Tfjs_webgl; *)
-(*             batch_size = 2000; *)
-(*             lr = `Down (1e-3, 0.); *)
-(*             batch_count = 1000; *)
-(*             seed; *)
-(*             verbose = true; *)
-(*           }; *)
-(*       } *)
-(*   in *)
-(*   Dom.appendChild textdiv container; *)
-(*   Reactjs.( *)
-(*     Jsx.of_constructor Training_types.construct (params, send_event) |> Fun.flip render container); *)
-(*   lwt >|= function `Crash exn -> raise exn | `End -> () | `Abort -> () *)
-
-(* (* ************************************************************************ *) *)

@@ -9,212 +9,11 @@ open struct
   module Regexp = Js_of_ocaml.Regexp
 end
 
-(* Encoders ************************************************************************************* *)
-type encoder_tag = [ `Zeroconv | `Oneconv | `Twoconv | `Threeconv | `Threeconvres ]
-[@@deriving enum]
+(* Conf ***************************************************************************************** *)
+type encoder_tag = [ `Fc | `Oneconv | `Twoconv | `Threeconv | `Fourconvres ] [@@deriving enum]
 
-module type ENCODER = sig
-  val create : (module Fnn.BUILDER) -> Fnn.optimizer_conf -> int -> Fnn.network
-
-  val code : int -> string
-
-  val description : string
-end
-
-module Noop : ENCODER = struct
-  let create (module Builder : Fnn.BUILDER) _ _ : Fnn.network =
-    let open Builder in
-    let open Pshape.Size in
-    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32 |> Fnn.downcast
-
-  let code _ = ""
-
-  let description = "No encoder, only decoder"
-end
-
-module Oneconv : ENCODER = struct
-  let create (module Builder : Fnn.BUILDER) o f : Fnn.network =
-    let open Builder in
-    let open Pshape.Size in
-    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-    |> conv2d ~o (`Full f) (16, 16) ~s:(6, 6) ~b:`Assert_fit
-    |> bias |> relu |> Fnn.downcast
-
-  let code f =
-    Printf.sprintf "|> conv2d ~o (`Full %d) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias |> relu\n" f
-
-  let description = "A single 16x16(s6) convolution"
-end
-
-module Twoconv : ENCODER = struct
-  let create (module Builder : Fnn.BUILDER) o f : Fnn.network =
-    let open Builder in
-    let open Pshape.Size in
-    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-    |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit
-    |> bias |> relu
-    |> conv2d ~o (`Full f) (3, 3) ~s:(3, 3) ~b:`Assert_fit
-    |> bias |> relu |> Fnn.downcast
-
-  let code f =
-    Printf.sprintf
-      "|> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu\n\
-       |> conv2d ~o (`Full %d) (3, 3) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu\n"
-      f f
-
-  let description = "One 4x4(s3) and one 3x3(s3)"
-end
-
-module Threeconv = struct
-  let create (module Builder : Fnn.BUILDER) o f : Fnn.network =
-    let open Builder in
-    let open Pshape.Size in
-    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-    |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit
-    |> bias |> relu
-    |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit
-    |> bias |> relu
-    |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit
-    |> bias |> relu |> Fnn.downcast
-
-  let code f =
-    Printf.sprintf
-      {||> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu
-|> conv2d ~o (`Full %d) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
-|> conv2d ~o (`Full %d) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu
-|}
-      f f f
-
-  let description = "One 4x4(s3) and two 4x4(s1)"
-end
-
-module Threeconvres : ENCODER = struct
-  let create (module Builder : Fnn.BUILDER) o f : Fnn.network =
-    let open Builder in
-    let open Pshape.Size in
-    input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-    (* |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias |> relu *)
-    (* |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu *)
-    (* |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu *)
-    (* |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> relu *)
-    |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit
-    |> bias
-    |> (fun up ->
-         [
-           up |> cropping2d [ 1 ] |> Fnn.downcast;
-           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
-         ])
-    |> sum
-    (* |> batch_norm *)
-    |> (fun up ->
-         [
-           up |> cropping2d [ 1 ] |> Fnn.downcast;
-           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
-         ])
-    |> sum
-    (* |> batch_norm *)
-    |> (fun up ->
-         [
-           up |> cropping2d [ 1 ] |> Fnn.downcast;
-           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast;
-         ])
-    (* (\* |> (fun up -> *\) *)
-    (* (\*      [ *\) *)
-    (* (\*        up |> cropping2d [ 1; 2; 1; 2 ] |> Fnn.downcast; *\) *)
-    (* (\*        up |> relu |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast; *\) *)
-    (* (\*      ]) *\) *)
-    (* (\* |> sum *\) *)
-    (* (\* |> (fun up -> *\) *)
-    (* (\*      [ *\) *)
-    (* (\*        up |> cropping2d [ 2; 1; 2; 1 ] |> Fnn.downcast; *\) *)
-    (* (\*        up |> relu |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit |> bias |> Fnn.downcast; *\) *)
-    (* (\*      ]) *\) *)
-    |> sum
-    (* (\* |> batch_norm *\) *)
-    |> Fnn.downcast
-
-  let code f =
-    Printf.sprintf
-      ( "|> conv2d ~o (`Full %d) (4, 4) ~s:(3, 3) ~b:`Assert_fit |> bias\n|> (fun up -> [\n"
-      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}up |> cropping2d [ 1; 2; 1; 2 ] |> \
-          Fnn.downcast\n"
-      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}; up |> relu |> conv2d ~o (`Full %d) (4, 4) ~s:(1, \
-          1) ~b:`Assert_fit\n"
-      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}|> bias |> Fnn.downcast\n"
-      ^^ "\u{a0}\u{a0}\u{a0}])\n" ^^ "|> sum\n" ^^ "|> (fun up -> [\n"
-      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}up |> cropping2d [ 2; 1; 2; 1 ] |> \
-          Fnn.downcast\n"
-      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}; up |> relu |> conv2d ~o (`Full %d) (4, 4) ~s:(1, \
-          1) ~b:`Assert_fit\n"
-      ^^ "\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}\u{a0}|> bias |> Fnn.downcast\n"
-      ^^ "\u{a0}\u{a0}\u{a0}])\n" ^^ "|> sum\n" )
-      f f f
-
-  let description = "One 4x4(s3) and two residual 4x4(s1)"
-end
-
-(* Decoders ************************************************************************************* *)
 type decoder_tag = [ `Maxpool_fc | `Fc ] [@@deriving enum]
 
-module type DECODER = sig
-  val tag : decoder_tag
-
-  val create : (module Fnn.BUILDER) -> int -> int -> Fnn.network
-
-  val code : int -> int -> string
-
-  val description : string
-end
-
-module Maxpool_fc : DECODER = struct
-  let tag = `Maxpool_fc
-
-  let create (module Builder : Fnn.BUILDER) w f : Fnn.network =
-    let open Builder in
-    let open Pshape.Size in
-    input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
-    |> maxpool2d ~b:`Assert_fit (w, w)
-    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
-    |> dense ~o:(`Adam (0.9, 0.999, 1e-4)) [ (`C, 10) ] ~id:(Some "classif")
-    (* |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif") *)
-    |> bias
-    |> softmax `C
-    |> Fnn.downcast
-
-  let code w _ =
-    Printf.sprintf
-      {||> maxpool2d ~b:`Assert_fit (%d, %d)
-|> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
-|> dense ~o:`Sgd [ (`C, 10) ] |> bias |> softmax `C
-|}
-      w w
-
-  let description = "Max-pooling and fully-connected"
-end
-
-module Fc : DECODER = struct
-  let tag = `Fc
-
-  let create (module Builder : Fnn.BUILDER) w f : Fnn.network =
-    let open Builder in
-    let open Pshape.Size in
-    input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
-    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
-    |> dense ~o:(`Adam (0.9, 0.999, 1e-4)) [ (`C, 10) ] ~id:(Some "classif")
-    (* |> dense ~o:`Sgd [ (`C, 10) ] ~id:(Some "classif") *)
-    |> bias
-    |> softmax `C
-    |> Fnn.downcast
-
-  let code _ _ =
-    {||> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
-|> dense ~o:`Sgd [ (`C, 10) ] |> bias |> softmax `C
-|}
-
-  let description = "Fully-connected"
-end
-
-(* Conf ***************************************************************************************** *)
 type raw_conf = {
   encoder_tag : encoder_tag;
   parameters : Int64.t;
@@ -255,7 +54,7 @@ module type ENUM = sig
 
   val of_string : string -> t
 
-  val to_name : t -> string
+  val name_of_tag : t -> string
 end
 
 module type INT = sig
@@ -274,7 +73,7 @@ module Seed = struct
   let name = "Seed"
 
   let description =
-    "RNG seed to initialize the network's weights and sample the digits during training."
+    "PRNG seed to initialize the network's weights and order the images during training."
 end
 
 module Parameters = struct
@@ -288,7 +87,7 @@ module Parameters = struct
 
   let name = "Parameters"
 
-  let description = "Network's trainable parameter count"
+  let description = "Number of float32 trainable parameters owned by the network."
 end
 
 module Encoder = struct
@@ -301,13 +100,6 @@ module Encoder = struct
   let of_string v =
     match int_of_string v |> encoder_tag_of_enum with Some v -> v | None -> failwith "unreachable"
 
-  let to_name = function
-    | `Zeroconv -> "No encoder, only decoder"
-    | `Oneconv -> "A single 16x16(s6) convolution"
-    | `Twoconv -> "One 4x4(s3) and one 3x3(s3)"
-    | `Threeconv -> "One 4x4(s3) and two 4x4(s1)"
-    | `Threeconvres -> "One 4x4(s3) and two residual 4x4(s1)"
-
   let default = `Oneconv
 
   let of_dconf : derived_conf -> t = fun c -> c.encoder_tag
@@ -316,13 +108,30 @@ module Encoder = struct
 
   let name = "Encoder"
 
-  let description = "First part of the network"
+  let description = "First part of the network. Takes a batch of 28x28x1 float32 images."
+
+  let module_of_tag : t -> (module Network_architectures.ENCODER) = function
+    | `Fc -> (module Network_architectures.Fc_encoder)
+    | `Oneconv -> (module Network_architectures.Oneconv)
+    | `Twoconv -> (module Network_architectures.Twoconv)
+    | `Threeconv -> (module Network_architectures.Threeconv)
+    | `Fourconvres -> (module Network_architectures.Fourconvres)
+
+  let name_of_tag t : string =
+    let module M = (val module_of_tag t) in
+    M.short_description
+
+  let code_of_tag t f : string =
+    let module M = (val module_of_tag t) in
+    M.code f
+
+  let network_of_tag t b o f : Fnn.network =
+    let module M = (val module_of_tag t) in
+    M.create b o f
 end
 
 module Decoder = struct
   type t = decoder_tag
-
-  let modules : (module DECODER) list = [ (module Maxpool_fc); (module Fc) ]
 
   let values = List.init (max_decoder_tag + 1) decoder_tag_of_enum |> List.map Option.get
 
@@ -330,10 +139,6 @@ module Decoder = struct
 
   let of_string v =
     match int_of_string v |> decoder_tag_of_enum with Some v -> v | None -> failwith "unreachable"
-
-  let to_name = function
-    | `Maxpool_fc -> "Max-pooling and fully-connected"
-    | `Fc -> "Fully-connected"
 
   let default = `Fc
 
@@ -343,18 +148,34 @@ module Decoder = struct
 
   let name = "Decoder"
 
-  let description = "Second part of the network"
+  let description = "Second part of the network. Outputs a batch of 1x1x10 float32 predictions."
+
+  let module_of_tag : t -> (module Network_architectures.DECODER) = function
+    | `Fc -> (module Network_architectures.Fc_decoder)
+    | `Maxpool_fc -> (module Network_architectures.Maxpool_fc)
+
+  let name_of_tag t : string =
+    let module M = (val module_of_tag t) in
+    M.short_description
+
+  let code_of_tag t w f : string =
+    let module M = (val module_of_tag t) in
+    M.code w f
+
+  let network_of_tag t b o w f : Fnn.network =
+    let module M = (val module_of_tag t) in
+    M.create b o w f
 end
 
 (* ********************************************************************************************** *)
 let tooltip_chunks =
   [|
     {|(* OCaml code to create the Fnn.network object *)
+let o = `Adam (0.9, 0.999, 1e-4) in
 let rng = Random.State.make [| |};
     {| |] in
 let open (val Fnn.create_builder ~rng ()) in
 let open Pshape.Size in
-let o = `Adam (0.9, 0.999, 1e-4) in
 
 input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
 (* encoder *)
@@ -363,50 +184,34 @@ input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
 |};
   |]
 
-let sub_char_to_tag s char tag =
+let jsx_of_line =
+  let rec clean_string_of_raw_char_list = function
+    | ' ' :: tl -> "\u{a0}" ^ clean_string_of_raw_char_list tl
+    | tl ->
+        let tl = Array.of_list tl in
+        String.init (Array.length tl) (fun i -> tl.(i))
+  in
+  fun s ->
+    s |> String.to_seq |> List.of_seq |> clean_string_of_raw_char_list |> Reactjs.Jsx.of_string
+
+let jsx_of_code s =
   let open Reactjs.Jsx in
   let rec aux = function
     | [] -> []
-    | [ hd ] -> [ of_string hd ]
-    | hd :: tl -> of_string hd :: of_tag tag [] :: aux tl
+    | [ hd ] -> [ jsx_of_line hd ]
+    | hd :: tl -> jsx_of_line hd :: of_tag "br" [] :: aux tl
   in
-  String.split_on_char char s |> aux
+  String.split_on_char '\n' s |> aux
 
-let tooltip_text_of_dconf dconf =
-  let module D =
-  ( val match dconf.decoder_tag with
-        | `Maxpool_fc -> (module Maxpool_fc : DECODER)
-        | `Fc -> (module Fc) )
-  in
-  let module E =
-  ( val match dconf.encoder_tag with
-        | `Zeroconv -> (module Noop : ENCODER)
-        | `Oneconv -> (module Oneconv)
-        | `Twoconv -> (module Twoconv)
-        | `Threeconv -> (module Threeconv)
-        | `Threeconvres -> (module Threeconvres) )
-  in
+let code_of_dconf dconf =
   let (Pshape.Size.K w) = Pshape.get dconf.encoder_nn#out_shape `S0 |> Pshape.Size.to_known in
-  let ecode = E.code dconf.filters in
-  let dcode = D.code w dconf.filters in
+  let ecode = Encoder.code_of_tag dconf.encoder_tag dconf.filters in
+  let dcode = Decoder.code_of_tag dconf.decoder_tag w dconf.filters in
   tooltip_chunks.(0) ^ string_of_int dconf.seed ^ tooltip_chunks.(1) ^ ecode ^ tooltip_chunks.(2)
   ^ dcode
 
 let dconf_of_rconf : raw_conf -> derived_conf =
  fun conf ->
-  let module D =
-  ( val match conf.decoder_tag with
-        | `Maxpool_fc -> (module Maxpool_fc : DECODER)
-        | `Fc -> (module Fc) )
-  in
-  let module E =
-  ( val match conf.encoder_tag with
-        | `Zeroconv -> (module Noop : ENCODER)
-        | `Oneconv -> (module Oneconv)
-        | `Twoconv -> (module Twoconv)
-        | `Threeconv -> (module Threeconv)
-        | `Threeconvres -> (module Threeconvres) )
-  in
   let seed =
     if Int64.compare conf.seed (Int64.of_int 0) <= 0 then 0
     else if Int64.compare (Int64.of_int ((2 lsl 29) - 1)) conf.seed <= 0 then (2 lsl 29) - 1
@@ -423,10 +228,10 @@ let dconf_of_rconf : raw_conf -> derived_conf =
     let rng = Random.State.make [| seed |] in
     let make_builder () = Fnn.create_builder ~rng () in
     let builder = make_builder () in
-    let e = E.create builder o f in
+    let e = Encoder.network_of_tag conf.encoder_tag builder o f in
     let (Pshape.Size.K w) = Pshape.get e#out_shape `S0 |> Pshape.Size.to_known in
     let (Pshape.Size.K f') = Pshape.get e#out_shape `C |> Pshape.Size.to_known in
-    let d = D.create builder w f' in
+    let d = Decoder.network_of_tag conf.decoder_tag builder o w f' in
     (e, d)
   in
 
@@ -436,18 +241,26 @@ let dconf_of_rconf : raw_conf -> derived_conf =
   let emin, dmin = networks_of_filters minf in
   let pmin = Fnn.parameters [ emin; dmin ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0 in
 
+  (* Since Fnn doesn't allocate tensors on fresh networks we can search the number of filters by
+     bisection.
+  *)
   let rec find_closest_network ((ileft, vleft, _) as left) right =
+    assert (vleft <= maxp);
     match right with
     | Some ((iright, vright, _) as right) when ileft + 1 = iright ->
         (* Stop *)
         assert (ileft < iright);
         assert (vleft <= vright);
-        if parameters - vleft <= vright - parameters then left else right
+        if vright > maxp then left
+        else if parameters - vleft <= vright - parameters then left
+        else right
     | Some ((iright, vright, _) as right) ->
         (* Dichotomy *)
         assert (ileft < iright);
         assert (vleft <= vright);
         let imid = (ileft + iright) / 2 in
+        assert (imid <> ileft);
+        assert (imid <> iright);
         let emid, dmid = networks_of_filters imid in
         let vmid =
           Fnn.parameters [ emid; dmid ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
@@ -459,6 +272,8 @@ let dconf_of_rconf : raw_conf -> derived_conf =
     | None ->
         (* Looking for right bound *)
         let imid = ileft * 2 in
+        assert (imid > ileft);
+        (* Failsafe for int overflow *)
         let emid, dmid = networks_of_filters imid in
         let vmid =
           Fnn.parameters [ emid; dmid ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
@@ -485,10 +300,11 @@ let dconf_of_rconf : raw_conf -> derived_conf =
   }
 
 (* React components ***************************************************************************** *)
-let construct_uncontrolled_int_input :
+let construct_int_input :
     ((module INT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
     Reactjs.constructor =
  fun ((module M), update_rconf, dconf_signal, _) ->
+  let signal = React.S.map M.of_dconf dconf_signal in
   let on_change ev =
     let newtxt = ev##.target##.value |> Js.to_string in
     if String.length newtxt = 0 then M.default |> M.update_rconf |> update_rconf
@@ -502,7 +318,7 @@ let construct_uncontrolled_int_input :
   in
   let render (_, _, _, enabled) =
     let open Reactjs.Jsx in
-    let v = M.of_dconf (React.S.value dconf_signal) in
+    let v = React.S.value signal in
     of_bootstrap "Form.Group"
       [
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%Ld)" M.name v |> of_string ];
@@ -511,10 +327,10 @@ let construct_uncontrolled_int_input :
         of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ];
       ]
   in
-  Reactjs.construct ~signal:dconf_signal render
+  Reactjs.construct ~signal render
 
-let construct_uncontrolled_select :
-    ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool) Reactjs.constructor =
+let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool) Reactjs.constructor
+    =
  fun ((module M), update_rconf, _) ->
   let on_change ev =
     let v = ev##.target##.value |> Js.to_string |> M.of_string in
@@ -524,7 +340,7 @@ let construct_uncontrolled_select :
     let open Reactjs.Jsx in
     let control =
       M.values
-      |> List.map (fun v -> of_tag "option" ~value:(M.to_string v) [ of_string (M.to_name v) ])
+      |> List.map (fun v -> of_tag "option" ~value:(M.to_string v) [ of_string (M.name_of_tag v) ])
       |> of_bootstrap "Form.Control" ~as_:"select" ~disabled:(not enabled) ~on_change
            ~default_value:(M.to_string M.default)
     in
@@ -539,17 +355,16 @@ let construct_uncontrolled_select :
 
 let construct_react_component : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
-  ignore fire_upstream_event;
-
-  let rconf0 =
-    {
-      encoder_tag = Encoder.default;
-      parameters = Parameters.default;
-      decoder_tag = Decoder.default;
-      seed = Seed.default;
-    }
+  let rconf_signal, update_rconf =
+    React.S.create
+      {
+        encoder_tag = Encoder.default;
+        parameters = Parameters.default;
+        decoder_tag = Decoder.default;
+        seed = Seed.default;
+      }
   in
-  let rconf_signal, update_rconf = React.S.create rconf0 in
+
   let dconf_signal = React.S.map dconf_of_rconf rconf_signal in
 
   let update_rconf updater =
@@ -571,8 +386,8 @@ let construct_react_component : _ Reactjs.constructor =
       let ( |> ) v f = f [ v ] in
       of_tag "div"
         ~class_:[ "text-monospace"; "text-left"; "small" ]
-        (sub_char_to_tag (tooltip_text_of_dconf dconf) '\n' "br")
-      |> of_bootstrap "Tooltip" ~id:"tooltip-right"
+        (jsx_of_code (code_of_dconf dconf))
+      |> of_bootstrap "Tooltip" ~id:"network-code"
     in
     let button =
       (* https://stackoverflow.com/a/61659811 *)
@@ -584,12 +399,10 @@ let construct_react_component : _ Reactjs.constructor =
     in
     let groups =
       [
-        of_constructor construct_uncontrolled_select ((module Encoder), update_rconf, enabled);
-        of_constructor construct_uncontrolled_select ((module Decoder), update_rconf, enabled);
-        of_constructor construct_uncontrolled_int_input
-          ((module Parameters), update_rconf, dconf_signal, enabled);
-        of_constructor construct_uncontrolled_int_input
-          ((module Seed), update_rconf, dconf_signal, enabled);
+        of_constructor construct_select ((module Encoder), update_rconf, enabled);
+        of_constructor construct_select ((module Decoder), update_rconf, enabled);
+        of_constructor construct_int_input ((module Parameters), update_rconf, dconf_signal, enabled);
+        of_constructor construct_int_input ((module Seed), update_rconf, dconf_signal, enabled);
         button;
       ]
       |> List.map (fun v -> of_bootstrap "Col" ~sm:6 [ v ])

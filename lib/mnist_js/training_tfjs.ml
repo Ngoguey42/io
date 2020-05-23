@@ -65,9 +65,7 @@ struct
         |> Tfjs.Ops.reshape [| batch_size; 28; 28; 1 |]
       in
       let y_top1 =
-        Tfjs.tensor_of_ba y
-        |> Tfjs.Ops.astype `Int32
-        |> Tfjs.Ops.reshape [| batch_size |]
+        Tfjs.tensor_of_ba y |> Tfjs.Ops.astype `Int32 |> Tfjs.Ops.reshape [| batch_size |]
       in
       let y_1hot =
         Tfjs.Ops.one_hot 10 y_top1

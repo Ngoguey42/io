@@ -16,7 +16,10 @@ type storable_layer =
     * Make_fnn.Default.float32_tensor option
     * Make_fnn.Default.optimizer32 option
   | `Normalisation of
-    string option * Pshape.Axis.t list * Make_fnn.Default.normalization_algo_conf * Make_fnn.Default.normalization_algo option
+    string option
+    * Pshape.Axis.t list
+    * Make_fnn.Default.normalization_algo_conf
+    * Make_fnn.Default.normalization_algo option
   | `Relu of string option
   | `Softmax of string option * Pshape.Axis.t
   | `Sum of string option
@@ -120,12 +123,15 @@ let _fnn_of_storable builder store upstreams : Make_fnn.Default.network =
   | `Normalisation _, _ -> failwith "corrupted upstreams"
   | `Sum id, ups -> Builder.sum ~id:(repair id) ups |> Make_fnn.Default.downcast
   | `Prod id, ups -> Builder.prod ~id:(repair id) ups |> Make_fnn.Default.downcast
-  | `Concatenate (id, axis), ups -> Builder.concatenate ~id:(repair id) axis ups |> Make_fnn.Default.downcast
-  | `Softmax (id, axis), [ up ] -> Builder.softmax ~id:(repair id) axis up |> Make_fnn.Default.downcast
+  | `Concatenate (id, axis), ups ->
+      Builder.concatenate ~id:(repair id) axis ups |> Make_fnn.Default.downcast
+  | `Softmax (id, axis), [ up ] ->
+      Builder.softmax ~id:(repair id) axis up |> Make_fnn.Default.downcast
   | `Softmax _, _ -> failwith "corrupted upstreams"
   | `Relu id, [ up ] -> Builder.relu ~id:(repair id) up |> Make_fnn.Default.downcast
   | `Relu _, _ -> failwith "corrupted upstreams"
-  | `Astype (id, dtype), [ up ] -> Builder.astype ~id:(repair id) dtype up |> Make_fnn.Default.downcast
+  | `Astype (id, dtype), [ up ] ->
+      Builder.astype ~id:(repair id) dtype up |> Make_fnn.Default.downcast
   | `Astype _, _ -> failwith "corrupted upstreams"
   | `Conv2d (id, g, s, d, b), [ w; up ] ->
       Builder.conv2d2 ~id:(repair id) ~g ~s ~d ~b w up |> Make_fnn.Default.downcast
@@ -133,9 +139,11 @@ let _fnn_of_storable builder store upstreams : Make_fnn.Default.network =
   | `Transpose (id, ndim, mapping), [ up ] ->
       Builder.transpose ~id:(repair id) ~ndim ~mapping up |> Make_fnn.Default.downcast
   | `Transpose _, _ -> failwith "corrupted upstreams"
-  | `Maxpool2d (id, b, s, k), [ up ] -> Builder.maxpool2d ~id:(repair id) ~b ~s k up |> Make_fnn.Default.downcast
+  | `Maxpool2d (id, b, s, k), [ up ] ->
+      Builder.maxpool2d ~id:(repair id) ~b ~s k up |> Make_fnn.Default.downcast
   | `Maxpool2d _, _ -> failwith "corrupted upstreams"
-  | `Padding (id, v, l), [ up ] -> Builder.padding ~id:(repair id) ~v l up |> Make_fnn.Default.downcast
+  | `Padding (id, v, l), [ up ] ->
+      Builder.padding ~id:(repair id) ~v l up |> Make_fnn.Default.downcast
   | `Padding _, _ -> failwith "corrupted upstreams"
   | `Tensordot (id, l, l'), [ up; up' ] ->
       Builder.tensordot ~id:(repair id) l l' up up' |> Make_fnn.Default.downcast

@@ -50,7 +50,9 @@ let description_of_entry : Vertex.t -> string = function
        JavaScript file"
   | `Reactjs -> "User interface js library"
   | `Reactjsbootstrap -> "User interface js library"
-  | `Tfjs -> "Tensor computations js library running on cpu or gpu using WebGL"
+  | `Tfjs ->
+      "Tensor computations js library running on cpu (using webworkers) or gpu (using WebGL). It \
+       also provides a partial support of WASM."
   | `Pako -> "Compression js library"
   | `Cryptojs -> "Cryptography js library"
   | `Bootstrap -> "User interface js/css library"

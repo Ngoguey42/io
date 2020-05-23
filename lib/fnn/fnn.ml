@@ -183,11 +183,7 @@ The Pshape (Polymorphic shape) library provides that abstraction.
  *)
 
 module Init = Init
-
 include Misc
-
 module Make = Make_fnn.Make
-
 include Make_fnn.Default
-
 include Patch

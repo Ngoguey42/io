@@ -1,4 +1,3 @@
-
 (** {| memoized_walk f root |} is the result of {| follow root |} with {| follow x |}
     being the result of {| f follow x |} memoized. {| follow |} can be called from inside {| f |}
     in order to traverse data in a depth-first fashion. Memoization avoids visiting the same data

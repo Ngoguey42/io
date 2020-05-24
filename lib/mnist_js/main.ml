@@ -64,8 +64,8 @@ let react_main () =
                   from_webworker = true;
                   backend = `Tfjs_webgl;
                   lr = `Down (1e-3, 0.);
-                  batch_size = 500;
-                  batch_count = 5000;
+                  batch_size = 10;
+                  batch_count = 10;
                   seed = ev.seed;
                   verbose = true;
                 }

@@ -127,6 +127,7 @@ struct
           | _ -> failwith "unsupported `classif` layer"
         in
         let classif_grad =
+          (* Classif's weights's gradient's l2norm sum *)
           let open Tfjs.Ops in
           let g = Tfjs.Named_tensor_map.find (Oo.id layer |> string_of_int) grads in
           g ** Tfjs.float 2. |> sum false |> sqrt
@@ -136,8 +137,8 @@ struct
 
         let time' = (new%js Js.date_now)##valueOf /. 1000. in
         Printf.printf
-          "Step %5d done, lr:%6.1e, loss:%9.6f, classif-weights-grad-norm:%9.6f, iou:%5.1f%%, \
-           recall:%5.1f%%, took:%.3fsec\n\
+          "%5d, lr:%6.1e, l:%9.6f, grad:%9.6f, iou:%5.1f%%, \
+           r:%5.1f%%, %.3fsec\n\
            %!"
           i lr (Tfjs.to_float loss) classif_grad (mean_iou *. 100.) (mean_recall *. 100.)
           (time' -. time);

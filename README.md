@@ -13,9 +13,55 @@
    4. Multiple network bootstrap-tabs that share the plot axes and traces visibility
       - Gif that tells if a tab is computing something
    - Foldable panels?
-   - Display
-      1. Nada (loading)
-      2. Resources
-      3. Resources :: tabN :: Network Creation(enabled)
-      4. Resources :: tabN :: Network Creation(disabled) :: Chart :: Digits :: Training conf
-      5. Resources :: tabN :: Network Creation(disabled) :: Chart :: Digits :: Training conf(disabled) :: Training control buttons
+
+```
+MNIST js - display
+# 1 - loading
+nada
+
+# 2 - loading resources
+- Resources
+
+# 3 - creating network
+- Resources
+- tabN
+   - Network Creation(on)
+
+# 4 - picking evaluation backend
+- Resources
+- tabN
+   - Network Creation(off)
+   - Results
+      - Evaluation Backend(on)
+
+# 5 - evaluating #0
+- Resources
+- tabN
+   - Network Creation(off)
+   - Results
+      - Evaluation Backend(off)
+
+# 6 - configuring training
+- Resources
+- tabN
+   - Network Creation(off)
+   - Results
+      - Evaluation Backend(on)
+      - Charts
+      - Digits
+   - Training Conf(on)
+
+# 7 - training/eval #1
+- Resources
+- tabN
+   - Network Creation(off)
+   - Results
+      - Evaluation Backend(off)
+      - Charts
+      - Digits
+   - Training Conf(off)
+   - Routine control buttons
+
+# 8 - back to #6
+
+```

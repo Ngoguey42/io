@@ -428,12 +428,16 @@ let construct_react_component : _ Reactjs.constructor =
       >> of_bootstrap "Tooltip" ~id:"network-code"
     in
     let button =
-      (* https://stackoverflow.com/a/61659811 *)
-      of_string "Create"
-      >> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit" ~size:"lg"
-      >> of_tag "span"
-      >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt
-      >> of_bootstrap "Col" ~sm:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
+      [
+        of_string "Create"
+        >> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit" ~size:"lg";
+        of_string "?"
+        >> of_bootstrap
+             ~on_click:(fun ev -> ev##preventDefault)
+             "Button" ~type_:"submit" ~class_:[ "btn-info"; "code-overlay" ]
+        >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt;
+      ]
+      |> of_bootstrap "Col" ~sm:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
     in
     let select m =
       of_constructor construct_select (m, update_rconf, enabled) >> of_bootstrap "Col" ~sm:6

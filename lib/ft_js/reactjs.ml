@@ -105,6 +105,7 @@ module Jsx = struct
       ?ref:ref_ Js.t ->
       ?key:string ->
       ?on_click:(Dom_html.buttonElement Js.t event Js.t -> unit) ->
+      ?on_select:(Js.js_string Js.t -> Dom_html.anchorElement Js.t event Js.t -> unit) ->
       ?disabled:bool ->
       ?colspan:string ->
       ?href:string ->
@@ -114,6 +115,7 @@ module Jsx = struct
       ?sm:int ->
       ?event_key:string ->
       ?default_active_key:string ->
+      ?active_key:string ->
       ?placeholder:string ->
       ?animation:string ->
       ?variant:string ->
@@ -127,30 +129,36 @@ module Jsx = struct
       ?size:string ->
       ?title:string ->
       ?title_jsx:jsx Js.t ->
+      ?transition:bool ->
       ?id:string ->
       ?class_:string list ->
       ?style:(string * string) list ->
       jsx Js.t list ->
       jsx Js.t =
-   fun ctor ?ref ?key ?on_click ?disabled ?colspan ?href ?placement ?overlay ?bordered ?sm
-       ?event_key ?default_active_key ?placeholder ?animation ?variant ?type_ ?min ?step
-       ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx ?id ?class_ ?style children ->
+   fun ctor ?ref ?key ?on_click ?on_select ?disabled ?colspan ?href ?placement ?overlay ?bordered
+       ?sm ?event_key ?default_active_key ?active_key ?placeholder ?animation ?variant ?type_ ?min
+       ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx ?transition ?id ?class_
+       ?style children ->
     let open Js.Unsafe in
     let props = object%js end in
     Option.iter (fun v -> set props (Js.string "ref") v) ref;
     Option.iter (fun v -> set props (Js.string "key") v) key;
     Option.iter (fun fn -> set props (Js.string "onClick") (Js.wrap_callback fn)) on_click;
+    (* Option.iter (fun fn -> set props (Js.string "onSelect") fn) on_select; *)
+    Option.iter (fun fn -> set props (Js.string "onSelect") (Js.wrap_callback fn)) on_select;
     Option.iter (fun v -> set props (Js.string "disabled") v) disabled;
     Option.iter (fun v -> set props (Js.string "colSpan") (Js.string v)) colspan;
     Option.iter (fun v -> set props (Js.string "href") (Js.string v)) href;
     Option.iter (fun v -> set props (Js.string "title") (Js.string v)) title;
     Option.iter (fun v -> set props (Js.string "title") v) title_jsx;
+    Option.iter (fun v -> set props (Js.string "transition") v) transition;
     Option.iter (fun v -> set props (Js.string "placement") (Js.string v)) placement;
     Option.iter (fun v -> set props (Js.string "overlay") v) overlay;
     Option.iter (fun v -> set props (Js.string "bordered") v) bordered;
     Option.iter (fun v -> set props (Js.string "sm") v) sm;
     Option.iter (fun v -> set props (Js.string "eventKey") (Js.string v)) event_key;
     Option.iter (fun v -> set props (Js.string "defaultActiveKey") (Js.string v)) default_active_key;
+    Option.iter (fun v -> set props (Js.string "activeKey") (Js.string v)) active_key;
     Option.iter (fun v -> set props (Js.string "placeholder") (Js.string v)) placeholder;
     Option.iter (fun v -> set props (Js.string "animation") (Js.string v)) animation;
     Option.iter (fun v -> set props (Js.string "variant") (Js.string v)) variant;

@@ -20,9 +20,7 @@ let react_main _db signal set_signal =
    fun ev s ->
     match (s, ev) with
     | Creating_network, Network ev ->
-        Printf.eprintf "> react_main on Network\n%!";
         Js_of_ocaml_lwt.Lwt_js_events.async (fun () ->
-            Printf.eprintf "> react_main fire dummy training-conf\n%!";
             let conf =
               Training_types.
                 {
@@ -40,7 +38,6 @@ let react_main _db signal set_signal =
         Creating_training
           { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed; images_seen = 0 }
     | Creating_training s, Training_conf ev ->
-        Printf.eprintf "> react_main on Training_conf\n%!";
         Training
           {
             encoder = s.encoder;
@@ -50,7 +47,6 @@ let react_main _db signal set_signal =
             config = ev;
           }
     | Training _s, End _ | Training _s, Abort | Training _s, Crash _ ->
-        Printf.eprintf "> react_main on End/Abort/Crash\n%!";
         Creating_network
     | _, _ -> failwith "react_main@reduce : unreachable"
   in
@@ -58,9 +54,9 @@ let react_main _db signal set_signal =
   fire_event
 
 let construct_tab (db, _tabidx, signal, set_signal) =
+  Printf.eprintf "> construct_tab %d\n%!" _tabidx;
   let fire_event = react_main db signal set_signal in
 
-  (* let tabname = string_of_int tabidx in *)
   let fire_network (encoder, decoder, seed) = fire_event (Network { encoder; decoder; seed }) in
   let fire_trained = function
     | `Crash exn -> fire_event (Crash exn)

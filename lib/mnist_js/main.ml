@@ -11,14 +11,12 @@ open struct
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
 end
 
-type tabdata = int * Types.state React.signal * (Types.state -> unit)
-
-let jsx_of_tabdata db (i, signal, set_signal) =
+let jsx_of_tab db gsignal set_gsignal i state =
   let open Reactjs.Jsx in
   let k = string_of_int i in
   let spinner =
     let open Types in
-    match React.S.value signal with
+    match state with
     | Creating_network -> []
     | Creating_training _ -> []
     | Training _ ->
@@ -27,38 +25,63 @@ let jsx_of_tabdata db (i, signal, set_signal) =
           of_bootstrap "Spinner" ~animation:"border" ~variant:"primary" ~size:"sm" [];
         ]
   in
-  let title_jsx = of_react "Fragment" (of_string k :: spinner) in
-  of_constructor Tab.construct_tab (db, i, signal, set_signal)
-  >> of_bootstrap "Tab" ~title_jsx ~event_key:k
 
-let construct_mnist_js _ =
-  let tab_events, fire_tab_event = React.E.create () in
-  let append_new_tab tabs : tabdata list =
-    let signal, set_signal = React.S.create Types.Creating_network in
-    let set_signal : Types.state -> unit = set_signal in
-    React.S.changes signal |> React.E.map (fun _ -> fire_tab_event ()) |> ignore;
-    tabs @ [ (List.length tabs, signal, set_signal) ]
+  let signal, set_signal = React.S.create state in
+  React.S.map
+    (fun s ->
+      match s with
+      | `Loading -> failwith "unreachable"
+      | `Loaded (_, _, tabstates) -> set_signal tabstates.(i))
+    gsignal
+  |> ignore;
+  let set_signal s =
+    match React.S.value gsignal with
+    | `Loading -> failwith "unreachable"
+    | `Loaded (db, focusidx, tabstates) ->
+        let tabstates = Array.copy tabstates in
+        tabstates.(i) <- s;
+        set_gsignal (`Loaded (db, focusidx, tabstates))
   in
 
-  let signal, fire_event = React.S.create `Loading_resources in
+  let title_jsx = of_react "Fragment" (of_string k :: spinner) in
+  of_constructor Tab.construct_tab (db, i, signal, set_signal)
+  >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
 
-  let fire_resources db = fire_event (`Loaded (db, append_new_tab (append_new_tab []))) in
-
+let construct_mnist_js _ =
+  Printf.eprintf "> construct_mnist_js\n%!";
+  let signal, set_signal = React.S.create `Loading in
+  let fire_resources db = set_signal (`Loaded (db, 0, [| Types.Creating_network |])) in
+  let on_select k _ =
+    match React.S.value signal with
+    | `Loading -> ()
+    | `Loaded (db, _, tabstates) ->
+        let k = Js.to_string k in
+        if k = "+" then
+          let i = Array.length tabstates in
+          let tabstates = Array.concat [ tabstates; [| Types.Creating_network |] ] in
+          set_signal (`Loaded (db, i, tabstates))
+        else
+          let i = int_of_string k in
+          set_signal (`Loaded (db, i, tabstates))
+  in
   let render _ =
     let open Reactjs.Jsx in
     match React.S.value signal with
-    | `Loading_resources ->
+    | `Loading ->
         of_constructor ~key:"res" Resources.construct_react_table fire_resources
         >> of_tag "div" ~class_:[ "textdiv" ]
-    | `Loaded (db, tabsdata) ->
-        let tabs = List.map (jsx_of_tabdata db) tabsdata in
+    | `Loaded (db, focusidx, tabstates) ->
+        let focusidx = string_of_int focusidx in
+        let tabs = Array.mapi (jsx_of_tab db signal set_signal) tabstates |> Array.to_list in
+        let plus = of_bootstrap "Tab" ~title_jsx:(of_string "+" >> of_tag "b") ~event_key:"+" [] in
         [
           of_constructor ~key:"res" Resources.construct_react_table fire_resources;
-          of_bootstrap "Tabs" ~default_active_key:"0" ~id:"network-tabs" tabs;
+          of_bootstrap "Tabs" ~transition:false ~active_key:focusidx ~on_select ~id:"network-tabs"
+            (tabs @ [ plus ]);
         ]
         |> of_tag "div" ~class_:[ "textdiv" ]
   in
-  Reactjs.construct ~signal ~events:tab_events render
+  Reactjs.construct ~signal render
 
 let main () =
   let open Lwt.Infix in

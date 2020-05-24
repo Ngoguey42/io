@@ -3,5 +3,5 @@
  (name mnist_js)
 
  (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml ft owl-base ft_js irmin-indexeddb fnn fnn_tfjs pshape yojson ppx_deriving_yojson.runtime)
- (preprocess (pps tyxml-ppx js_of_ocaml-ppx lwt_ppx ppx_deriving_yojson ppx_deriving.enum))
+ (preprocess (pps tyxml-ppx js_of_ocaml-ppx lwt_ppx ppx_deriving_yojson ppx_deriving.enum ppx_deriving.show))
  )

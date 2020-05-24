@@ -152,8 +152,9 @@ module Decoder = struct
 
   let name = "Decoder"
 
-  let description = "Second part of the network. Outputs a batch of 1x1x10 float32 predictions \
-                     that sum to 1 for each image."
+  let description =
+    "Second part of the network. Outputs a batch of 1x1x10 float32 predictions that sum to 1 for \
+     each image."
 
   let module_of_tag : t -> (module Network_architectures.DECODER) = function
     | `Fc -> (module Network_architectures.Fc_decoder)

@@ -136,12 +136,8 @@ struct
         let classif_grad = Tfjs.to_float classif_grad in
 
         let time' = (new%js Js.date_now)##valueOf /. 1000. in
-        Printf.printf
-          "%5d, lr:%6.1e, l:%9.6f, grad:%9.6f, iou:%5.1f%%, \
-           r:%5.1f%%, %.3fsec\n\
-           %!"
-          i lr (Tfjs.to_float loss) classif_grad (mean_iou *. 100.) (mean_recall *. 100.)
-          (time' -. time);
+        Printf.printf "%5d, lr:%6.1e, l:%9.6f, grad:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" i lr
+          (Tfjs.to_float loss) classif_grad (mean_iou *. 100.) (mean_recall *. 100.) (time' -. time);
 
         Tfjs.dispose_tensor y'_1hot;
         () );

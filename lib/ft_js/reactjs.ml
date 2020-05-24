@@ -46,8 +46,8 @@ let create_ref () : ref_ Js.t =
   let open Js.Unsafe in
   fun_call global##._React##.createRef [||]
 
-let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4 render
-    : 'props construction =
+let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4
+    ?events:e0 render : 'props construction =
   let mount = match mount with None -> fun () -> () | Some mount -> mount in
   let update = match update with None -> fun () -> () | Some update -> update in
   let unmount = match unmount with None -> fun () -> () | Some unmount -> unmount in
@@ -62,6 +62,18 @@ let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s
     React.S.changes signal |> React.E.map update_state |> ignore
   in
 
+  let setup_events events idx self =
+    let count = ref 1 in
+    Js.Unsafe.set (Js.Unsafe.get self (Js.string "state")) idx 0;
+    let update_state _ =
+      let o = object%js end in
+      Js.Unsafe.set o idx !count;
+      incr count;
+      Js.Unsafe.meth_call self "setState" [| Js.Unsafe.inject o |]
+    in
+    events |> React.E.map update_state |> ignore
+  in
+
   let setup_signals =
     List.concat
       [
@@ -70,6 +82,7 @@ let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s
         s2 |> Option.to_list |> List.map (fun s -> setup_signal s 2);
         s3 |> Option.to_list |> List.map (fun s -> setup_signal s 3);
         s4 |> Option.to_list |> List.map (fun s -> setup_signal s 4);
+        e0 |> Option.to_list |> List.map (fun s -> setup_events s 5);
       ]
   in
   (render, mount, update, unmount, setup_signals)
@@ -99,7 +112,11 @@ module Jsx = struct
       ?overlay:jsx Js.t ->
       ?bordered:bool ->
       ?sm:int ->
+      ?event_key:string ->
+      ?default_active_key:string ->
       ?placeholder:string ->
+      ?animation:string ->
+      ?variant:string ->
       ?type_:string ->
       ?min:float ->
       ?step:float ->
@@ -109,14 +126,15 @@ module Jsx = struct
       ?as_:string ->
       ?size:string ->
       ?title:string ->
+      ?title_jsx:jsx Js.t ->
       ?id:string ->
       ?class_:string list ->
       ?style:(string * string) list ->
       jsx Js.t list ->
       jsx Js.t =
    fun ctor ?ref ?key ?on_click ?disabled ?colspan ?href ?placement ?overlay ?bordered ?sm
-       ?placeholder ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?id ?class_
-       ?style children ->
+       ?event_key ?default_active_key ?placeholder ?animation ?variant ?type_ ?min ?step
+       ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx ?id ?class_ ?style children ->
     let open Js.Unsafe in
     let props = object%js end in
     Option.iter (fun v -> set props (Js.string "ref") v) ref;
@@ -126,11 +144,16 @@ module Jsx = struct
     Option.iter (fun v -> set props (Js.string "colSpan") (Js.string v)) colspan;
     Option.iter (fun v -> set props (Js.string "href") (Js.string v)) href;
     Option.iter (fun v -> set props (Js.string "title") (Js.string v)) title;
+    Option.iter (fun v -> set props (Js.string "title") v) title_jsx;
     Option.iter (fun v -> set props (Js.string "placement") (Js.string v)) placement;
     Option.iter (fun v -> set props (Js.string "overlay") v) overlay;
     Option.iter (fun v -> set props (Js.string "bordered") v) bordered;
     Option.iter (fun v -> set props (Js.string "sm") v) sm;
+    Option.iter (fun v -> set props (Js.string "eventKey") (Js.string v)) event_key;
+    Option.iter (fun v -> set props (Js.string "defaultActiveKey") (Js.string v)) default_active_key;
     Option.iter (fun v -> set props (Js.string "placeholder") (Js.string v)) placeholder;
+    Option.iter (fun v -> set props (Js.string "animation") (Js.string v)) animation;
+    Option.iter (fun v -> set props (Js.string "variant") (Js.string v)) variant;
     Option.iter (fun v -> set props (Js.string "type") (Js.string v)) type_;
     Option.iter (fun v -> set props (Js.string "min") v) min;
     Option.iter (fun v -> set props (Js.string "step") v) step;
@@ -159,6 +182,20 @@ module Jsx = struct
   let of_tag name =
     let open Js.Unsafe in
     _create_element (name |> Js.string |> inject)
+
+  let of_react path =
+    let open Js.Unsafe in
+    let fail name = Printf.sprintf "Could not find %s in React.%s" name path |> failwith in
+    let o =
+      match global##._React |> Js.Optdef.to_option with None -> fail "React" | Some o -> o
+    in
+    let o =
+      List.fold_left
+        (fun o name ->
+          match get o (Js.string name) |> Js.Optdef.to_option with None -> fail name | Some o -> o)
+        o (String.split_on_char '.' path)
+    in
+    _create_element o
 
   let of_bootstrap path =
     let open Js.Unsafe in

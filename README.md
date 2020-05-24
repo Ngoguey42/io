@@ -6,13 +6,15 @@
 - constrain lib dependencies (with >=)
 - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`
 - MNIST js
-   1. Training configuration panel
-   2. Eval at the beginning and after each successful training
+   1. Eval before first training and after each successful training
       - Get stats and 10 ref test digits
+   2. Training configuration panel
    3. Stats chart with plotly
-   4. Multiple network bootstrap-tabs that share the plot axes and traces visibility
-      - Gif that tells if a tab is computing something
+      - Live update
+      - Share the plot axes and traces visibility
    - Foldable panels?
+   - Auto scroll at bottom of page?
+   - OWL backend?
 
 ```
 MNIST js - display
@@ -27,26 +29,26 @@ nada
 - tabN
    - Network Creation(on)
 
-# 4 - picking evaluation backend
+# 4 - picking backend
 - Resources
 - tabN
    - Network Creation(off)
+   - Backend Selection(on)
    - Results
-      - Evaluation Backend(on)
 
 # 5 - evaluating #0
 - Resources
 - tabN
    - Network Creation(off)
+   - Evaluation Backend(off)
    - Results
-      - Evaluation Backend(off)
 
 # 6 - configuring training
 - Resources
 - tabN
    - Network Creation(off)
+   - Backend Selection(on)
    - Results
-      - Evaluation Backend(on)
       - Charts
       - Digits
    - Training Conf(on)
@@ -55,8 +57,8 @@ nada
 - Resources
 - tabN
    - Network Creation(off)
+   - Evaluation Backend(off)
    - Results
-      - Evaluation Backend(off)
       - Charts
       - Digits
    - Training Conf(off)

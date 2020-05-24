@@ -19,6 +19,7 @@ let jsx_of_tab db gsignal set_gsignal i state =
     match state with
     | Creating_network -> []
     | Creating_training _ -> []
+    | Selecting_backend _ -> []
     | Training _ ->
         [
           of_string "\u{a0}";

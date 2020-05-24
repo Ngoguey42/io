@@ -107,6 +107,7 @@ module Jsx = struct
       ?on_click:(Dom_html.buttonElement Js.t event Js.t -> unit) ->
       ?on_select:(Js.js_string Js.t -> Dom_html.anchorElement Js.t event Js.t -> unit) ->
       ?disabled:bool ->
+      ?inline:bool ->
       ?colspan:string ->
       ?href:string ->
       ?placement:string ->
@@ -133,12 +134,14 @@ module Jsx = struct
       ?id:string ->
       ?class_:string list ->
       ?style:(string * string) list ->
+      ?label:string ->
+      ?name:string ->
       jsx Js.t list ->
       jsx Js.t =
-   fun ctor ?ref ?key ?on_click ?on_select ?disabled ?colspan ?href ?placement ?overlay ?bordered
-       ?sm ?event_key ?default_active_key ?active_key ?placeholder ?animation ?variant ?type_ ?min
-       ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx ?transition ?id ?class_
-       ?style children ->
+   fun ctor ?ref ?key ?on_click ?on_select ?disabled ?inline ?colspan ?href ?placement ?overlay
+       ?bordered ?sm ?event_key ?default_active_key ?active_key ?placeholder ?animation ?variant
+       ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx ?transition
+       ?id ?class_ ?style ?label ?name children ->
     let open Js.Unsafe in
     let props = object%js end in
     Option.iter (fun v -> set props (Js.string "ref") v) ref;
@@ -147,6 +150,7 @@ module Jsx = struct
     (* Option.iter (fun fn -> set props (Js.string "onSelect") fn) on_select; *)
     Option.iter (fun fn -> set props (Js.string "onSelect") (Js.wrap_callback fn)) on_select;
     Option.iter (fun v -> set props (Js.string "disabled") v) disabled;
+    Option.iter (fun v -> set props (Js.string "inline") v) inline;
     Option.iter (fun v -> set props (Js.string "colSpan") (Js.string v)) colspan;
     Option.iter (fun v -> set props (Js.string "href") (Js.string v)) href;
     Option.iter (fun v -> set props (Js.string "title") (Js.string v)) title;
@@ -181,6 +185,8 @@ module Jsx = struct
         List.iter (fun (k, v) -> set style (Js.string k) (Js.string v)) l;
         set props (Js.string "style") style)
       style;
+    Option.iter (fun v -> set props (Js.string "label") (Js.string v)) label;
+    Option.iter (fun v -> set props (Js.string "name") (Js.string v)) name;
 
     let args =
       Array.concat [ [| ctor; inject props |]; List.map inject children |> Array.of_list ]

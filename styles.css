@@ -1,8 +1,11 @@
-#header {
+#header { margin-bottom: 25px; text-align: center; }
+#header a {
     font-family: "Fira Sans", sans-serif;
-    text-align:center;
-    margin-bottom: 25px;
+    font-weight: normal;
+    color: #007bff;
+    text-decoration: none !important;
 }
+#header a:visited { color: #007bff; }|
 .textdiv {
     width: 800px;
     margin: 0 auto;
@@ -15,9 +18,7 @@
     border-radius: 5px;
 
 }
-body {
-    background: #FCFCFC;
-}
+body { background: #FCFCFC; margin: 0px; }
 code {
     border-radius: 3px;
     background: #FCFCFC;

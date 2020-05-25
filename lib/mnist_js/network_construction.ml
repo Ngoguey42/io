@@ -200,9 +200,9 @@ module Optimizer = struct
 
   let description = "Algorithm used to update a parameter given the gradient of that parameter."
 
-  let optimizer_of_tag = function `Adam0 -> `Adam (0.9, 0.999, 1e-4) | `Sgd -> `Sgd
+  let optimizer_of_tag = function `Adam0 -> `Adam (0.9, 0.999, 1e-8) | `Sgd -> `Sgd
 
-  let code_of_tag = function `Adam0 -> "`Adam (0.9, 0.999, 1e-4)" | `Sgd -> "`Sgd"
+  let code_of_tag = function `Adam0 -> "`Adam (0.9, 0.999, 1e-8)" | `Sgd -> "`Sgd"
 end
 
 (* ********************************************************************************************** *)

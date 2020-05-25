@@ -21,6 +21,7 @@
          - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
    3. Normalize CSS of training-control buttons
    4. Make sure errors (like memory) don't silently crash the page (either recover or alert about crashed page)
+   5. Find out why ADAM behaves poorly in all setups. Maybe overfit of SGD?
    - Foldable panels?
    - Auto scroll at bottom of page?
    - Spinner in favicon?
@@ -33,10 +34,9 @@
          - BS=60000 yields poor results (GD vs SGD)
          - BS=1 yields poor results
          - What about the BS/2 BC*2 iterated strategy?
-      - Deeper and larger networks benefit from ADAM optimizer
-      - Larger networks overfit more. Using max-pool at the end overfit less
+      - Larger networks overfit more but are harder to train. Using max-pool in decoder yields less overfited results
       - Different initial seeds rougly yield the same results
-      - How to reach good performances?
+      - Hint on how to reach good performances?
 
 ```
 MNIST js - display

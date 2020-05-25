@@ -179,7 +179,12 @@ struct
           Lwt_js.yield () >>= fun () -> aux (i + 1)
     in
 
-    aux 0 >>= fun _ -> Lwt.return ()
+    let time0 = (new%js Js.date_now)##valueOf /. 1000. in
+    aux 0 >>= fun _ ->
+    let time1 = (new%js Js.date_now)##valueOf /. 1000. in
+    Printf.printf "> Took %fsec\n%!" (time1 -. time0);
+
+    Lwt.return ()
 
   let train :
       ?verbose:bool ->

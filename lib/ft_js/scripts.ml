@@ -7,7 +7,7 @@ open struct
   module Firebug = Js_of_ocaml.Firebug
 end
 
-type entry = [ `Pagebuilder | `Tfjs | `Cryptojs | `Pako | `Reactjs | `Bootstrap | `Reactjsbootstrap ]
+type entry = [ `Pagebuilder | `Tfjs | `Cryptojs | `Pako | `Reactjs | `Reactjsbootstrap | `Plotly ]
 
 let type_of_url url =
   match Filename.extension url with
@@ -63,14 +63,7 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
             "build/default/bin/page_builder.bc.js";
         ];
       ]
-  | `Bootstrap ->
-      [
-        [ "https://code.jquery.com/jquery-3.5.1.slim.min.js" ];
-        [
-          "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css";
-          "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.bundle.min.js";
-        ];
-      ] )
+  | `Plotly -> [ [ "https://cdn.plot.ly/plotly-latest.min.js" ] ] )
   |> List.map (List.filter is_url_accepted)
   |> List.filter (fun l -> List.length l > 0)
 

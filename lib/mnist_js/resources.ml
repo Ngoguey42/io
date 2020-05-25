@@ -27,6 +27,7 @@ let dependencies =
     (`Reactjs, []);
     (`Reactjsbootstrap, [ `Reactjs ]);
     (`Pako, []);
+    (`Plotly, []);
     (`Tfjs, []);
     (`Train_imgs, [ `Pako ]);
     (`Train_labs, [ `Pako ]);
@@ -41,8 +42,8 @@ let name_of_entry : [< Vertex.t ] -> string = function
   | `Reactjsbootstrap -> "ReactJS Bootstrap"
   | `Tfjs -> "TensorFlow.js"
   | `Pako -> "pako"
+  | `Plotly -> "plotly"
   | `Cryptojs -> "CryptoJS"
-  | `Bootstrap -> "Bootstrap"
 
 let description_of_entry : Vertex.t -> string = function
   | `Pagebuilder ->
@@ -54,8 +55,8 @@ let description_of_entry : Vertex.t -> string = function
       "Tensor computations js library running on cpu (using webworkers) or gpu (using WebGL). It \
        also provides a partial support of WebAsembly (WASM)."
   | `Pako -> "Compression js library"
+  | `Plotly -> "Charting js library"
   | `Cryptojs -> "Cryptography js library."
-  | `Bootstrap -> "User interface js/css library."
   | `Train_imgs -> "The 60000 28x28x1 train-set images of the MNIST dataset."
   | `Train_labs -> "The train-set labels of the MNIST dataset."
   | `Test_imgs -> "The 10000 28x28x1 test-set images of the MNIST dataset."
@@ -79,9 +80,6 @@ let byte_count_of_url_opt : string -> Int64.t option = function
   | "https://unpkg.com/react-dom@16/umd/react-dom.development.js" -> Some 245565L
   | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" ->
       Some 33519L
-  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" -> Some 22555L
-  | "https://code.jquery.com/jquery-3.5.1.slim.min.js" -> Some 23311L
-  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.bundle.min.js" -> Some 20581L
   | _ -> None
 
 let string_of_byte_count count =
@@ -216,13 +214,16 @@ let construct_react_row : _ Reactjs.constructor =
 
   let size_option_signal =
     size_fetch_events
-    |> React.E.map (fun (_, size) -> size)
+    (* |> React.E.map (fun (_, size) -> size) *)
     |> React.E.fold
-         (fun acc res ->
+         (fun acc (url, res) ->
            match (acc, res) with
            | Ok (count, sum), Ok size -> Ok (count + 1, Int64.add sum size)
-           | Error _, _ -> acc
-           | _, (Error _ as res) -> res)
+           | _, (Error _ as res) ->
+               Firebug.console##warn
+                 (Printf.sprintf "Could not fetch size of %s\n%!" url |> Js.string);
+               res
+           | Error _, _ -> acc)
          (Ok (0, Int64.zero))
     |> React.E.fmap (function
          | Ok (count, size) when count = List.length urls -> Some (Some size)

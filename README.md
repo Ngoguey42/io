@@ -34,7 +34,7 @@
          - BS=60000 yields poor results (GD vs SGD)
          - BS=1 yields poor results
          - What about the BS/2 BC*2 iterated strategy?
-      - Larger networks overfit more but are harder to train. Using max-pool in decoder yields less overfited results
+      - Larger networks overfit more but are harder to train (really?). Using max-pool in decoder yields less overfited results
       - Different initial seeds rougly yield the same results
       - Hint on how to reach good performances?
 

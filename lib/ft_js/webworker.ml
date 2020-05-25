@@ -40,6 +40,12 @@ let current_script =
   Js.Unsafe.global##.document |> Js.Optdef.to_option
   |> Fun.flip Option.bind (fun o -> o##.currentScript |> Js.Opt.to_option)
 
+(* This `Make` functor should be called at the top level for the `store` variable to be
+   in sync between the main thread and the webworkers.
+
+   It would be wise to add a `unique_name` constant in `Spec` in order to use unique strings
+   inside `store` intead of indices computed on the fly.
+ *)
 module Make (Spec : SPEC) : S with type in_msg = Spec.in_msg and type out_msg = Spec.out_msg =
 struct
   type in_msg = Spec.in_msg

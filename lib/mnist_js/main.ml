@@ -87,11 +87,15 @@ let construct_mnist_js _ =
 let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
+
+  (* let canvas = [%html {|<div id="chart"></div>|}] |> Tyxml_js.To_dom.of_element in *)
+  (* Dom.appendChild body canvas; *)
+  (* Ft_js.import_js "https://cdn.plot.ly/plotly-latest.min.js" >>= fun () -> *)
   let div = [%html "<div></div>"] |> Tyxml_js.To_dom.of_element in
   Dom.appendChild body div;
   Ft_js.Scripts.import `Reactjs >>= fun () ->
   Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->
   Ft_js.import_css "styles.css" >>= fun () ->
-  (* Ft_js.import_js "https://cdn.plot.ly/plotly-latest.min.js" >>= fun () -> *)
+  Ft_js.import_js "https://cdn.plot.ly/plotly-latest.min.js" >>= fun () ->
   Reactjs.render (Reactjs.Jsx.of_constructor construct_mnist_js ()) div;
   Lwt.return ()

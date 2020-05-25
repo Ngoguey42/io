@@ -49,7 +49,7 @@ let jsx_of_tab db gsignal set_gsignal i state =
   >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
 
 let construct_mnist_js _ =
-  Printf.eprintf "> construct_mnist_js\n%!";
+  Printf.printf "> construct component: mnist_js\n%!";
   let signal, set_signal = React.S.create `Loading in
   let fire_resources db = set_signal (`Loaded (db, 0, [| Types.Creating_network |])) in
   let on_select k _ =

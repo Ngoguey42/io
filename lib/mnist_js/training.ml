@@ -6,7 +6,8 @@ open struct
   module Webworker = Ft_js.Webworker
 end
 
-include Training_types
+open Types
+(* include Training_types *)
 
 let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = function
   (* | `Owl_cpu -> (module Mnist_owl) *)
@@ -29,6 +30,7 @@ let routine { db = train_imgs, train_labs, _, _; networks = encoders, decoder; c
         fun i ->
           let ratio = float_of_int i /. float_of_int batch_count in
           lr1 +. (lr2 *. (1. -. ratio))
+    | `Flat lr -> fun _ -> lr
   in
   let get_data _ =
     let indices = Array.init batch_size (fun _ -> Random.State.int rng 60000) in
@@ -64,7 +66,7 @@ module Webworker_routine = struct
   type _out_msg = routine_event
 
   let preprocess_in_msg : _ -> _in_msg = function
-    | `Prime Training_types.{ db; networks = encoders, decoder; config } ->
+    | `Prime Types.{ db; networks = encoders, decoder; config } ->
         let f = Fnn.storable_of_fnn in
         let networks = (List.map f encoders, f decoder) in
         `Prime { networks; db; config }
@@ -74,10 +76,10 @@ module Webworker_routine = struct
     | `Prime { db; networks = encoders, decoder; config } ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
         let networks = (List.map f encoders, f decoder) in
-        `Prime Training_types.{ networks; db; config }
+        `Prime Types.{ networks; db; config }
     | #user_status as msg -> msg
 
-  let preprocess_out_msg : Training_types.routine_event -> routine_event = function
+  let preprocess_out_msg : Types.routine_event -> routine_event = function
     | `End (encoders, decoder, stats) ->
         let f = Fnn.storable_of_fnn in
         `End (List.map f encoders, f decoder, stats)
@@ -87,15 +89,15 @@ module Webworker_routine = struct
     | `Abort as ev -> (ev :> routine_event)
     | `Crash _ as ev -> (ev :> routine_event)
 
-  let postprocess_out_msg : _out_msg -> Training_types.routine_event = function
+  let postprocess_out_msg : _out_msg -> Types.routine_event = function
     | `End (encoders, decoder, stats) ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
         `End (List.map f encoders, f decoder, stats)
-    | `Init as ev -> (ev :> Training_types.routine_event)
-    | `Batch_begin _ as ev -> (ev :> Training_types.routine_event)
-    | `Batch_end _ as ev -> (ev :> Training_types.routine_event)
-    | `Abort as ev -> (ev :> Training_types.routine_event)
-    | `Crash _ as ev -> (ev :> Training_types.routine_event)
+    | `Init as ev -> (ev :> Types.routine_event)
+    | `Batch_begin _ as ev -> (ev :> Types.routine_event)
+    | `Batch_end _ as ev -> (ev :> Types.routine_event)
+    | `Abort as ev -> (ev :> Types.routine_event)
+    | `Crash _ as ev -> (ev :> Types.routine_event)
 
   module rec Ww : (Webworker.S with type in_msg = _in_msg and type out_msg = _out_msg) =
   Webworker.Make (struct

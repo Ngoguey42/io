@@ -8,13 +8,15 @@
 - MNIST js
    1. Eval before first training and after each successful training
       - Get stats and 10 ref test digits
-   2. Training configuration panel
-   3. Stats chart with plotly
+   2. Stats chart with plotly
       - Live update
       - Share the plot axes and traces visibility
+      - Choose between X=images-seen / X=batch-idx
    - Foldable panels?
    - Auto scroll at bottom of page?
    - OWL backend?
+   - Shut down the webworker on abort?
+   - Normalize CSS of training-control buttons
 
 ```
 MNIST js - display

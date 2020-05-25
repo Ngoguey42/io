@@ -152,7 +152,7 @@ struct
       let encoders, decoder = (List.map (fun f -> f ()) pack_encoders, pack_decoder ()) in
       let loss = Tfjs.to_float loss_sum in
       let confusion_matrix = Tfjs.ba_of_tensor Bigarray.Int32 confusion_matrix_sum in
-      Training_types.(
+      Types.(
         fire_event (`End (encoders, decoder, { batch_count; loss; confusion_matrix })))
     in
     let rec aux i =
@@ -172,7 +172,7 @@ struct
               let loss, confusion_matrix = train_on_batch i in
               loss_sum##assign (Tfjs.Ops.add loss_sum loss);
               confusion_matrix_sum##assign (Tfjs.Ops.add confusion_matrix_sum confusion_matrix);
-              Training_types.(
+              Types.(
                 let loss = Tfjs.to_float loss in
                 let confusion_matrix = Tfjs.ba_of_tensor Bigarray.Int32 confusion_matrix in
                 let batch_count = 1 in
@@ -184,8 +184,8 @@ struct
 
   let train :
       ?verbose:bool ->
-      fire_event:(Training_types.routine_event -> unit) ->
-      instructions:Training_types.user_status React.signal ->
+      fire_event:(Types.routine_event -> unit) ->
+      instructions:Types.user_status React.signal ->
       batch_count:int ->
       get_lr:(int -> float) ->
       get_data:(int -> uint8_ba * uint8_ba) ->

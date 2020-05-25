@@ -40,8 +40,6 @@ module type ENTRY = sig
 
   val default : t
 
-  val of_dconf : derived_conf -> t
-
   val update_rconf : t -> raw_conf -> raw_conf
 
   val name : string
@@ -63,6 +61,8 @@ end
 
 module type INT = sig
   include ENTRY with type t = Int64.t
+
+  val of_dconf : derived_conf -> t
 end
 
 module Seed = struct
@@ -393,6 +393,7 @@ let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool)
 
 let construct_react_component : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
+ Printf.printf "> construct component: network_creation\n%!";
   let rconf_signal, update_rconf =
     React.S.create
       {

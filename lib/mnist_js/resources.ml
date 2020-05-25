@@ -47,19 +47,19 @@ let name_of_entry : [< Vertex.t ] -> string = function
 let description_of_entry : Vertex.t -> string = function
   | `Pagebuilder ->
       "Website source code, OCaml runtime and OCaml external libraries transpiled to one \
-       JavaScript file"
-  | `Reactjs -> "User interface js library"
-  | `Reactjsbootstrap -> "User interface js library"
+       JavaScript file."
+  | `Reactjs -> "User interface js library."
+  | `Reactjsbootstrap -> "User interface js library."
   | `Tfjs ->
       "Tensor computations js library running on cpu (using webworkers) or gpu (using WebGL). It \
-       also provides a partial support of WASM."
+       also provides a partial support of WebAsembly (WASM)."
   | `Pako -> "Compression js library"
-  | `Cryptojs -> "Cryptography js library"
-  | `Bootstrap -> "User interface js/css library"
-  | `Train_imgs -> "MNIST dataset train-set images"
-  | `Train_labs -> "MNIST dataset train-set labels"
-  | `Test_imgs -> "MNIST dataset test-set images"
-  | `Test_labs -> "MNIST dataset test-set labels"
+  | `Cryptojs -> "Cryptography js library."
+  | `Bootstrap -> "User interface js/css library."
+  | `Train_imgs -> "The 60000 28x28x1 train-set images of the MNIST dataset."
+  | `Train_labs -> "The train-set labels of the MNIST dataset."
+  | `Test_imgs -> "The 10000 28x28x1 test-set images of the MNIST dataset."
+  | `Test_labs -> "The test-set labels of the MNIST dataset."
 
 let urls_of_entry : Vertex.t -> string list = function
   | #Ft_js.Scripts.entry as entry -> Ft_js.Scripts.urls_of_entry entry |> List.concat
@@ -275,6 +275,7 @@ let construct_react_row : _ Reactjs.constructor =
 let construct_react_table : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor
     =
  fun fire_upstream_event ->
+  Printf.printf "> construct component: resources\n%!";
   let procedure_events, launch = create_download_procedure fire_upstream_event in
 
   let render _ =

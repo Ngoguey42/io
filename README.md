@@ -10,13 +10,33 @@
       - Get stats and 10 ref test digits
    2. Stats chart with plotly
       - Live update
+         - Debounce display every (max 1. (render length * 10)) seconds
+         - Store stats in a data structure with a good append complexity
       - Share the plot axes and traces visibility
-      - Choose between X=images-seen / X=batch-idx
+         - Choose between X=images-seen / X=batch-idx
+      - Stats
+         - IOU (train/test)
+         - Recall (train/test)
+         - Loss
+         - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
+   3. Normalize CSS of training-control buttons
+   4. Make sure errors (like memory) don't silently crash the page (either recover or alert about crashed page)
    - Foldable panels?
    - Auto scroll at bottom of page?
+   - Spinner in favicon?
    - OWL backend?
+   - Replicate `Nav` at bottom of the page?
    - Shut down the webworker on abort?
-   - Normalize CSS of training-control buttons
+   - Some tips at the very bottom? (and theoritical results to reproduce)
+      - Cyclical LR yields good results
+      - Batch-size changes the result
+         - BS=60000 yields poor results (GD vs SGD)
+         - BS=1 yields poor results
+         - What about the BS/2 BC*2 iterated strategy?
+      - Deeper and larger networks benefit from ADAM optimizer
+      - Larger networks overfit more. Using max-pool at the end overfit less
+      - Different initial seeds rougly yield the same results
+      - How to reach good performances?
 
 ```
 MNIST js - display

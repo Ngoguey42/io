@@ -19,7 +19,7 @@ let react_main _db signal set_signal =
    fun ev s ->
     match (s, ev) with
     | Creating_network, Network ev ->
-       Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
+        Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
     | Creating_network, _ -> failwith "react_main@reduce : unexpected state/event combination"
     | Selecting_backend s, Backend backend ->
         Creating_training
@@ -33,31 +33,33 @@ let react_main _db signal set_signal =
             seed = s.seed;
             images_seen = s.images_seen;
             config =
-             {
-               from_webworker = true;
-               backend = s.backend;
-               lr = ev.lr;
-               batch_size = ev.batch_size;
-               batch_count = ev.batch_count;
-               seed = s.seed;
-               (* TODO: Images seen *)
-               verbose = true;
-             };
+              {
+                from_webworker = true;
+                backend = s.backend;
+                lr = ev.lr;
+                batch_size = ev.batch_size;
+                batch_count = ev.batch_count;
+                seed = s.seed;
+                (* TODO: Images seen *)
+                verbose = true;
+              };
             backend = s.backend;
           }
-    | Creating_training {encoder; decoder; seed; images_seen; _ }, Backend backend ->
-       Creating_training {encoder; decoder; seed; images_seen; backend}
+    | Creating_training { encoder; decoder; seed; images_seen; _ }, Backend backend ->
+        Creating_training { encoder; decoder; seed; images_seen; backend }
     | Training s, End ev ->
         Creating_training
-          { encoder = ev.encoder
-          ; decoder = ev.decoder
-          ; seed = s.seed
-          ; backend = s.backend
-          ; images_seen = s.images_seen + ev.images_seen }
-    | Training {encoder; decoder; seed; images_seen; backend; _ }, Abort ->
-       Creating_training {encoder; decoder; seed; images_seen; backend}
-    | Training {encoder; decoder; seed; images_seen; backend; _ }, Crash _ ->
-       Creating_training {encoder; decoder; seed; images_seen; backend}
+          {
+            encoder = ev.encoder;
+            decoder = ev.decoder;
+            seed = s.seed;
+            backend = s.backend;
+            images_seen = s.images_seen + ev.images_seen;
+          }
+    | Training { encoder; decoder; seed; images_seen; backend; _ }, Abort ->
+        Creating_training { encoder; decoder; seed; images_seen; backend }
+    | Training { encoder; decoder; seed; images_seen; backend; _ }, Crash _ ->
+        Creating_training { encoder; decoder; seed; images_seen; backend }
     | _, _ -> failwith "react_main@reduce : unreachable"
   in
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
@@ -110,7 +112,7 @@ let construct_tab (db, _tabidx, signal, set_signal) =
   in
   let fire_backend backend = fire_event (Backend backend) in
   let fire_training_conf (lr, batch_size, batch_count) =
-    fire_event (Training_conf {lr; batch_size; batch_count })
+    fire_event (Training_conf { lr; batch_size; batch_count })
   in
 
   let render _ =
@@ -133,9 +135,7 @@ let construct_tab (db, _tabidx, signal, set_signal) =
         ]
         |> of_react "Fragment"
     | Training s ->
-        let params =
-          Types.{ db; networks = ([ s.encoder ], s.decoder); config = s.config }
-        in
+        let params = Types.{ db; networks = ([ s.encoder ], s.decoder); config = s.config } in
         [
           of_constructor Network_construction.construct_react_component (fire_network, false);
           of_constructor construct_backend_selection (fire_backend, false);

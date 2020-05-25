@@ -393,7 +393,7 @@ let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool)
 
 let construct_react_component : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
- Printf.printf "> construct component: network_creation\n%!";
+  Printf.printf "> construct component: network_creation\n%!";
   let rconf_signal, update_rconf =
     React.S.create
       {

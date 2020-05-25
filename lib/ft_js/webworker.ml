@@ -76,7 +76,7 @@ struct
     w##.onmessage := on_out_message;
     w##.onerror := on_error;
     Js.Unsafe.meth_call w "postMessage" [| Js.Unsafe.inject idx |] |> ignore;
-    ignore (on_out_message, on_error);
+
     w
 
   let post_in_message w msg = w##postMessage msg

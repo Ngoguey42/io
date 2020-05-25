@@ -7,6 +7,7 @@ open struct
 end
 
 open Types
+
 (* include Training_types *)
 
 let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = function
@@ -260,6 +261,13 @@ let construct (props : props) =
       in
       let user_status = React.S.map Webworker_routine.preprocess_in_msg user_status in
       React.S.changes user_status |> React.E.map (Webworker_routine.post_in_message ww) |> ignore;
+      React.S.changes routine_status
+      |> React.E.map (function
+           | `Running -> ()
+           | `Ended | `Aborted | `Crashed ->
+               (* Killing Webworker to free GPU memory *)
+               Webworker_routine.terminate ww)
+      |> ignore;
       Webworker_routine.post_in_message ww (React.S.value user_status);
       Webworker_routine.post_in_message ww (Webworker_routine.preprocess_in_msg (`Prime params)) )
     else

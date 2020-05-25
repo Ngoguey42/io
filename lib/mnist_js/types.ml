@@ -48,7 +48,7 @@ type state =
 type event =
   | Network of { encoder : Fnn.network; decoder : Fnn.network; seed : int }
   | Backend of backend
-  | Training_conf of { lr: lr; batch_size: int; batch_count: int; }
+  | Training_conf of { lr : lr; batch_size : int; batch_count : int }
   | End of { encoder : Fnn.network; decoder : Fnn.network; images_seen : int }
   | Crash of exn
   | Abort

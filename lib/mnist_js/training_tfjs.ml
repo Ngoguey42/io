@@ -152,8 +152,7 @@ struct
       let encoders, decoder = (List.map (fun f -> f ()) pack_encoders, pack_decoder ()) in
       let loss = Tfjs.to_float loss_sum in
       let confusion_matrix = Tfjs.ba_of_tensor Bigarray.Int32 confusion_matrix_sum in
-      Types.(
-        fire_event (`End (encoders, decoder, { batch_count; loss; confusion_matrix })))
+      Types.(fire_event (`End (encoders, decoder, { batch_count; loss; confusion_matrix })))
     in
     let rec aux i =
       match React.S.value instructions with

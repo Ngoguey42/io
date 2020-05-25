@@ -216,9 +216,8 @@ let construct_float_input :
       [
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%s)" M.name s |> of_string ];
         of_bootstrap "Form.Control" ~placeholder:(string_of_float M.default) ~disabled:(not enabled)
-                     ~size:"sm" ~type_:"number" ~on_change [];
-        of_bootstrap "Form.Text" ~class_:[ "text-muted" ]
-          [ of_string M.description ];
+          ~size:"sm" ~type_:"number" ~on_change [];
+        of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ];
       ]
       |> of_bootstrap "Form.Group"
   in
@@ -271,7 +270,7 @@ let construct_select :
 
 let construct_react_component : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
- Printf.printf "> construct component: training_configuration\n%!";
+  Printf.printf "> construct component: training_configuration\n%!";
   let rconf_signal, update_rconf =
     React.S.create
       {

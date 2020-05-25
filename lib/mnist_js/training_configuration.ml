@@ -211,7 +211,6 @@ let construct_float_input :
           ~type_:"number" ~on_change [];
       ]
       |> of_bootstrap "InputGroup" ~size:"sm"
-      >> of_bootstrap "Form.Group"
     else
       [
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%s)" M.name s |> of_string ];
@@ -264,7 +263,8 @@ let construct_select :
         of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ]
         >> of_bootstrap "Col" ~sm:12;
       ]
-    |> of_bootstrap "Row" >> of_bootstrap "Form.Group"
+    |> of_bootstrap "Row" ~no_gutters:true
+    >> of_bootstrap "Form.Group"
   in
   Reactjs.construct ~signal render
 

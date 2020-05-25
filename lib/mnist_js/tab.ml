@@ -85,7 +85,8 @@ let construct_backend_selection : _ Reactjs.constructor =
       List.init (max_backend + 1) backend_of_enum
       |> List.map Option.get
       |> List.map (fun v ->
-             of_bootstrap "Form.Check" ~label:(name_of_backend v) ~type_:"radio"
+             let n = name_of_backend v in
+             of_bootstrap "Form.Check" ~label:n ~type_:"radio" ~id:("radio-" ^ n)
                ~name:"selecting-backend"
                ~value:(backend_to_enum v |> string_of_int)
                ~on_change ~inline:true

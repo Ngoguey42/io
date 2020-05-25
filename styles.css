@@ -29,7 +29,7 @@ h1, h2 { border-bottom: 1px solid black; }
 h2, h3 { padding-left: 9px; }
 h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 /* ************************************************************************** */
-.mnist-panel { margin: 0px }
+.mnist-panel { margin: 0px; margin-bottom: 7px; }
 .mnist-panel > thead > tr { background: #EBEBEB; text-align: center }
 .mnist-panel .entry-name { text-align: right; width: 50%; }
 .mnist-panel .entry-status { text-align: center; }

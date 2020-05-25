@@ -55,8 +55,6 @@ type event =
 
 type stats = { batch_count : int; loss : float; confusion_matrix : int32_ba }
 
-type user_event = [ `Early_stop | `Abort ]
-
 type user_status = [ `Train_to_end | `Early_stop | `Abort ]
 
 type routine_event =

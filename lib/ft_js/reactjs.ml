@@ -136,12 +136,13 @@ module Jsx = struct
       ?style:(string * string) list ->
       ?label:string ->
       ?name:string ->
+      ?no_gutters:bool ->
       jsx Js.t list ->
       jsx Js.t =
    fun ctor ?ref ?key ?on_click ?on_select ?disabled ?inline ?colspan ?href ?placement ?overlay
        ?bordered ?sm ?event_key ?default_active_key ?active_key ?placeholder ?animation ?variant
        ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx ?transition
-       ?id ?class_ ?style ?label ?name children ->
+       ?id ?class_ ?style ?label ?name ?no_gutters children ->
     let open Js.Unsafe in
     let props = object%js end in
     Option.iter (fun v -> set props (Js.string "ref") v) ref;
@@ -187,6 +188,7 @@ module Jsx = struct
       style;
     Option.iter (fun v -> set props (Js.string "label") (Js.string v)) label;
     Option.iter (fun v -> set props (Js.string "name") (Js.string v)) name;
+    Option.iter (fun v -> set props (Js.string "noGutters") v) no_gutters;
 
     let args =
       Array.concat [ [| ctor; inject props |]; List.map inject children |> Array.of_list ]

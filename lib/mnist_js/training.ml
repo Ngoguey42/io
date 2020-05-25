@@ -128,64 +128,60 @@ module Webworker_routine = struct
 end
 
 let render_instructions props =
-  let user_status, routine_status, fire_user_event = props in
+  let user_status, routine_status, set_user_status = props in
   let open Reactjs.Jsx in
-  let button ?event ?(style = []) txt =
-    match event with
-    | None -> of_tag "button" ~style ~disabled:true [ of_string txt ]
-    | Some event ->
-        of_tag "button" ~style ~on_click:(fun _ -> fire_user_event event) [ of_string txt ]
+  let button txt t =
+    match (t, routine_status) with
+    | `On event, `Running ->
+        let on_click ev =
+          set_user_status event;
+          ev##preventDefault
+        in
+        of_bootstrap "Button" ~style:[ ("width", "95px") ] ~size:"sm" ~variant:"primary" ~on_click
+          [ of_string txt ]
+    | `On _, _ ->
+        of_bootstrap "Button" ~as_:"div"
+          ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
+          ~size:"sm" ~variant:"dark" [ of_string txt ]
+    | `Target, _ ->
+        of_bootstrap "Button" ~as_:"div"
+          ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
+          ~size:"sm" ~class_:[ "active"; "focus" ] ~variant:"success" [ of_string txt ]
   in
-  let green =
-    [
-      ("color", "green");
-      ("borderColor", "transparent");
-      ("backgroundColor", "transparent");
-      ("fontWeight", "bold");
-    ]
-  in
-  let gray = [ ("borderColor", "transparent"); ("backgroundColor", "transparent") ] in
-  match (user_status, routine_status) with
-  | `Train_to_end, `Running ->
-      of_tag "div"
-        [
-          button ~style:green "Train to end";
-          of_string " | ";
-          button ~event:`Early_stop "Early stop";
-          of_string " | ";
-          button ~event:`Abort "Abort";
-        ]
-  | `Train_to_end, _ ->
-      of_tag "div"
-        [
-          button ~style:green "Train to end";
-          of_string " | ";
-          button ~style:gray "Early stop";
-          of_string " | ";
-          button ~style:gray "Abort";
-        ]
-  | `Early_stop, _ ->
-      of_tag "div"
-        [
-          button ~style:gray "Train to end";
-          of_string " | ";
-          button ~style:green "Early stop";
-          of_string " | ";
-          button ~style:gray "Abort";
-        ]
-  | `Abort, _ ->
-      of_tag "div"
-        [
-          button ~style:gray "Train to end";
-          of_string " | ";
-          button ~style:gray "Early stop";
-          of_string " | ";
-          button ~style:green "Abort";
-        ]
+
+  match user_status with
+  | `Train_to_end ->
+      [
+        button "Train to end" `Target;
+        of_string " | ";
+        button "Early stop" (`On `Early_stop);
+        of_string " | ";
+        button "Abort" (`On `Abort);
+      ]
+      |> of_tag "div"
+  | `Early_stop ->
+      [
+        button "Train to end" (`On `Train_to_end);
+        of_string " | ";
+        button "Early stop" `Target;
+        of_string " | ";
+        button "Abort" (`On `Abort);
+      ]
+      |> of_tag "div"
+  | `Abort ->
+      [
+        button "Train to end" (`On `Train_to_end);
+        of_string " | ";
+        button "Early stop" (`On `Early_stop);
+        of_string " | ";
+        button "Abort" `Target;
+      ]
+      |> of_tag "div"
 
 type props = training_parameters * (outcome -> unit)
 
 let construct (props : props) =
+  Printf.printf "> construct component: training control\n%!";
   let params, on_completion = props in
 
   let routine_events, fire_routine_event = React.E.create () in
@@ -210,47 +206,56 @@ let construct (props : props) =
     React.S.fold reduce `Running routine_events
   in
 
-  let user_events, fire_user_event = React.E.create () in
-  let fire_user_event : user_event -> unit = fire_user_event in
-  let user_status =
-    let reduce s ev =
-      match (s, ev) with
-      | `Train_to_end, `Early_stop -> `Early_stop
-      | `Train_to_end, `Abort -> `Abort
-      | _, `Early_stop | _, `Abort -> s
-    in
-    React.S.fold reduce `Train_to_end user_events
-  in
+  let user_status, set_user_status = React.S.create `Train_to_end in
+  let set_user_status : user_status -> unit = set_user_status in
 
   let render _ =
     let open Reactjs.Jsx in
     let routine_status = React.S.value routine_status in
     let routine_progress = React.S.value routine_progress in
     let user_status = React.S.value user_status in
-
-    of_tag "div"
+    let prog =
+      (routine_progress |> float_of_int) /. (params.config.batch_count |> float_of_int) *. 100.
+    in
+    let style = [ ("display", "flex"); ("alignItems", "center") ] in
+    let tbody =
       [
-        of_render render_instructions (user_status, routine_status, fire_user_event);
-        of_tag "div"
-          [
-            of_string "Routine: ";
-            ( match routine_status with
-            | `Running -> "Running"
-            | `Ended -> "Ended"
-            | `Aborted -> "Aborted"
-            | `Crashed -> "Crashed" )
-            |> of_string;
-          ];
-        of_tag "div"
-          [
-            of_string "Progress: ";
-            (routine_progress |> float_of_int)
-            /. (params.config.batch_count |> float_of_int)
-            *. 100.
-            |> Printf.sprintf "%.0f%%" |> of_string;
-          ];
+        of_render render_instructions (user_status, routine_status, set_user_status)
+        >> of_bootstrap "Col" ~sm:6 ~style;
+        [
+          of_string "Routine |";
+          ( match (routine_status, routine_progress) with
+          | `Running, 0 ->
+              "Allocating" |> of_string
+              >> of_bootstrap "Badge" ~variant:"warning" ~style:[ ("marginLeft", "6px") ]
+          | `Running, _ ->
+              "Running" |> of_string
+              >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ]
+          | `Ended, _ ->
+              "Ended" |> of_string
+              >> of_bootstrap "Badge" ~variant:"success" ~style:[ ("marginLeft", "6px") ]
+          | `Aborted, _ ->
+              "Aborted" |> of_string
+              >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ]
+          | `Crashed, _ ->
+              "Crashed" |> of_string
+              >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ] );
+        ]
+        |> of_bootstrap "Col" ~sm:3 ~style;
+        [
+          of_string "Progress |";
+          Printf.sprintf "%.0f%%" prog |> of_string
+          >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
+        ]
+        |> of_bootstrap "Col" ~sm:3 ~style;
       ]
+      |> of_bootstrap "Row" >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr"
+      >> of_tag "tbody"
+    in
+    let thead = of_string "Training Control" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
+    of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
+
   let mount () =
     if params.config.from_webworker then (
       let fire_routine_event ev =

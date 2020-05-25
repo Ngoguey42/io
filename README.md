@@ -19,9 +19,7 @@
          - Recall (train/test)
          - Loss
          - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
-   3. Normalize CSS of training-control buttons
    4. Make sure errors (like memory) don't silently crash the page (either recover or alert about crashed page)
-   5. Find out why ADAM behaves poorly in all setups. Maybe overfit of SGD?
    - Foldable panels?
    - Auto scroll at bottom of page?
    - Spinner in favicon?

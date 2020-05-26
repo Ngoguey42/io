@@ -1,10 +1,10 @@
 # TODO
-- Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files, ocamlformat)
+- Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
 - Update js_of_ocaml for new bigarray conversions
 - Ensure good propagation of exceptions throughout reactml/reactjs/webworker/lwt
 - Handle the case of corrupted cache/indexeddb
 - constrain lib dependencies (with >=)
-- Find a better pattern than `?signal ?signal ?signal` in `Reactjs`
+- Finish `Making-of` as soon as MNIST-js is finished
 - MNIST js
    1. Eval before first training and after each successful training
       - Get stats and 10 ref test digits
@@ -19,10 +19,11 @@
          - Recall (train/test)
          - Loss
          - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
+   3. Use `images_seen` in conjunction with `seed` to sample the images
    4. Make sure errors (like memory) don't silently crash the page (either recover or alert about crashed page)
+   5. Repair on firefox
    - Foldable panels?
    - Auto scroll at bottom of page?
-   - Spinner in favicon?
    - OWL backend?
    - Replicate `Nav` at bottom of the page?
    - Shut down the webworker on abort?
@@ -35,6 +36,7 @@
       - Larger networks overfit more but are harder to train (really?). Using max-pool in decoder yields less overfited results
       - Different initial seeds rougly yield the same results
       - Hint on how to reach good performances?
+- Find a better pattern than `?signal ?signal ?signal` in `Reactjs`?
 
 ```
 MNIST js - display

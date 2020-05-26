@@ -9,7 +9,36 @@ open struct
   module Typed_array = Js_of_ocaml.Typed_array
   module Reactjs = Ft_js.Reactjs
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+  module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 end
+
+let favicon_routine signal =
+  let is_firefox =
+    Dom_html.window##.navigator##.userAgent##toLowerCase##indexOf (Js.string "firefox") > -1
+  in
+  let link =
+    [%html {|<link rel="icon" type="image/png" href="images/ocaml.png" />|}]
+    |> Tyxml_js.To_dom.of_element |> Dom_html.CoerceTo.link |> Js.Opt.to_option |> Option.get
+  in
+  Dom.appendChild Dom_html.window##.document##.head link;
+  let is_computing = function
+    | `Loading -> false
+    | `Loaded (_, _, tabstates) ->
+        Array.fold_left
+          (fun acc s -> match s with Types.Training _ -> true | _ -> acc)
+          false tabstates
+  in
+  signal
+  |> React.S.map is_computing
+  |> React.S.changes
+  |> React.E.map (function
+    | false -> link##.href := Js.string "images/ocaml.png"
+    | true -> if is_firefox then
+                link##.href := Js.string "images/spinner-blue.gif"
+              else
+                link##.href := Js.string "images/ocaml-blue.png"
+                 )
+  |> ignore
 
 let jsx_of_tab db gsignal set_gsignal i state =
   let open Reactjs.Jsx in
@@ -82,7 +111,9 @@ let construct_mnist_js _ =
         ]
         |> of_tag "div" ~class_:[ "textdiv" ]
   in
-  Reactjs.construct ~signal render
+
+  let mount () = favicon_routine signal in
+  Reactjs.construct ~signal ~mount render
 
 let main () =
   let open Lwt.Infix in

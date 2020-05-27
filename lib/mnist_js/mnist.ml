@@ -31,7 +31,7 @@ let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
   let n = filename_of_entry entry in
 
   progress (entry, `Check);
-  Lwt_js.sleep 0.1 >>= fun () ->
+  Lwt_js.sleep 0.025 >>= fun () ->
   let reshape arr =
     let sub i j a = Bigarray.Genarray.sub_left a i j in
     match entry with
@@ -52,14 +52,14 @@ let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
     Ft_js.Idb.get store n >>= function
     | Some arr -> arr |> reshape |> Lwt.return
     | None ->
-        Lwt_js.sleep 0.1 >>= fun () ->
+        Lwt_js.sleep 0.025 >>= fun () ->
         let f i j = progress (entry, `Download (i, j)) in
         Ft_js.array_of_url ~progress:f (url_of_entry entry) >>= fun arr ->
         progress (entry, `Unzip);
-        Lwt_js.sleep 0.1 >>= fun () ->
+        Lwt_js.sleep 0.025 >>= fun () ->
         let arr = Ft_js.decompress_array arr in
         progress (entry, `Store);
-        Lwt_js.sleep 0.1 >>= fun () ->
+        Lwt_js.sleep 0.025 >>= fun () ->
         Ft_js.Idb.set store n arr >>= fun _ -> arr |> reshape |> Lwt.return
   in
   arr >|= fun arr -> progress (entry, `Ready arr)

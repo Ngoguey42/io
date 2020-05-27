@@ -9,22 +9,38 @@ open struct
   module Typed_array = Js_of_ocaml.Typed_array
   module Reactjs = Ft_js.Reactjs
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+  module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 end
 
 open Types
 
-let react_main _db signal set_signal =
-  let (events : event React.event), fire_event = React.E.create () in
-  let reduce : event -> state -> state =
+let react_main db signal set_signal =
+  let _traini, _trainl, testi, testl = db in
+  let (events : tab_event React.event), fire_event = React.E.create () in
+  let fire_evaluated ev = Evaluated ev |> fire_event in
+
+  let reduce : tab_event -> tab_state -> tab_state =
    fun ev s ->
     match (s, ev) with
-    | Creating_network, Network ev ->
+    | Creating_network, Network_made ev ->
         Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
-    | Creating_network, _ -> failwith "react_main@reduce : unexpected state/event combination"
-    | Selecting_backend s, Backend backend ->
-        Creating_training
+    | Creating_network, _ -> failwith "react_main@reduce@Creating_network : unexpected event"
+    | Selecting_backend s, Backend_selected backend ->
+        let params = { db = (testi, testl); encoder = s.encoder; decoder = s.decoder; backend } in
+        Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluated);
+        Evaluating
           { encoder = s.encoder; decoder = s.decoder; seed = s.seed; backend; images_seen = 0 }
-    | Selecting_backend _, _ -> failwith "react_main@reduce : unexpected state/event combination"
+    | Selecting_backend _, _ -> failwith "react_main@reduce@Selecting_backend : unexpected event"
+    | Evaluating s, Evaluated _ ->
+        Creating_training
+          {
+            encoder = s.encoder;
+            decoder = s.decoder;
+            seed = s.seed;
+            backend = s.backend;
+            images_seen = s.images_seen;
+          }
+    | Evaluating _, _ -> failwith "react_main@reduce@Evaluating : unexpected event"
     | Creating_training s, Training_conf ev ->
         Training
           {
@@ -45,22 +61,31 @@ let react_main _db signal set_signal =
               };
             backend = s.backend;
           }
-    | Creating_training { encoder; decoder; seed; images_seen; _ }, Backend backend ->
+    | Creating_training { encoder; decoder; seed; images_seen; _ }, Backend_selected backend ->
         Creating_training { encoder; decoder; seed; images_seen; backend }
-    | Training s, End ev ->
-        Creating_training
+    | Creating_training _, _ -> failwith "react_main@reduce@Creating_training : unexpected event"
+    | Training _, Training_event `Init -> s
+    | Training _, Training_event (`Batch_begin _) -> s
+    | Training _, Training_event (`Batch_end _) -> s
+    | Training s, Training_event (`Outcome (`End (encoders, decoder, stats))) ->
+        let encoder = List.hd encoders in
+        let params = { db = (testi, testl); encoder; decoder; backend = s.backend } in
+        Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluated);
+        Evaluating
           {
-            encoder = ev.encoder;
-            decoder = ev.decoder;
+            encoder;
+            decoder;
             seed = s.seed;
             backend = s.backend;
-            images_seen = s.images_seen + ev.images_seen;
+            images_seen = s.images_seen + (s.config.batch_size * stats.batch_count);
           }
-    | Training { encoder; decoder; seed; images_seen; backend; _ }, Abort ->
+    | Training { encoder; decoder; seed; images_seen; backend; _ }, Training_event (`Outcome `Abort)
+      ->
         Creating_training { encoder; decoder; seed; images_seen; backend }
-    | Training { encoder; decoder; seed; images_seen; backend; _ }, Crash _ ->
+    | ( Training { encoder; decoder; seed; images_seen; backend; _ },
+        Training_event (`Outcome (`Crash _)) ) ->
         Creating_training { encoder; decoder; seed; images_seen; backend }
-    | _, _ -> failwith "react_main@reduce : unreachable"
+    | Training _, _ -> failwith "react_main@reduce@Training : unexpected event"
   in
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
   fire_event
@@ -80,6 +105,7 @@ let construct_backend_selection : _ Reactjs.constructor =
     |> Js.to_string |> int_of_string |> backend_of_enum |> Option.get |> fire_upstream_event
   in
   let render (_, enabled) =
+    Printf.printf "> Tab.construct_backend_selection.render | render\n%!";
     let open Reactjs.Jsx in
     let tbody =
       List.init (max_backend + 1) backend_of_enum
@@ -103,45 +129,49 @@ let construct_backend_selection : _ Reactjs.constructor =
 
 let construct_tab (db, _tabidx, signal, set_signal) =
   Printf.printf "> construct component: tab%d\n%!" _tabidx;
+  let traini, trainl, _testi, _testl = db in
   let fire_event = react_main db signal set_signal in
-
-  let fire_network (encoder, decoder, seed) = fire_event (Network { encoder; decoder; seed }) in
-  let fire_trained = function
-    | `Crash exn -> fire_event (Crash exn)
-    | `Abort -> fire_event Abort
-    | `End (encoder, decoder, images_seen) -> fire_event (End { encoder; decoder; images_seen })
+  let fire_network_made (encoder, decoder, seed) =
+    Network_made { encoder; decoder; seed } |> fire_event
   in
-  let fire_backend backend = fire_event (Backend backend) in
+  let fire_training_event ev = Training_event ev |> fire_event in
+  let fire_backend_selected backend = Backend_selected backend |> fire_event in
   let fire_training_conf (lr, batch_size, batch_count) =
-    fire_event (Training_conf { lr; batch_size; batch_count })
+    Training_conf { lr; batch_size; batch_count } |> fire_event
   in
 
   let render _ =
+    Printf.printf "> Tab.construct_tab.render | render\n%!";
     let open Reactjs.Jsx in
+    let network_creation enabled =
+      of_constructor Network_construction.construct_react_component (fire_network_made, enabled)
+    in
+    let backend_selection enabled =
+      of_constructor construct_backend_selection (fire_backend_selected, enabled)
+    in
+    let results () = of_constructor Results.construct_results (42, 42) in
+    let training_configuration enabled =
+      of_constructor Training_configuration.construct_react_component (fire_training_conf, enabled)
+    in
+    let training params = of_constructor Training.construct (params, fire_training_event) in
     match React.S.value signal with
-    | Creating_network ->
-        of_constructor Network_construction.construct_react_component (fire_network, true)
-        >> of_react "Fragment"
+    | Creating_network -> network_creation true >> of_react "Fragment"
     | Selecting_backend _ ->
-        [
-          of_constructor Network_construction.construct_react_component (fire_network, false);
-          of_constructor construct_backend_selection (fire_backend, true);
-        ]
-        |> of_react "Fragment"
+        [ network_creation false; backend_selection true ] |> of_react "Fragment"
+    | Evaluating _ ->
+        [ network_creation false; backend_selection false; results () ] |> of_react "Fragment"
     | Creating_training _ ->
-        [
-          of_constructor Network_construction.construct_react_component (fire_network, false);
-          of_constructor construct_backend_selection (fire_backend, true);
-          of_constructor Training_configuration.construct_react_component (fire_training_conf, true);
-        ]
+        [ network_creation false; backend_selection true; results (); training_configuration true ]
         |> of_react "Fragment"
     | Training s ->
-        let params = Types.{ db; networks = ([ s.encoder ], s.decoder); config = s.config } in
+        let networks = ([ s.encoder ], s.decoder) in
+        let params = Types.{ db = (traini, trainl); networks; config = s.config } in
         [
-          of_constructor Network_construction.construct_react_component (fire_network, false);
-          of_constructor construct_backend_selection (fire_backend, false);
-          of_constructor Training_configuration.construct_react_component (fire_training_conf, false);
-          of_constructor Training.construct (params, fire_trained);
+          network_creation false;
+          backend_selection false;
+          results ();
+          training_configuration false;
+          training params;
         ]
         |> of_react "Fragment"
   in

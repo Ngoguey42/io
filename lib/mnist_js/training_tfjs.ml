@@ -152,12 +152,13 @@ struct
       let encoders, decoder = (List.map (fun f -> f ()) pack_encoders, pack_decoder ()) in
       let loss = Tfjs.to_float loss_sum in
       let confusion_matrix = Tfjs.ba_of_tensor Bigarray.Int32 confusion_matrix_sum in
-      Types.(fire_event (`End (encoders, decoder, { batch_count; loss; confusion_matrix })))
+      Types.(
+        fire_event (`Outcome (`End (encoders, decoder, { batch_count; loss; confusion_matrix }))))
     in
     let rec aux i =
       match React.S.value instructions with
       | `Abort ->
-          fire_event `Abort;
+          fire_event (`Outcome `Abort);
           Lwt.return ()
       | `Train_to_end when i = batch_count ->
           fire_stop_event i;
@@ -186,16 +187,7 @@ struct
 
     Lwt.return ()
 
-  let train :
-      ?verbose:bool ->
-      fire_event:(Types.routine_event -> unit) ->
-      instructions:Types.user_status React.signal ->
-      batch_count:int ->
-      get_lr:(int -> float) ->
-      get_data:(int -> uint8_ba * uint8_ba) ->
-      encoders:Fnn.network list ->
-      decoder:Fnn.network ->
-      unit Lwt.t =
+  let train : Types.training_backend_routine =
    fun ?(verbose = true) ~fire_event ~instructions ~batch_count ~get_lr ~get_data ~encoders ~decoder ->
     let open Lwt.Infix in
     Lwt.catch
@@ -210,6 +202,6 @@ struct
       (fun exn ->
         let msg = Printexc.to_string exn in
         Printf.eprintf "Train fire error %s\n%!" msg;
-        fire_event (`Crash exn);
+        fire_event (`Outcome (`Crash exn));
         Lwt.return ())
 end

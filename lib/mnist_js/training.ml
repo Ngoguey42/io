@@ -8,15 +8,13 @@ end
 
 open Types
 
-(* include Training_types *)
-
 let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = function
   (* | `Owl_cpu -> (module Mnist_owl) *)
   | `Tfjs_webgl -> (module Training_tfjs.Make_backend (struct let v = `Webgl end))
   | `Tfjs_cpu -> (module Training_tfjs.Make_backend (struct let v = `Cpu end))
   | `Tfjs_wasm -> (module Training_tfjs.Make_backend (struct let v = `Wasm end))
 
-let routine { db = train_imgs, train_labs, _, _; networks = encoders, decoder; config } fire_event
+let routine { db = train_imgs, train_labs; networks = encoders, decoder; config } fire_event
     instructions =
   let module Backend = (val create_backend config.backend) in
   let verbose = config.verbose in
@@ -48,21 +46,19 @@ let routine { db = train_imgs, train_labs, _, _; networks = encoders, decoder; c
   Backend.train ~fire_event ~instructions ~verbose ~batch_count ~get_lr ~get_data ~encoders ~decoder
 
 module Webworker_routine = struct
-  type training_parameters = {
-    db : uint8_ba * uint8_ba * uint8_ba * uint8_ba;
+  type parameters = {
+    db : db_train;
     networks : Fnn.storable_nn list * Fnn.storable_nn;
     config : training_config;
   }
 
-  type _in_msg = [ `Prime of training_parameters | user_status ]
+  type _in_msg = [ `Prime of parameters | training_user_status ]
+
+  type outcome =
+    [ `End of Fnn.storable_nn list * Fnn.storable_nn * training_stats | `Abort | `Crash of exn ]
 
   type routine_event =
-    [ `Init
-    | `Batch_begin of int
-    | `Batch_end of int * stats
-    | `End of Fnn.storable_nn list * Fnn.storable_nn * stats
-    | `Abort
-    | `Crash of exn ]
+    [ `Init | `Batch_begin of int | `Batch_end of int * training_stats | `Outcome of outcome ]
 
   type _out_msg = routine_event
 
@@ -71,34 +67,32 @@ module Webworker_routine = struct
         let f = Fnn.storable_of_fnn in
         let networks = (List.map f encoders, f decoder) in
         `Prime { networks; db; config }
-    | #user_status as msg -> msg
+    | #training_user_status as msg -> msg
 
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db; networks = encoders, decoder; config } ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
         let networks = (List.map f encoders, f decoder) in
         `Prime Types.{ networks; db; config }
-    | #user_status as msg -> msg
+    | #training_user_status as msg -> msg
 
-  let preprocess_out_msg : Types.routine_event -> routine_event = function
-    | `End (encoders, decoder, stats) ->
-        let f = Fnn.storable_of_fnn in
-        `End (List.map f encoders, f decoder, stats)
+  let preprocess_out_msg : Types.training_routine_event -> routine_event = function
     | `Init as ev -> (ev :> routine_event)
     | `Batch_begin _ as ev -> (ev :> routine_event)
     | `Batch_end _ as ev -> (ev :> routine_event)
-    | `Abort as ev -> (ev :> routine_event)
-    | `Crash _ as ev -> (ev :> routine_event)
+    | (`Outcome (`Crash _) as ev) | (`Outcome `Abort as ev) -> (ev :> routine_event)
+    | `Outcome (`End (encoders, decoder, stats)) ->
+        let f = Fnn.storable_of_fnn in
+        `Outcome (`End (List.map f encoders, f decoder, stats))
 
-  let postprocess_out_msg : _out_msg -> Types.routine_event = function
-    | `End (encoders, decoder, stats) ->
+  let postprocess_out_msg : _out_msg -> Types.training_routine_event = function
+    | `Init as ev -> (ev :> Types.training_routine_event)
+    | `Batch_begin _ as ev -> (ev :> Types.training_routine_event)
+    | `Batch_end _ as ev -> (ev :> Types.training_routine_event)
+    | (`Outcome (`Crash _) as ev) | (`Outcome `Abort as ev) -> (ev :> Types.training_routine_event)
+    | `Outcome (`End (encoders, decoder, stats)) ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
-        `End (List.map f encoders, f decoder, stats)
-    | `Init as ev -> (ev :> Types.routine_event)
-    | `Batch_begin _ as ev -> (ev :> Types.routine_event)
-    | `Batch_end _ as ev -> (ev :> Types.routine_event)
-    | `Abort as ev -> (ev :> Types.routine_event)
-    | `Crash _ as ev -> (ev :> Types.routine_event)
+        `Outcome (`End (List.map f encoders, f decoder, stats))
 
   module rec Ww : (Webworker.S with type in_msg = _in_msg and type out_msg = _out_msg) =
   Webworker.Make (struct
@@ -119,7 +113,7 @@ module Webworker_routine = struct
             |> List.iter Js_of_ocaml.Worker.import_scripts;
             let routine () = routine params fire_routine_event user_status in
             Js_of_ocaml_lwt.Lwt_js_events.async routine
-        | #user_status as msg -> set_user_status msg
+        | #training_user_status as msg -> set_user_status msg
       in
       on_in_message
   end)
@@ -127,62 +121,65 @@ module Webworker_routine = struct
   include Ww
 end
 
-let render_instructions props =
-  let user_status, routine_status, set_user_status = props in
-  let open Reactjs.Jsx in
-  let button txt t =
-    match (t, routine_status) with
-    | `On event, `Running ->
-        let on_click ev =
-          set_user_status event;
-          ev##preventDefault
-        in
-        of_bootstrap "Button" ~style:[ ("width", "95px") ] ~size:"sm" ~variant:"primary" ~on_click
-          [ of_string txt ]
-    | `On _, _ ->
-        of_bootstrap "Button" ~as_:"div"
-          ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
-          ~size:"sm" ~variant:"dark" [ of_string txt ]
-    | `Target, _ ->
-        of_bootstrap "Button" ~as_:"div"
-          ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
-          ~size:"sm" ~class_:[ "active"; "focus" ] ~variant:"success" [ of_string txt ]
+let construct_instructions (_, _, set_user_status) =
+  Printf.printf "> construct component : training instructions\n%!";
+  let render (user_status, routine_status, _) =
+    Printf.printf "> Training.render_instructions | render\n%!";
+    let open Reactjs.Jsx in
+    let button txt t =
+      match (t, routine_status) with
+      | `On event, `Running ->
+          let on_click ev =
+            set_user_status event;
+            ev##preventDefault
+          in
+          of_bootstrap "Button" ~style:[ ("width", "95px") ] ~size:"sm" ~variant:"primary" ~on_click
+            [ of_string txt ]
+      | `On _, _ ->
+          of_bootstrap "Button" ~as_:"div"
+            ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
+            ~size:"sm" ~variant:"dark" [ of_string txt ]
+      | `Target, _ ->
+          of_bootstrap "Button" ~as_:"div"
+            ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
+            ~size:"sm" ~class_:[ "active"; "focus" ] ~variant:"success" [ of_string txt ]
+    in
+    match user_status with
+    | `Train_to_end ->
+        [
+          button "Train to end" `Target;
+          of_string " | ";
+          button "Early stop" (`On `Early_stop);
+          of_string " | ";
+          button "Abort" (`On `Abort);
+        ]
+        |> of_tag "div"
+    | `Early_stop ->
+        [
+          button "Train to end" (`On `Train_to_end);
+          of_string " | ";
+          button "Early stop" `Target;
+          of_string " | ";
+          button "Abort" (`On `Abort);
+        ]
+        |> of_tag "div"
+    | `Abort ->
+        [
+          button "Train to end" (`On `Train_to_end);
+          of_string " | ";
+          button "Early stop" (`On `Early_stop);
+          of_string " | ";
+          button "Abort" `Target;
+        ]
+        |> of_tag "div"
   in
+  Reactjs.construct render
 
-  match user_status with
-  | `Train_to_end ->
-      [
-        button "Train to end" `Target;
-        of_string " | ";
-        button "Early stop" (`On `Early_stop);
-        of_string " | ";
-        button "Abort" (`On `Abort);
-      ]
-      |> of_tag "div"
-  | `Early_stop ->
-      [
-        button "Train to end" (`On `Train_to_end);
-        of_string " | ";
-        button "Early stop" `Target;
-        of_string " | ";
-        button "Abort" (`On `Abort);
-      ]
-      |> of_tag "div"
-  | `Abort ->
-      [
-        button "Train to end" (`On `Train_to_end);
-        of_string " | ";
-        button "Early stop" (`On `Early_stop);
-        of_string " | ";
-        button "Abort" `Target;
-      ]
-      |> of_tag "div"
-
-type props = training_parameters * (outcome -> unit)
+type props = training_parameters * (training_routine_event -> unit)
 
 let construct (props : props) =
   Printf.printf "> construct component: training control\n%!";
-  let params, on_completion = props in
+  let params, fire_upstream_event = props in
 
   let routine_events, fire_routine_event = React.E.create () in
   let routine_progress =
@@ -191,25 +188,19 @@ let construct (props : props) =
   let routine_status =
     let reduce s ev =
       match (s, ev) with
-      | `Running, `End (encoders, decoder, stats) ->
-          on_completion
-            (`End (List.hd encoders, decoder, stats.batch_count * params.config.batch_size));
-          `Ended
-      | `Running, `Abort ->
-          on_completion `Abort;
-          `Aborted
-      | `Running, `Crash exn ->
-          on_completion (`Crash exn);
-          `Crashed
+      | `Running, `Outcome (`End _) -> `Ended
+      | `Running, `Outcome `Abort -> `Aborted
+      | `Running, `Outcome (`Crash _) -> `Crashed
       | _, _ -> s
     in
     React.S.fold reduce `Running routine_events
   in
 
   let user_status, set_user_status = React.S.create `Train_to_end in
-  let set_user_status : user_status -> unit = set_user_status in
+  let set_user_status : training_user_status -> unit = set_user_status in
 
   let render _ =
+    Printf.printf "> Training.construct.render | rendering \n%!";
     let open Reactjs.Jsx in
     let routine_status = React.S.value routine_status in
     let routine_progress = React.S.value routine_progress in
@@ -220,7 +211,8 @@ let construct (props : props) =
     let style = [ ("display", "flex"); ("alignItems", "center") ] in
     let tbody =
       [
-        of_render render_instructions (user_status, routine_status, set_user_status)
+        of_constructor construct_instructions ~key:"buttons"
+          (user_status, routine_status, set_user_status)
         >> of_bootstrap "Col" ~sm:6 ~style;
         [
           of_string "Routine |";
@@ -257,6 +249,7 @@ let construct (props : props) =
   in
 
   let mount () =
+    React.E.map (fun ev -> fire_upstream_event ev) routine_events |> ignore;
     if params.config.from_webworker then (
       let fire_routine_event ev =
         ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event

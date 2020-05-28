@@ -41,6 +41,7 @@ perspectives:
   "+4" :
     - [ lib/mnist_js/dune, lib/mnist_js/mnist.ml, lib/mnist_js/resources.ml ]
     - [ lib/mnist_js/mnist_js.ml, <up>, <up> ]
+    - [ lib/mnist_js/backend.ml, <up>, <up> ]
   "4" : [[ lib/mnist_js/main.ml, lib/mnist_js/tab.ml, lib/mnist_js/types.ml ]]
 
   "+5" : [[ lib/mnist_js/network_construction.ml, lib/mnist_js/network_architectures.ml, lib/mnist_js/training_configuration.ml ]]

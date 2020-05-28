@@ -27,7 +27,7 @@ let favicon_routine signal =
     | Loading -> false
     | Loaded (_, _, tabstates) ->
         Array.fold_left
-          (fun acc s -> match s with Types.Training _ -> true | _ -> acc)
+          (fun acc s -> match s with Types.Training _ -> true | Types.Evaluating _ -> true | _ -> acc)
           false tabstates
   in
   signal |> React.S.map is_computing |> React.S.changes

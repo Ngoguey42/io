@@ -26,17 +26,18 @@ let react_main db signal set_signal =
         Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
     | Creating_network, _ -> failwith "react_main@reduce@Creating_network : unexpected event"
     | Selecting_backend s, Backend_selected backend ->
-        let params =
-          {
-            db = (testi, testl);
-            encoder = s.encoder;
-            decoder = s.decoder;
-            config = { backend; from_webworker = true; verbose = true; batch_size = 500 };
-          }
-        in
+        let config = { backend; from_webworker = true; verbose = true; batch_size = 500 } in
+        let params = { db = (testi, testl); encoder = s.encoder; decoder = s.decoder; config } in
         Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluation_event);
         Evaluating
-          { encoder = s.encoder; decoder = s.decoder; seed = s.seed; backend; images_seen = 0 }
+          {
+            encoder = s.encoder;
+            decoder = s.decoder;
+            seed = s.seed;
+            backend;
+            images_seen = 0;
+            config;
+          }
     | Selecting_backend _, _ -> failwith "react_main@reduce@Selecting_backend : unexpected event"
     | Evaluating _, Evaluation_event `Init -> s
     | Evaluating _, Evaluation_event (`Batch_begin _) -> s
@@ -80,15 +81,10 @@ let react_main db signal set_signal =
     | Training _, Training_event (`Batch_end _) -> s
     | Training s, Training_event (`Outcome (`End (encoders, decoder, stats))) ->
         let encoder = List.hd encoders in
-        let params =
-          {
-            db = (testi, testl);
-            encoder;
-            decoder;
-            config =
-              { from_webworker = true; backend = s.backend; verbose = true; batch_size = 500 };
-          }
+        let config =
+          { from_webworker = true; backend = s.backend; verbose = true; batch_size = 500 }
         in
+        let params = { db = (testi, testl); encoder; decoder; config } in
         Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluation_event);
         Evaluating
           {
@@ -97,6 +93,7 @@ let react_main db signal set_signal =
             seed = s.seed;
             backend = s.backend;
             images_seen = s.images_seen + (s.config.batch_size * stats.batch_count);
+            config;
           }
     | Training { encoder; decoder; seed; images_seen; backend; _ }, Training_event (`Outcome `Abort)
       ->
@@ -107,7 +104,7 @@ let react_main db signal set_signal =
     | Training _, _ -> failwith "react_main@reduce@Training : unexpected event"
   in
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
-  fire_event
+  (events, fire_event)
 
 let construct_backend_selection : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
@@ -151,7 +148,7 @@ let construct_backend_selection : _ Reactjs.constructor =
 let construct_tab (db, _tabidx, signal, set_signal) =
   Printf.printf "> construct component: tab%d\n%!" _tabidx;
   let traini, trainl, _testi, _testl = db in
-  let fire_event = react_main db signal set_signal in
+  let events, fire_event = react_main db signal set_signal in
   let fire_network_made (encoder, decoder, seed) =
     Network_made { encoder; decoder; seed } |> fire_event
   in
@@ -170,7 +167,7 @@ let construct_tab (db, _tabidx, signal, set_signal) =
     let backend_selection enabled =
       of_constructor construct_backend_selection (fire_backend_selected, enabled)
     in
-    let results () = of_constructor Results.construct_results (42, 42) in
+    let results () = of_constructor Results.construct_results (signal, events) in
     let training_configuration enabled =
       of_constructor Training_configuration.construct_react_component (fire_training_conf, enabled)
     in

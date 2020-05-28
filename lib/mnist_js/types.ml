@@ -112,6 +112,7 @@ type tab_state =
       seed : int;
       backend : backend;
       images_seen : int;
+      config : evaluation_config;
     }
   | Creating_training of {
       encoder : Fnn.network;

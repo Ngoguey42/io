@@ -168,6 +168,8 @@ class type memory =
     method numTensors : int Js.readonly_prop
   end
 
+type _ forward_mode = Train : variable Js.t forward_mode | Eval : tensor Js.t forward_mode
+
 (* ********************************************************************************************** *)
 module Ops = struct
   open Js.Unsafe
@@ -824,6 +826,7 @@ let iou_recall_precision_of_cm : #tensor Js.t -> tensor Js.t =
   res
 
 (* Hard coded stateful algorithms *************************************************************** *)
+
 let create_local_normaliser : float -> int list -> < normalise : #tensor Js.t -> tensor Js.t > =
  fun epsilon norm_axes ->
   if epsilon < 0. then invalid_arg "In create_local_normaliser: epsilon should be >=0";
@@ -853,17 +856,18 @@ let create_local_normaliser : float -> int list -> < normalise : #tensor Js.t ->
   end
 
 let create_global_normaliser :
+    type tensor_mode.
+    tensor_mode forward_mode ->
     float ->
     int ->
     float32_ba ->
     float32_ba ->
-    bool ->
     int list ->
     < normalise : #tensor Js.t -> tensor Js.t
     ; get_step : int
     ; get_avg : float32_ba
     ; get_var : float32_ba > =
- fun epsilon step moving_avg moving_var update norm_axes ->
+ fun mode epsilon step moving_avg moving_var norm_axes ->
   let err_hd = "In create_global_normaliser" in
 
   if epsilon < 0. then invalid_arg (err_hd ^ ": epsilon should be >=0");
@@ -907,9 +911,21 @@ let create_global_normaliser :
     Ops.transpose ~perm tensor
   in
 
-  let moving_avg = tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false in
-  let moving_var = tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false in
-  let step = int step |> variable ~trainable:false in
+  let as_tensor : tensor_mode -> tensor Js.t =
+   fun t -> match mode with Train -> (t :> tensor Js.t) | Eval -> t
+  in
+  let (moving_avg, moving_var, step) : tensor_mode * tensor_mode * tensor_mode =
+    match mode with
+    | Train ->
+        ( tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false,
+          tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false,
+          int step |> variable ~trainable:false )
+    | Eval ->
+        ( tensor_of_ba moving_avg |> transpose_to_sorted,
+          tensor_of_ba moving_var |> transpose_to_sorted,
+          int step )
+  in
+
   object
     method normalise x =
       let dims = Ops.shape x in
@@ -922,45 +938,48 @@ let create_global_normaliser :
         List.filter_map (fun i -> if List.mem i norm_axes then Some dims.(i) else None) axes
         |> Array.of_list
       in
-      if dims'' <> Ops.shape moving_var then
+      if dims'' <> Ops.shape (as_tensor moving_var) then
         failwith (err_hd ^ "#normalise: Unexpected input tensor shape");
       let open Ops in
-      if update then (
-        step##assign (step + int 1);
-        let momentum' = float 1. / step##asType (Js.string "float32") in
-        let momentum = float 1. - momentum' in
+      ( match mode with
+      | Eval -> ()
+      | Train ->
+          step##assign (step + int 1);
+          let momentum' = float 1. / step##asType (Js.string "float32") in
+          let momentum = float 1. - momentum' in
 
-        let avg = avgpool ~b:`AssertFit kernel_sizes x in
-        let x_centered = x - avg in
-        let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
-        assert (shape avg = dims');
+          let avg = avgpool ~b:`AssertFit kernel_sizes x in
+          let x_centered = x - avg in
+          let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
+          assert (shape avg = dims');
 
-        let avg = squeeze ~axes:squeezed_axes avg in
-        let var = squeeze ~axes:squeezed_axes var in
-        assert (shape avg = dims'');
+          let avg = squeeze ~axes:squeezed_axes avg in
+          let var = squeeze ~axes:squeezed_axes var in
+          assert (shape avg = dims'');
 
-        moving_avg##assign ((momentum * moving_avg) + (momentum' * avg));
-        moving_var##assign ((momentum * moving_var) + (momentum' * var)) );
-      let moving_avg = reshape dims' moving_avg in
-      let moving_var = reshape dims' moving_var in
+          moving_avg##assign ((momentum * moving_avg) + (momentum' * avg));
+          moving_var##assign ((momentum * moving_var) + (momentum' * var)) );
+      let moving_avg = reshape dims' (as_tensor moving_avg) in
+      let moving_var = reshape dims' (as_tensor moving_var) in
       (x - moving_avg) / (moving_var + epsilon |> sqrt)
 
-    method get_step = to_int step
+    method get_step = as_tensor step |> to_int
 
-    method get_avg = moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+    method get_avg = as_tensor moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
 
-    method get_var = moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+    method get_var = as_tensor moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
   end
 
 let create_exp_moving32_normaliser :
+    type tensor_mode.
+    tensor_mode forward_mode ->
     float ->
     float ->
     float32_ba ->
     float32_ba ->
-    bool ->
     int list ->
     < normalise : #tensor Js.t -> tensor Js.t ; get_avg : float32_ba ; get_var : float32_ba > =
- fun epsilon momentum moving_avg moving_var update norm_axes ->
+ fun mode epsilon momentum moving_avg moving_var norm_axes ->
   let err_hd = "In create_exp_moving32_normaliser" in
 
   if epsilon < 0. then invalid_arg (err_hd ^ ": epsilon should be >=0");
@@ -1007,8 +1026,18 @@ let create_exp_moving32_normaliser :
     Ops.transpose ~perm tensor
   in
 
-  let moving_avg = tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false in
-  let moving_var = tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false in
+  let as_tensor : tensor_mode -> tensor Js.t =
+   fun t -> match mode with Train -> (t :> tensor Js.t) | Eval -> t
+  in
+  let (moving_avg, moving_var) : tensor_mode * tensor_mode =
+    match mode with
+    | Train ->
+        ( tensor_of_ba moving_avg |> transpose_to_sorted |> variable ~trainable:false,
+          tensor_of_ba moving_var |> transpose_to_sorted |> variable ~trainable:false )
+    | Eval ->
+        ( tensor_of_ba moving_avg |> transpose_to_sorted,
+          tensor_of_ba moving_var |> transpose_to_sorted )
+  in
 
   object
     method normalise x =
@@ -1022,28 +1051,30 @@ let create_exp_moving32_normaliser :
         List.filter_map (fun i -> if List.mem i norm_axes then Some dims.(i) else None) axes
         |> Array.of_list
       in
-      if dims'' <> Ops.shape moving_var then
+      if dims'' <> Ops.shape (as_tensor moving_var) then
         failwith (err_hd ^ "#normalise: Unexpected input tensor shape");
       let open Ops in
-      if update then (
-        let avg = avgpool ~b:`AssertFit kernel_sizes x in
-        let x_centered = x - avg in
-        let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
-        assert (shape avg = dims');
+      ( match mode with
+      | Eval -> ()
+      | Train ->
+          let avg = avgpool ~b:`AssertFit kernel_sizes x in
+          let x_centered = x - avg in
+          let var = avgpool ~b:`AssertFit kernel_sizes (x_centered * x_centered) in
+          assert (shape avg = dims');
 
-        let avg = squeeze ~axes:squeezed_axes avg in
-        let var = squeeze ~axes:squeezed_axes var in
-        assert (shape avg = dims'');
+          let avg = squeeze ~axes:squeezed_axes avg in
+          let var = squeeze ~axes:squeezed_axes var in
+          assert (shape avg = dims'');
 
-        moving_avg##assign ((momentum * moving_avg) + (momentum' * avg));
-        moving_var##assign ((momentum * moving_var) + (momentum' * var)) );
-      let moving_avg = reshape dims' moving_avg in
-      let moving_var = reshape dims' moving_var in
+          moving_avg##assign ((momentum * moving_avg) + (momentum' * avg));
+          moving_var##assign ((momentum * moving_var) + (momentum' * var)) );
+      let moving_avg = reshape dims' (as_tensor moving_avg) in
+      let moving_var = reshape dims' (as_tensor moving_var) in
       (x - moving_avg) / (moving_var + epsilon |> sqrt)
 
-    method get_avg = moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+    method get_avg = as_tensor moving_avg |> transpose_to_original |> ba_of_tensor Bigarray.Float32
 
-    method get_var = moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
+    method get_var = as_tensor moving_var |> transpose_to_original |> ba_of_tensor Bigarray.Float32
   end
 
 let create_sgd_updater : variable Js.t -> < update : float -> tensor Js.t -> unit > =

@@ -110,6 +110,7 @@ module Jsx = struct
       ?inline:bool ->
       ?colspan:string ->
       ?href:string ->
+      ?src:string ->
       ?placement:string ->
       ?overlay:jsx Js.t ->
       ?bordered:bool ->
@@ -139,7 +140,7 @@ module Jsx = struct
       ?no_gutters:bool ->
       jsx Js.t list ->
       jsx Js.t =
-   fun ctor ?ref ?key ?on_click ?on_select ?disabled ?inline ?colspan ?href ?placement ?overlay
+   fun ctor ?ref ?key ?on_click ?on_select ?disabled ?inline ?colspan ?href ?src ?placement ?overlay
        ?bordered ?sm ?event_key ?default_active_key ?active_key ?placeholder ?animation ?variant
        ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx ?transition
        ?id ?class_ ?style ?label ?name ?no_gutters children ->
@@ -154,6 +155,7 @@ module Jsx = struct
     Option.iter (fun v -> set props (Js.string "inline") v) inline;
     Option.iter (fun v -> set props (Js.string "colSpan") (Js.string v)) colspan;
     Option.iter (fun v -> set props (Js.string "href") (Js.string v)) href;
+    Option.iter (fun v -> set props (Js.string "src") (Js.string v)) src;
     Option.iter (fun v -> set props (Js.string "title") (Js.string v)) title;
     Option.iter (fun v -> set props (Js.string "title") v) title_jsx;
     Option.iter (fun v -> set props (Js.string "transition") v) transition;

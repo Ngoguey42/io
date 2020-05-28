@@ -99,7 +99,6 @@ module Webworker_routine = struct
     | (`Outcome (`Crash _) as ev) | (`Outcome `Abort as ev) -> (ev :> Types.training_routine_event)
     | `Outcome (`End (encoders, decoder, stats)) ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
-        let stats = { stats with confusion_matrix = repair_bigarray stats.confusion_matrix } in
         `Outcome (`End (List.map f encoders, f decoder, stats))
 
   module rec Ww : (Webworker.S with type in_msg = _in_msg and type out_msg = _out_msg) =

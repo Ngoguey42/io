@@ -327,6 +327,7 @@ module Ops = struct
     in
     fun_call global##.tf##.pad [| inject x; inject paddings; inject value |]
 
+  (* [(axis_idx, begin, size), ...] *)
   let slice : (int * int * int) list -> #tensor Js.t -> tensor Js.t =
    fun per_axis x ->
     let shape = x##.shape |> Js.to_array in

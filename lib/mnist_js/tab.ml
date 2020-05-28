@@ -147,7 +147,7 @@ let construct_backend_selection : _ Reactjs.constructor =
 
 let construct_tab (db, _tabidx, signal, set_signal) =
   Printf.printf "> construct component: tab%d\n%!" _tabidx;
-  let traini, trainl, _testi, _testl = db in
+  let traini, trainl, testi, testl = db in
   let events, fire_event = react_main db signal set_signal in
   let fire_network_made (encoder, decoder, seed) =
     Network_made { encoder; decoder; seed } |> fire_event
@@ -167,7 +167,7 @@ let construct_tab (db, _tabidx, signal, set_signal) =
     let backend_selection enabled =
       of_constructor construct_backend_selection (fire_backend_selected, enabled)
     in
-    let results () = of_constructor Results.construct_results (signal, events) in
+    let results () = of_constructor Results.construct_results ((testi, testl), signal, events) in
     let training_configuration enabled =
       of_constructor Training_configuration.construct_react_component (fire_training_conf, enabled)
     in

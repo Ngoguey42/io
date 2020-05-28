@@ -32,7 +32,14 @@ type training_parameters = {
   config : training_config;
 }
 
-type training_stats = { batch_count : int; loss : float; confusion_matrix : int32_ba }
+type training_stats = {
+  mean_iou_top1 : float;
+  mean_recall_top1 : float;
+  mean_precision_top1 : float;
+  batch_count : int;
+  image_count : int;
+  mean_loss : float;
+}
 
 type training_user_status = [ `Train_to_end | `Early_stop | `Abort ]
 
@@ -74,7 +81,12 @@ type evaluation_parameters = {
   config : evaluation_config;
 }
 
-type evaluation_stats = { confusion_matrix : int32_ba; marked_digits_probas : float32_ba }
+type evaluation_stats = {
+  mean_iou_top1 : float;
+  mean_recall_top1 : float;
+  mean_precision_top1 : float;
+  marked_digits_probas : float32_ba;
+}
 
 type evaluation_outcome = [ `End of evaluation_stats | `Crash of exn ]
 

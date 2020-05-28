@@ -87,7 +87,7 @@ let get : (entry * status -> unit) -> unit Lwt.t =
 
 let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
   let img =
-    img |> Ft_js.Conv.Uint8.ba_of_ta
+    img
     |> (fun x -> Ndarray.reshape x [| 28; 28; 1 |])
     |> (fun x -> Ndarray.repeat x [| 1; 1; 3 |])
     |> Ndarray.pad ~v:255 [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
@@ -102,26 +102,7 @@ let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
   Js.Unsafe.meth_call idata##.data "set" [| Js.Unsafe.inject img |] |> ignore;
   ctx##putImageData idata 0. 0.
 
-let html_pred_overview img lab pred =
-  let txt = Format.kasprintf Html.txt in
-  let txt' = Format.kasprintf Html.txt in
-  let _, maxi, _ =
-    List.fold_left
-      (fun (i, i', v') v -> if v > v' then (i + 1, i, v) else (i + 1, i', v'))
-      (0, 0, 0.) pred
-  in
-  let aux i x =
-    let bg = "background: " ^ Ft.Color.(Firegrass.get x |> to_hex_string) in
-    let cls = [] in
-    let cls = if i == lab then "good-one" :: cls else cls in
-    let cls = if i == maxi then "highest-one" :: cls else "not-highest-one" :: cls in
-    let content = [ txt "%d" i; Html.br (); txt' "%.0f%%" (x *. 100.) ] in
-    (* let content = if i == maxi then [Html.b content] else content in *)
-    [%html "<div style='" bg "' class='" cls "'>" content "</div>"]
-  in
-  let elt =
-    [%html "<div class='mnist-pred'><div><canvas></canvas></div>" (List.mapi aux pred) "</div>"]
-    |> Tyxml_js.To_dom.of_element
-  in
-  Ft_js.select elt "canvas" Dom_html.CoerceTo.canvas |> put_digit_to_canvas img;
-  elt
+let b64_url_of_digit img =
+  let canvas = Dom_html.createCanvas Dom_html.window##.document in
+  put_digit_to_canvas img canvas;
+  canvas##toDataURL |> Js.to_string

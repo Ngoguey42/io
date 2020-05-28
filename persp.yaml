@@ -17,7 +17,9 @@ perspectives:
     - [ lib/fnn/fnn.ml, <up>, <up> ]
   "15": [[ lib/fnn/make_fnn.ml, lib/fnn/make_fnn.ml, lib/fnn/patch.ml ]]
 
-  "19": [[ lib/fnn_tfjs/dune, lib/fnn_tfjs/fnn_tfjs.ml, lib/fnn_tfjs/tfjs_api.ml ]]
+  "19":
+    - [ lib/fnn_tfjs/dune, lib/fnn_tfjs/tfjs_api.ml ]
+    - [ lib/fnn_tfjs/fnn_tfjs.ml, <up> ]
   "16": [[ lib/fnn_tfjs/misc.ml, lib/fnn_tfjs/bridge_train.ml, lib/fnn_tfjs/bridge_eval.ml ]]
 
   # root and bin
@@ -42,6 +44,7 @@ perspectives:
     - [ lib/mnist_js/dune, lib/mnist_js/mnist.ml, lib/mnist_js/resources.ml ]
     - [ lib/mnist_js/mnist_js.ml, <up>, <up> ]
     - [ lib/mnist_js/backend.ml, <up>, <up> ]
+    - [ lib/mnist_js/constants.ml, <up>, <up> ]
   "4" : [[ lib/mnist_js/main.ml, lib/mnist_js/tab.ml, lib/mnist_js/types.ml ]]
 
   "+5" : [[ lib/mnist_js/network_construction.ml, lib/mnist_js/network_architectures.ml, lib/mnist_js/training_configuration.ml ]]

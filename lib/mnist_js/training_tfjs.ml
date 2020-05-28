@@ -128,19 +128,31 @@ let _train verbose fire_event instructions batch_count get_lr get_data encoders 
 
       () );
     Tfjs.dispose_tensor y'_1hot;
-    (loss, confusion_matrix)
+    (batch_size, loss, confusion_matrix)
   in
 
   let loss_sum = Tfjs.Ops.zeros [||] |> Tfjs.variable ~trainable:false ~dtype:`Float32 in
   let confusion_matrix_sum =
     Tfjs.Ops.zeros [| 10; 10 |] |> Tfjs.variable ~trainable:false ~dtype:`Float32
   in
+  let image_count = ref 0 in
   let fire_stop_event batch_count =
     let encoders, decoder = (List.map (fun f -> f ()) pack_encoders, pack_decoder ()) in
-    let loss = Tfjs.to_float loss_sum in
-    let confusion_matrix = Tfjs.ba_of_tensor Bigarray.Int32 confusion_matrix_sum in
-    Types.(
-      fire_event (`Outcome (`End (encoders, decoder, { batch_count; loss; confusion_matrix }))))
+    let image_count = !image_count in
+    let mean_loss = Tfjs.to_float loss_sum in
+    let mean_iou_top1, mean_recall_top1, mean_precision_top1 = _stats_of_cm confusion_matrix_sum in
+    let stats =
+      Types.
+        {
+          image_count;
+          batch_count;
+          mean_loss;
+          mean_iou_top1;
+          mean_recall_top1;
+          mean_precision_top1;
+        }
+    in
+    fire_event (`Outcome (`End (encoders, decoder, stats)))
   in
   let rec aux i =
     match React.S.value instructions with
@@ -156,14 +168,27 @@ let _train verbose fire_event instructions batch_count get_lr get_data encoders 
     | `Train_to_end ->
         fire_event (`Batch_begin i);
         Tfjs.tidy (fun () ->
-            let loss, confusion_matrix = train_on_batch i in
+            let batch_size, loss, confusion_matrix = train_on_batch i in
             loss_sum##assign (Tfjs.Ops.add loss_sum loss);
             confusion_matrix_sum##assign (Tfjs.Ops.add confusion_matrix_sum confusion_matrix);
-            Types.(
-              let loss = Tfjs.to_float loss in
-              let confusion_matrix = Tfjs.ba_of_tensor Bigarray.Int32 confusion_matrix in
-              let batch_count = 1 in
-              fire_event (`Batch_end (i, { batch_count; loss; confusion_matrix }))));
+            image_count := !image_count + batch_size;
+            let mean_iou_top1, mean_recall_top1, mean_precision_top1 =
+              _stats_of_cm confusion_matrix
+            in
+            let mean_loss = Tfjs.to_float loss in
+            let batch_count = 1 in
+            let stats =
+              Types.
+                {
+                  image_count = batch_size;
+                  batch_count;
+                  mean_loss;
+                  mean_iou_top1;
+                  mean_recall_top1;
+                  mean_precision_top1;
+                }
+            in
+            fire_event (`Batch_end (i, stats)));
         Lwt_js.yield () >>= fun () -> aux (i + 1)
   in
 

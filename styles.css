@@ -1,3 +1,15 @@
+body { background: #FCFCFC; margin: 0; }
+code {
+    border-radius: 3px;
+    background: #FCFCFC;
+    padding: 1px 6px 2px 6px;
+    border-style: solid;
+    border-width: 0;
+}
+h1, h2 { border-bottom: 1px solid black; }
+h2, h3 { padding-left: 9px; }
+h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
+/* ************************************************************************** */
 #header { margin-bottom: 25px; text-align: center; }
 #header a {
     font-family: "Fira Sans", sans-serif;
@@ -5,7 +17,7 @@
     color: #007bff;
     text-decoration: none !important;
 }
-#header a:visited { color: #007bff; }|
+#header a:visited { color: #007bff; }
 .textdiv {
     width: 800px;
     margin: 0 auto;
@@ -14,23 +26,22 @@
     line-height: 1.4;
     border-color: #000000;
     border-style: solid;
-    border-width: 0px;
+    border-width: 0;
     border-radius: 5px;
-
 }
-body { background: #FCFCFC; margin: 0px; }
-code {
-    border-radius: 3px;
-    background: #FCFCFC;
-    padding: 1px 6px 2px 6px;
+.mnistdiv {
+    width: 800px;
+    margin: 0 auto;
+    background: #F7F7F7;
+    padding: 10px 20px 30px 20px;
+    line-height: 1.1;
+    border-color: #000000;
     border-style: solid;
-    border-width: 0px;
+    border-width: 0;
+    border-radius: 5px;
 }
-h1, h2 { border-bottom: 1px solid black; }
-h2, h3 { padding-left: 9px; }
-h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 /* ************************************************************************** */
-.mnist-panel { margin: 0px; margin-bottom: 7px; }
+.mnist-panel { margin: 0; margin-bottom: 7px; }
 .mnist-panel > thead > tr { background: #EBEBEB; text-align: center }
 .mnist-panel .entry-name { text-align: right; width: 50%; }
 .mnist-panel .entry-status { text-align: center; }
@@ -60,48 +71,19 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 .mnist-pred .highest-one { font-weight: bold; }
 .mnist-pred .not-highest-one { font-style: italic; }
 /* ************************************************************************** */
-.form-control {
-    color: #007bff;
-    font-weight: bold;
-}
-.form-control::placeholder {
-    color: black;
-    font-weight: normal;
-    opacity: 0.5;
-}
-.form-control:focus {
-    color: #007bff;
-}
-form {
-    padding: 15px
-}
-button:disabled {
-    /* https://stackoverflow.com/a/61659811 */
-    pointer-events: none !important
-}
-#network-code .tooltip-inner {
-    min-width: 500px;
-}
+.form-control { color: #007bff; font-weight: bold; }
+.form-control::placeholder { color: black; font-weight: normal; opacity: 0.5; }
+.form-control:focus { color: #007bff; }
+form { padding: 15px }
+button:disabled { /* https://stackoverflow.com/a/61659811 */ pointer-events: none !important }
+#network-code .tooltip-inner { min-width: 500px; }
 .code-overlay {
-    /* width: 30px;
-       height: 30px;
-       padding: 6px 0px;
-       border-radius: 15px;
-       text-align: center;
-       font-size: 12px;
-       line-height: 1.42857; */
-    /* width: 48px;
-       height: 48px;
-       padding: 8px 7px;
-       border-radius: 24px;
-       font-size: 17px;
-       line-height: 1.38; */
     width: 42px;
     height: 42px;
-    padding: 0px 1px 0px 3px;
-    margin: 0px 0px 3px 6px;
+    padding: 0 1px 0 3px;
+    margin: 0 0 3px 6px;
     border-radius: 22px;
     font-size: 29px;
     font-weight: bold;
-    border: 0px;
+    border: 0;
 }

@@ -38,9 +38,11 @@ perspectives:
     - [ lib/game/shapes.ml ]
 
   # mnist_js
-  "4" :
+  "+4" :
     - [ lib/mnist_js/dune, lib/mnist_js/mnist.ml, lib/mnist_js/resources.ml ]
     - [ lib/mnist_js/mnist_js.ml, <up>, <up> ]
-  "5" : [[ lib/mnist_js/main.ml, lib/mnist_js/tab.ml, lib/mnist_js/types.ml ]]
+  "4" : [[ lib/mnist_js/main.ml, lib/mnist_js/tab.ml, lib/mnist_js/types.ml ]]
+
   "+5" : [[ lib/mnist_js/network_construction.ml, lib/mnist_js/network_architectures.ml, lib/mnist_js/training_configuration.ml ]]
+  "5": [[lib/mnist_js/results.ml, lib/mnist_js/evaluation.ml, lib/mnist_js/evaluation_tfjs.ml]]
   "6" : [[ lib/mnist_js/training.ml, lib/mnist_js/training_tfjs.ml ]]

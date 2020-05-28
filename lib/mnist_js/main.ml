@@ -122,7 +122,7 @@ let construct_mnist_js _ =
     match React.S.value signal with
     | Loading ->
         of_constructor ~key:"res" Resources.construct_react_table fire_resources
-        >> of_tag "div" ~class_:[ "textdiv" ]
+        >> of_tag "div" ~class_:[ "mnistdiv" ]
     | Loaded (db, focusidx, tabstates) ->
         let focusidx = string_of_int focusidx in
         let tabs = Array.mapi (jsx_of_tab db signal set_signal) tabstates |> Array.to_list in
@@ -132,7 +132,7 @@ let construct_mnist_js _ =
           of_bootstrap "Tabs" ~transition:false ~active_key:focusidx ~on_select ~id:"network-tabs"
             (tabs @ [ plus ]);
         ]
-        |> of_tag "div" ~class_:[ "textdiv" ]
+        |> of_tag "div" ~class_:[ "mnistdiv" ]
   in
 
   let mount () = favicon_routine signal in

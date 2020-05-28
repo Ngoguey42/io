@@ -17,7 +17,7 @@ open Types
 let react_main db signal set_signal =
   let _traini, _trainl, testi, testl = db in
   let (events : tab_event React.event), fire_event = React.E.create () in
-  let fire_evaluated ev = Evaluated ev |> fire_event in
+  let fire_evaluation_event ev = Evaluation_event ev |> fire_event in
 
   let reduce : tab_event -> tab_state -> tab_state =
    fun ev s ->
@@ -26,12 +26,23 @@ let react_main db signal set_signal =
         Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
     | Creating_network, _ -> failwith "react_main@reduce@Creating_network : unexpected event"
     | Selecting_backend s, Backend_selected backend ->
-        let params = { db = (testi, testl); encoder = s.encoder; decoder = s.decoder; backend } in
-        Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluated);
+        let params =
+          {
+            db = (testi, testl);
+            encoder = s.encoder;
+            decoder = s.decoder;
+            config = { backend; from_webworker = true; verbose = true; batch_size = 500 };
+          }
+        in
+        Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluation_event);
         Evaluating
           { encoder = s.encoder; decoder = s.decoder; seed = s.seed; backend; images_seen = 0 }
     | Selecting_backend _, _ -> failwith "react_main@reduce@Selecting_backend : unexpected event"
-    | Evaluating s, Evaluated _ ->
+    | Evaluating _, Evaluation_event `Init -> s
+    | Evaluating _, Evaluation_event (`Batch_begin _) -> s
+    | Evaluating _, Evaluation_event (`Batch_end _) -> s
+    | Evaluating _, Evaluation_event (`Outcome (`Crash _)) -> Creating_network
+    | Evaluating s, Evaluation_event (`Outcome (`End _)) ->
         Creating_training
           {
             encoder = s.encoder;
@@ -69,8 +80,16 @@ let react_main db signal set_signal =
     | Training _, Training_event (`Batch_end _) -> s
     | Training s, Training_event (`Outcome (`End (encoders, decoder, stats))) ->
         let encoder = List.hd encoders in
-        let params = { db = (testi, testl); encoder; decoder; backend = s.backend } in
-        Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluated);
+        let params =
+          {
+            db = (testi, testl);
+            encoder;
+            decoder;
+            config =
+              { from_webworker = true; backend = s.backend; verbose = true; batch_size = 500 };
+          }
+        in
+        Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluation_event);
         Evaluating
           {
             encoder;
@@ -92,7 +111,7 @@ let react_main db signal set_signal =
 
 let construct_backend_selection : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
-  Printf.printf "> construct component: backend selection\n%!";
+  Printf.eprintf "> construct component: backend selection\n%!";
   let name_of_backend = function
     | `Tfjs_webgl -> "TensorFlow.js WebGL"
     | `Tfjs_wasm -> "TensorFlow.js WASM"
@@ -101,11 +120,13 @@ let construct_backend_selection : _ Reactjs.constructor =
   let disable_backend = function `Tfjs_webgl -> false | `Tfjs_wasm -> true | `Tfjs_cpu -> false in
 
   let on_change ev =
+    Printf.eprintf "> construct_backend_selection.on_change `%s`\n%!"
+      (ev##.target##.value |> Js.to_string);
     ev##.target##.value
     |> Js.to_string |> int_of_string |> backend_of_enum |> Option.get |> fire_upstream_event
   in
   let render (_, enabled) =
-    Printf.printf "> Tab.construct_backend_selection.render | render\n%!";
+    Printf.eprintf "> Tab.construct_backend_selection.render | render\n%!";
     let open Reactjs.Jsx in
     let tbody =
       List.init (max_backend + 1) backend_of_enum

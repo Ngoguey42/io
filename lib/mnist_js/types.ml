@@ -60,30 +60,49 @@ module type TRAINER = sig
 end
 
 (* Eval ***************************************************************************************** *)
-type eval_parameters = {
-  db : db_test;
-  encoder : Fnn.network;
-  decoder : Fnn.network;
+type evaluation_config = {
+  from_webworker : bool;
+  verbose : bool;
+  batch_size : int;
   backend : backend;
 }
 
-type eval_stats = { confusion_matrix : int32_ba; marked_digits_probas : float32_ba }
+type evaluation_parameters = {
+  db : db_test;
+  encoder : Fnn.network;
+  decoder : Fnn.network;
+  config : evaluation_config;
+}
 
-type eval_outcome = [ `End of eval_stats | `Crash of exn ]
+type evaluation_stats = { confusion_matrix : int32_ba; marked_digits_probas : float32_ba }
 
-type eval_routine_status = [ `Running | `Ended | `Crashed ]
+type evaluation_outcome = [ `End of evaluation_stats | `Crash of exn ]
+
+type evaluation_routine_event =
+  [ `Init | `Batch_begin of int | `Batch_end of int | `Outcome of evaluation_outcome ]
+
+type evaluation_routine_status = [ `Running | `Ended | `Crashed ]
+
+type evaluation_backend_routine =
+  ?verbose:bool ->
+  fire_event:(evaluation_routine_event -> unit) ->
+  batch_size:int ->
+  db:db_test ->
+  encoder:Fnn.network ->
+  decoder:Fnn.network ->
+  unit Lwt.t
 
 module type EVALUATOR = sig
-  val train :
-    ?verbose:bool ->
-    fire_event:(eval_outcome -> unit) ->
-    db:db_test ->
-    encoder:Fnn.network ->
-    decoder:Fnn.network ->
-    unit Lwt.t
+  val eval : evaluation_backend_routine
 end
 
 (* Global *************************************************************************************** *)
+module type BACKEND = sig
+  include TRAINER
+
+  include EVALUATOR
+end
+
 type tab_state =
   | Creating_network
   | Selecting_backend of { encoder : Fnn.network; decoder : Fnn.network; seed : int }
@@ -113,7 +132,7 @@ type tab_state =
 type tab_event =
   | Network_made of { encoder : Fnn.network; decoder : Fnn.network; seed : int }
   | Backend_selected of backend
-  | Evaluated of eval_outcome
+  | Evaluation_event of evaluation_routine_event
   | Training_conf of { lr : lr; batch_size : int; batch_count : int }
   | Training_event of training_routine_event
 

@@ -84,7 +84,7 @@ let tab_states_equal a b =
   | Selecting_backend _, _ -> false
   | Evaluating _, Evaluating _ -> true
   | Evaluating _, _ -> false
-  | Creating_training _, Creating_training _ -> true
+  | Creating_training s, Creating_training s' -> s.backend = s'.backend
   | Creating_training _, _ -> false
   | Training _, Training _ -> true
   | Training _, _ -> false

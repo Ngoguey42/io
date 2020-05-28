@@ -23,7 +23,7 @@ module type S = sig
 
   type out_msg
 
-  val create : (out_msg -> unit) -> (Worker.errorEvent Js.t -> unit) -> t
+  val create : (t -> out_msg -> unit) -> (Worker.errorEvent Js.t -> unit) -> t
 
   val post_in_message : t -> in_msg -> unit
 
@@ -57,14 +57,22 @@ struct
   let idx =
     let idx = Hashtbl.length store in
     Hashtbl.add store idx (fun () ->
-        Worker.set_onmessage (Spec.create_on_in_message ());
+        let spec_fn = Spec.create_on_in_message () in
+        let fn msg = msg |> spec_fn in
+        Worker.set_onmessage fn;
         ());
     idx
 
   let create on_out_message on_error =
+    let url =
+      match current_script with
+      | None -> failwith "In Webworker.Make(...).create: No target url"
+      | Some tag -> Js.to_string tag##.src
+    in
+    let w = Worker.create url in
     let on_out_message =
       Dom.handler (fun ev ->
-          on_out_message ev##.data;
+          on_out_message w ev##.data;
           Js._true)
     in
     let on_error =
@@ -73,12 +81,6 @@ struct
           Js._true)
     in
 
-    let url =
-      match current_script with
-      | None -> failwith "In Webworker.Make(...).create: No target url"
-      | Some tag -> Js.to_string tag##.src
-    in
-    let w = Worker.create url in
     w##.onmessage := on_out_message;
     w##.onerror := on_error;
     Js.Unsafe.meth_call w "postMessage" [| Js.Unsafe.inject idx |] |> ignore;

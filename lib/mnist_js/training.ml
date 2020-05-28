@@ -8,15 +8,18 @@ end
 
 open Types
 
-let[@ocamlformat "disable"] create_backend : backend -> (module TRAINER) = function
-  (* | `Owl_cpu -> (module Mnist_owl) *)
-  | `Tfjs_webgl -> (module Training_tfjs.Make_backend (struct let v = `Webgl end))
-  | `Tfjs_cpu -> (module Training_tfjs.Make_backend (struct let v = `Cpu end))
-  | `Tfjs_wasm -> (module Training_tfjs.Make_backend (struct let v = `Wasm end))
+let repair_bigarray : 'a -> 'a =
+ fun a ->
+  let f : _ -> _ -> _ -> _ -> 'a = Js.Unsafe.global##.jsoo_runtime_##.caml_ba_create_unsafe_ in
+  f
+    (Js.Unsafe.get a (Js.string "kind"))
+    (Js.Unsafe.get a (Js.string "layout"))
+    (Js.Unsafe.get a (Js.string "dims"))
+    (Js.Unsafe.get a (Js.string "data"))
 
 let routine { db = train_imgs, train_labs; networks = encoders, decoder; config } fire_event
     instructions =
-  let module Backend = (val create_backend config.backend) in
+  let module Backend = (val Backend.create config.backend) in
   let verbose = config.verbose in
   let rng = Random.State.make [| config.seed |] in
   let batch_count, batch_size = (config.batch_count, config.batch_size) in
@@ -66,6 +69,8 @@ module Webworker_routine = struct
     | `Prime Types.{ db; networks = encoders, decoder; config } ->
         let f = Fnn.storable_of_fnn in
         let networks = (List.map f encoders, f decoder) in
+        Printf.eprintf "train.preprocess_in_msg, db:\n%!";
+        Firebug.console##log db;
         `Prime { networks; db; config }
     | #training_user_status as msg -> msg
 
@@ -73,6 +78,8 @@ module Webworker_routine = struct
     | `Prime { db; networks = encoders, decoder; config } ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
         let networks = (List.map f encoders, f decoder) in
+        Printf.eprintf "train.postprocess_in_msg, db:\n%!";
+        Firebug.console##log db;
         `Prime Types.{ networks; db; config }
     | #training_user_status as msg -> msg
 
@@ -92,6 +99,7 @@ module Webworker_routine = struct
     | (`Outcome (`Crash _) as ev) | (`Outcome `Abort as ev) -> (ev :> Types.training_routine_event)
     | `Outcome (`End (encoders, decoder, stats)) ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
+        let stats = { stats with confusion_matrix = repair_bigarray stats.confusion_matrix } in
         `Outcome (`End (List.map f encoders, f decoder, stats))
 
   module rec Ww : (Webworker.S with type in_msg = _in_msg and type out_msg = _out_msg) =
@@ -251,7 +259,7 @@ let construct (props : props) =
   let mount () =
     React.E.map (fun ev -> fire_upstream_event ev) routine_events |> ignore;
     if params.config.from_webworker then (
-      let fire_routine_event ev =
+      let fire_routine_event _ ev =
         ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event
       in
       let ww =

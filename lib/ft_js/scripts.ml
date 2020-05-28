@@ -28,9 +28,9 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
   | `Tfjs ->
       [
         [ "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" ];
-        [
-          "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js";
-        ];
+        (* [ *)
+        (*   "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js"; *)
+        (* ]; *)
       ]
   | `Cryptojs ->
       [

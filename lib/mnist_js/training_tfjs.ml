@@ -9,20 +9,21 @@ end
 
 type uint8_ba = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
-(* TODO: Generic eval functions
- * let predict : ~verbose:bool -> ~progress:_ -> ~h:int -> ~w:int ->
- *          -> ~datagen:_ (defines batch_size and image count)
- *          -> ~encoders:network list -> ~decoder:network
- *          -> Ndarray.t Iter.t (image iterator)
- * let eval : ~verbose:bool -> ~progress:_ -> ~h:int -> ~w:int ->
- *          -> ~datagen:_ (defines batch_size and image count)
- *          -> ~encoders:network list -> ~decoder:network
- *          -> Ndarray.t (confusion_matrix)
- *)
-
 type uint8_ta = (int, [ `Uint8 ]) Typed_array.typedArray
 
 type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray
+
+let _stats_of_cm confusion_matrix =
+  let stats = Tfjs.iou_recall_precision_of_cm confusion_matrix in
+  let ious = Tfjs.Ops.slice [ (1, 0, 1) ] stats in
+  let recalls = Tfjs.Ops.slice [ (1, 1, 1) ] stats in
+  let precisions = Tfjs.Ops.slice [ (1, 2, 1) ] stats in
+
+  let mean_iou = Tfjs.Ops.mean false ious |> Tfjs.to_float in
+  let mean_recall = Tfjs.Ops.mean false recalls |> Tfjs.to_float in
+  let mean_precision = Tfjs.Ops.mean false precisions |> Tfjs.to_float in
+
+  (mean_iou, mean_recall, mean_precision)
 
 let _train verbose fire_event instructions batch_count get_lr get_data encoders decoder =
   let open Lwt.Infix in
@@ -105,17 +106,7 @@ let _train verbose fire_event instructions batch_count get_lr get_data encoders 
     let confusion_matrix = Tfjs.Ops.confusion_matrix 10 y_top1 y'_top1 in
     ignore instructions;
     if verbose then (
-      let stats = Tfjs.iou_recall_precision_of_cm confusion_matrix in
-      let ious = Tfjs.Ops.slice [ (1, 0, 1) ] stats in
-      let recalls = Tfjs.Ops.slice [ (1, 1, 1) ] stats in
-      let precisions = Tfjs.Ops.slice [ (1, 2, 1) ] stats in
-      ignore (ious, recalls, precisions);
-
-      let mean_recall = Tfjs.Ops.mean false recalls |> Tfjs.to_float in
-      let mean_precision = Tfjs.Ops.mean false precisions |> Tfjs.to_float in
-      let mean_iou = Tfjs.Ops.mean false ious |> Tfjs.to_float in
-      ignore (mean_iou, mean_recall, mean_precision);
-
+      let iou, recall, _ = _stats_of_cm confusion_matrix in
       let layer =
         match (Fnn.find_id (Some "classif") [ decoder ])#classify_layer with
         | `Conv2d node -> node#upstream0
@@ -133,10 +124,10 @@ let _train verbose fire_event instructions batch_count get_lr get_data encoders 
 
       let time' = (new%js Js.date_now)##valueOf /. 1000. in
       Printf.printf "%5d, lr:%6.1e, l:%9.6f, grad:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" i lr
-        (Tfjs.to_float loss) classif_grad (mean_iou *. 100.) (mean_recall *. 100.) (time' -. time);
+        (Tfjs.to_float loss) classif_grad (iou *. 100.) (recall *. 100.) (time' -. time);
 
-      Tfjs.dispose_tensor y'_1hot;
       () );
+    Tfjs.dispose_tensor y'_1hot;
     (loss, confusion_matrix)
   in
 

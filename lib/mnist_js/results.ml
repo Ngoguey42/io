@@ -39,14 +39,16 @@ let jsx_of_test_set_sample test_set_sample_urls probas =
       |> List.mapi (fun i p ->
              let bg = Ft.Color.(Firegrass2.get p |> to_hex_string) in
              let content = i |> string_of_int |> of_string in
-             content >> of_tag "div" ~style:[ ("background", bg) ])
+             let class_ = if i = digit then [ "good-one" ] else [] in
+             content >> of_tag "div" ~class_ ~style:[ ("background", bg) ])
     in
-    [ img ] @ probas |> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md:6
+    let md_order = (digit / 5) + (digit mod 5 * 2) in
+    [ img ] @ probas |> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md_span:6 ~md_order
   in
 
   [
     of_string "Test-set sample"
-    >> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md:12 ~as_:"h5"
+    >> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md_span:12 ~as_:"h5"
     >> of_bootstrap "Row";
     List.mapi aux test_set_sample_urls |> of_bootstrap "Row" ~no_gutters:true;
   ]
@@ -85,7 +87,7 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
     let tbody =
       [
         of_string "Statistics"
-        >> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md:12 ~as_:"h5"
+        >> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md_span:12 ~as_:"h5"
              ~style:[ ("display", "flex"); ("justifyContent", "center") ]
         >> of_bootstrap "Row";
         digits;

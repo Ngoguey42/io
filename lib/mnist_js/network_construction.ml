@@ -438,14 +438,14 @@ let construct_react_component : _ Reactjs.constructor =
              "Button" ~type_:"submit" ~class_:[ "btn-info"; "code-overlay" ]
         >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt;
       ]
-      |> of_bootstrap "Col" ~md:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
+      |> of_bootstrap "Col" ~md_span:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
     in
     let select m =
-      of_constructor construct_select (m, update_rconf, enabled) >> of_bootstrap "Col" ~md:6
+      of_constructor construct_select (m, update_rconf, enabled) >> of_bootstrap "Col" ~md_span:6
     in
     let input m =
       of_constructor construct_int_input (m, update_rconf, dconf_signal, enabled)
-      >> of_bootstrap "Col" ~md:6
+      >> of_bootstrap "Col" ~md_span:6
     in
     let tbody =
       [

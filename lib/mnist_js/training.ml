@@ -36,18 +36,18 @@ let routine { db = train_imgs, train_labs; networks = encoders, decoder; config 
   let get_lr =
     match config.lr with
     | `Down (lr0, lr1) ->
-       (* If lr1=0, will decrease the lr on the range [lr0; lr1[
-          otherwise, will decrease the lr on the range [lr0; lr1]
+        (* If lr1=0, will decrease the lr on the range [lr0; lr1[
+           otherwise, will decrease the lr on the range [lr0; lr1]
         *)
-       assert (lr0 >= lr1);
-       assert (lr1 >= 0.);
-       let big_vec = lr1 -. lr0 in
-       let small_vec =
-         if batch_count <= 1 then big_vec
-         else if lr1 = 0. then big_vec /. (float_of_int batch_count)
-         else big_vec /. (float_of_int (batch_count - 1))
-       in
-       fun batch_idx -> lr0 +. small_vec *. (float_of_int batch_idx)
+        assert (lr0 >= lr1);
+        assert (lr1 >= 0.);
+        let big_vec = lr1 -. lr0 in
+        let small_vec =
+          if batch_count <= 1 then big_vec
+          else if lr1 = 0. then big_vec /. float_of_int batch_count
+          else big_vec /. float_of_int (batch_count - 1)
+        in
+        fun batch_idx -> lr0 +. (small_vec *. float_of_int batch_idx)
     | `Flat lr -> fun _ -> lr
   in
 
@@ -255,7 +255,7 @@ let construct (props : props) =
       [
         of_constructor construct_instructions ~key:"buttons"
           (user_status, routine_status, set_user_status)
-        >> of_bootstrap "Col" ~md:6 ~style;
+        >> of_bootstrap "Col" ~md_span:6 ~style;
         [
           of_string "Routine |";
           ( match routine_status with
@@ -275,12 +275,12 @@ let construct (props : props) =
               "Crashed" |> of_string
               >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ] );
         ]
-        |> of_bootstrap "Col" ~md:3 ~style;
+        |> of_bootstrap "Col" ~md_span:3 ~style;
         [
           of_string "Progress |";
           prog |> of_string >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
         ]
-        |> of_bootstrap "Col" ~md:3 ~style;
+        |> of_bootstrap "Col" ~md_span:3 ~style;
       ]
       |> of_bootstrap "Row" >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr"
       >> of_tag "tbody"

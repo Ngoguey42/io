@@ -244,24 +244,24 @@ let construct_select :
     in
     let submodules = M.float_submodules_of_dconf dconf in
     let submodules =
-      let md = 12 / List.length submodules in
+      let md_span = 12 / List.length submodules in
       List.map
         (fun v ->
           of_constructor construct_float_input (v, update_rconf, dconf_signal, true, enabled)
-          >> of_bootstrap "Col" ~md)
+          >> of_bootstrap "Col" ~md_span)
         submodules
     in
     ignore submodules;
 
     [
       of_bootstrap "Form.Label" [ Printf.sprintf "%s (%s)" M.name s |> of_string ]
-      >> of_bootstrap "Col" ~md:12;
-      control >> of_bootstrap "Col" ~md:12;
+      >> of_bootstrap "Col" ~md_span:12;
+      control >> of_bootstrap "Col" ~md_span:12;
     ]
     @ submodules
     @ [
         of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ]
-        >> of_bootstrap "Col" ~md:12;
+        >> of_bootstrap "Col" ~md_span:12;
       ]
     |> of_bootstrap "Row" ~no_gutters:true
     >> of_bootstrap "Form.Group"
@@ -304,20 +304,20 @@ let construct_react_component : _ Reactjs.constructor =
       of_string "Train"
       >> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit" ~size:"lg"
       >> of_tag "div" ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
-      (* >> of_bootstrap "Col" ~md:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ] *)
+      (* >> of_bootstrap "Col" ~md_span:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ] *)
     in
     let select m =
       of_constructor construct_select (m, update_rconf, dconf_signal, enabled)
-      (* >> of_bootstrap "Col" ~md:6 *)
+      (* >> of_bootstrap "Col" ~md_span:6 *)
     in
     let input m =
       of_constructor construct_int_input (m, update_rconf, dconf_signal, enabled)
-      (* >> of_bootstrap "Col" ~md:6 *)
+      (* >> of_bootstrap "Col" ~md_span:6 *)
     in
     let tbody =
       [
-        [ select (module Lr); button ] |> of_bootstrap "Col" ~md:6;
-        [ input (module Batch_size); input (module Batch_count) ] |> of_bootstrap "Col" ~md:6;
+        [ select (module Lr); button ] |> of_bootstrap "Col" ~md_span:6;
+        [ input (module Batch_size); input (module Batch_count) ] |> of_bootstrap "Col" ~md_span:6;
       ]
       |> of_bootstrap "Row" >> of_bootstrap "Form" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in

@@ -112,6 +112,7 @@ module Jsx = struct
       ?href:string ->
       ?src:string ->
       ?placement:string ->
+      ?fluid:string ->
       ?overlay:jsx Js.t ->
       ?bordered:bool ->
       ?xs_span:int ->
@@ -149,8 +150,8 @@ module Jsx = struct
       ?no_gutters:bool ->
       jsx Js.t list ->
       jsx Js.t =
-   fun ctor ?ref ?key ?on_click ?on_select ?disabled ?inline ?colspan ?href ?src ?placement ?overlay
-       ?bordered ?xs_span ?sm_span ?md_span ?lg_span ?xl_span ?xs_order ?sm_order ?md_order
+   fun ctor ?ref ?key ?on_click ?on_select ?disabled ?inline ?colspan ?href ?src ?placement ?fluid
+       ?overlay ?bordered ?xs_span ?sm_span ?md_span ?lg_span ?xl_span ?xs_order ?sm_order ?md_order
        ?lg_order ?xl_order ?event_key ?default_active_key ?active_key ?placeholder ?animation
        ?variant ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx
        ?transition ?id ?class_ ?style ?label ?name ?no_gutters children ->
@@ -195,6 +196,8 @@ module Jsx = struct
     Option.iter (fun v -> set props (Js.string "title") v) title_jsx;
     Option.iter (fun v -> set props (Js.string "transition") v) transition;
     Option.iter (fun v -> set props (Js.string "placement") (Js.string v)) placement;
+    Option.iter (fun _ -> set props (Js.string "fluid") true) fluid;
+    (* Option.iter (fun v -> set props (Js.string "fluid") (Js.string v)) fluid; *)
     Option.iter (fun v -> set props (Js.string "overlay") v) overlay;
     Option.iter (fun v -> set props (Js.string "bordered") v) bordered;
     Option.iter (fun v -> set props (Js.string "eventKey") (Js.string v)) event_key;

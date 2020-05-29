@@ -316,8 +316,10 @@ let construct_react_component : _ Reactjs.constructor =
     in
     let tbody =
       [
-        [ select (module Lr); button ] |> of_bootstrap "Col" ~md_span:6;
-        [ input (module Batch_size); input (module Batch_count) ] |> of_bootstrap "Col" ~md_span:6;
+        [ select (module Lr); button ]
+        |> of_bootstrap "Col" ~xs_span:12 ~xs_order:1 ~md_span:6 ~md_order:0;
+        [ input (module Batch_size); input (module Batch_count) ]
+        |> of_bootstrap "Col" ~xs_span:12 ~xs_order:0 ~md_span:6 ~md_order:1;
       ]
       |> of_bootstrap "Row" >> of_bootstrap "Form" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in

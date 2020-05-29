@@ -19,7 +19,7 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 }
 #header a:visited { color: #007bff; }
 .textdiv {
-    width: 800px;
+    width: 768px;
     margin: 0 auto;
     background: #F7F7F7;
     padding: 10px 20px 30px 20px;
@@ -30,7 +30,8 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
     border-radius: 5px;
 }
 .mnistdiv {
-    width: 800px;
+    max-width: 768px;
+    /* width: 768px; */
     margin: 0 auto;
     background: #F7F7F7;
     padding: 10px 20px 30px 20px;

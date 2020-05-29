@@ -428,7 +428,7 @@ let construct_react_component : _ Reactjs.constructor =
         (jsx_of_code (code_of_dconf dconf))
       >> of_bootstrap "Tooltip" ~id:"network-code"
     in
-    let button =
+    let button xs_order md_order =
       [
         of_string "Create"
         >> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit" ~size:"lg";
@@ -438,23 +438,26 @@ let construct_react_component : _ Reactjs.constructor =
              "Button" ~type_:"submit" ~class_:[ "btn-info"; "code-overlay" ]
         >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt;
       ]
-      |> of_bootstrap "Col" ~md_span:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
+      |> of_bootstrap "Col"
+           ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
+           ~xs_span:12 ~xs_order ~md_span:6 ~md_order
     in
-    let select m =
-      of_constructor construct_select (m, update_rconf, enabled) >> of_bootstrap "Col" ~md_span:6
+    let select m xs_order md_order =
+      of_constructor construct_select (m, update_rconf, enabled)
+      >> of_bootstrap "Col" ~xs_span:12 ~xs_order ~md_span:6 ~md_order
     in
-    let input m =
+    let input m xs_order md_order =
       of_constructor construct_int_input (m, update_rconf, dconf_signal, enabled)
-      >> of_bootstrap "Col" ~md_span:6
+      >> of_bootstrap "Col" ~xs_span:12 ~xs_order ~md_span:6 ~md_order
     in
     let tbody =
       [
-        select (module Encoder);
-        select (module Decoder);
-        input (module Parameters);
-        input (module Seed);
-        button;
-        select (module Optimizer);
+        select (module Encoder) 0 0;
+        select (module Decoder) 1 1;
+        input (module Parameters) 2 2;
+        input (module Seed) 3 3;
+        button 5 4;
+        select (module Optimizer) 4 5;
       ]
       |> of_bootstrap "Row" >> of_bootstrap "Form" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in

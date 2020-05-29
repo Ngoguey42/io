@@ -250,7 +250,15 @@ let construct (props : props) =
     let routine_status = React.S.value routine_status in
     let prog = React.S.value routine_progress in
     let user_status = React.S.value user_status in
-    let style = [ ("display", "flex"); ("alignItems", "center") ] in
+    let style =
+      [
+        ("display", "flex");
+        ("alignItems", "center");
+        ("justifyContent", "center");
+        ("marginTop", "4px");
+        ("marginBottom", "4px");
+      ]
+    in
     let tbody =
       [
         of_constructor construct_instructions ~key:"buttons"

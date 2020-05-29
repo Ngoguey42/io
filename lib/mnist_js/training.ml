@@ -220,7 +220,7 @@ let construct (props : props) =
       [
         of_constructor construct_instructions ~key:"buttons"
           (user_status, routine_status, set_user_status)
-        >> of_bootstrap "Col" ~sm:6 ~style;
+        >> of_bootstrap "Col" ~md:6 ~style;
         [
           of_string "Routine |";
           ( match (routine_status, routine_progress) with
@@ -240,13 +240,13 @@ let construct (props : props) =
               "Crashed" |> of_string
               >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ] );
         ]
-        |> of_bootstrap "Col" ~sm:3 ~style;
+        |> of_bootstrap "Col" ~md:3 ~style;
         [
           of_string "Progress |";
           Printf.sprintf "%.0f%%" prog |> of_string
           >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
         ]
-        |> of_bootstrap "Col" ~sm:3 ~style;
+        |> of_bootstrap "Col" ~md:3 ~style;
       ]
       |> of_bootstrap "Row" >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr"
       >> of_tag "tbody"

@@ -31,52 +31,26 @@ let create_evaluating_signal tabsignal tabevents =
 
 let jsx_of_marked_digits marked_digits_urls probas =
   let open Reactjs.Jsx in
-  (* let _, maxi, _ = *)
-  (*   List.fold_left *)
-  (*     (fun (i, i', v') v -> if v > v' then (i + 1, i, v) else (i + 1, i', v')) *)
-  (*     (0, 0, 0.) pred *)
-  (* in *)
-
-  let aux digit url=
-    let probas = List.init 10 (fun i ->
-                              Ndarray.get probas [|digit; i|]
-                            )
-    in
-    (* let probas = Ndarray.get_slice [[digit]; []] probas in *)
+  let aux digit url =
+    let probas = List.init 10 (fun i -> Ndarray.get probas [| digit; i |]) in
+    let img = of_tag "img" ~src:url [] in
     let probas =
       probas
-      (* |> Ndarray.to_array *)
-      |> List.map (fun p ->
-          Printf.sprintf "%.0f%%, " (p *. 100.) |> of_string
-        )
+      |> List.mapi (fun i p ->
+             let bg = Ft.Color.(Firegrass2.get p |> to_hex_string) in
+             let content = i |> string_of_int |> of_string in
+             content >> of_tag "div" ~style:[ ("background", bg) ])
     in
-    [
-      of_tag "img" ~src:url [];
-    ] @ probas
-    |> of_bootstrap "Col" ~sm:6
+    [ img ] @ probas |> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md:6
   in
-  List.mapi aux marked_digits_urls
-  |> of_bootstrap "Row" ~style:["fontSize", "small"]  ~no_gutters:true
-  >> of_bootstrap "Container"
 
-
-  (* (\* let txt = Format.kasprintf Html.txt in *\) *)
-  (* (\* let txt' = Format.kasprintf Html.txt in *\) *)
-  (* let aux i x = *)
-  (*   let bg = "background: " ^ Ft.Color.(Firegrass.get x |> to_hex_string) in *)
-  (*   let cls = [] in *)
-  (*   let cls = if i == lab then "good-one" :: cls else cls in *)
-  (*   let cls = if i == maxi then "highest-one" :: cls else "not-highest-one" :: cls in *)
-  (*   let content = [ txt "%d" i; Html.br (); txt' "%.0f%%" (x *. 100.) ] in *)
-  (*   (\* let content = if i == maxi then [Html.b content] else content in *\) *)
-  (*   [%html "<div style='" bg "' class='" cls "'>" content "</div>"] *)
-  (* in *)
-  (* let elt = *)
-  (*   [%html "<div class='mnist-pred'><div><canvas></canvas></div>" (List.mapi aux pred) "</div>"] *)
-  (*   |> Tyxml_js.To_dom.of_element *)
-  (* in *)
-  (* (\* Ft_js.select elt "canvas" Dom_html.CoerceTo.canvas |> put_digit_to_canvas img; *\) *)
-  (* (\* elt *\) *)
+  [
+    of_string "Test-set sample"
+    >> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md:12 ~as_:"h5"
+    >> of_bootstrap "Row";
+    List.mapi aux marked_digits_urls |> of_bootstrap "Row" ~no_gutters:true;
+  ]
+  |> of_bootstrap "Container"
 
 let construct_results ((test_imgs, _), tabsignal, tabevents) =
   Printf.printf "> construct component: results\n%!";
@@ -87,14 +61,13 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
       (fun (_, idx) -> Ndarray.get_slice [ [ idx ]; []; [] ] test_imgs)
       Constants.marked_digits
     |> List.map Mnist.b64_url_of_digit
-    (* |> List.iter print_endline *)
   in
   ignore marked_digits_urls;
 
   let test_stats_events =
-    React.E.fmap (function
-      | Evaluation_event (`Outcome (`End stats)) -> Some stats
-      | _ -> None) tabevents
+    React.E.fmap
+      (function Evaluation_event (`Outcome (`End stats)) -> Some stats | _ -> None)
+      tabevents
   in
 
   let marked_digits_signal =
@@ -113,11 +86,13 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
     in
     let tbody =
       [
-        of_string "Chart" >> of_bootstrap "Col" ~sm:12;
+        of_string "Statistics"
+        >> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md:12 ~as_:"h5"
+             ~style:[ ("display", "flex"); ("justifyContent", "center") ]
+        >> of_bootstrap "Row";
         digits;
       ]
-      |> of_bootstrap "Row" >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr"
-      >> of_tag "tbody"
+      |> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in
     let badges =
       match React.S.value signal_evaluating with

@@ -47,29 +47,37 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 .mnist-panel .entry-status { text-align: center; }
 /* ************************************************************************** */
 .mnist-pred {
-    border: 1px solid black;
-    border-radius: 3px;
-    padding: 1px;
-    width: max-content;
-    margin: 1px;
+    /* border: 1px solid black; */
+    /* border-radius: 3px; */
+    /* padding: 1px; */
+    /* width: max-content; */
+    /* margin: 1px; */
+    display: flex;
+    justify-content: center;
 }
-.mnist-pred > div {
+.mnist-pred img {
+    height: 28px;
+    width: 28px;
+    margin: 1px 0 0 0;
+}
+.mnist-pred div {
     font-family: "Fira Sans", sans-serif;
     font-size: small;
-    text-shadow: -1px -1px 0 .000, 1px -1px 0 .000, -1px 1px 0 .000, 1px 1px 0 .000;
-    width: 40px;
-    height: 40px;
+    /* text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; */
+    width: 28px;
+    height: 28px;
     text-align: center;
     color: black;
     overflow: hidden;
     display: inline-block;
-    margin: 1px;
+    /* margin: 1px; */
+    margin: 1px 0 0 1px;
     vertical-align: middle;
-    line-height: 20px;
+    line-height: 29px;
 }
-.mnist-pred .good-one { outline: 2px solid black;  }
-.mnist-pred .highest-one { font-weight: bold; }
-.mnist-pred .not-highest-one { font-style: italic; }
+/* .mnist-pred .good-one { outline: 2px solid black;  } */
+/* .mnist-pred .highest-one { font-weight: bold; } */
+/* .mnist-pred .not-highest-one { font-style: italic; } */
 /* ************************************************************************** */
 .form-control { color: #007bff; font-weight: bold; }
 .form-control::placeholder { color: black; font-weight: normal; opacity: 0.5; }

@@ -115,6 +115,9 @@ module Jsx = struct
       ?overlay:jsx Js.t ->
       ?bordered:bool ->
       ?sm:int ->
+      ?md:int ->
+      ?lg:int ->
+      ?xl:int ->
       ?event_key:string ->
       ?default_active_key:string ->
       ?active_key:string ->
@@ -141,9 +144,9 @@ module Jsx = struct
       jsx Js.t list ->
       jsx Js.t =
    fun ctor ?ref ?key ?on_click ?on_select ?disabled ?inline ?colspan ?href ?src ?placement ?overlay
-       ?bordered ?sm ?event_key ?default_active_key ?active_key ?placeholder ?animation ?variant
-       ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx ?transition
-       ?id ?class_ ?style ?label ?name ?no_gutters children ->
+       ?bordered ?sm ?md ?lg ?xl ?event_key ?default_active_key ?active_key ?placeholder ?animation
+       ?variant ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx
+       ?transition ?id ?class_ ?style ?label ?name ?no_gutters children ->
     let open Js.Unsafe in
     let props = object%js end in
     Option.iter (fun v -> set props (Js.string "ref") v) ref;
@@ -163,6 +166,9 @@ module Jsx = struct
     Option.iter (fun v -> set props (Js.string "overlay") v) overlay;
     Option.iter (fun v -> set props (Js.string "bordered") v) bordered;
     Option.iter (fun v -> set props (Js.string "sm") v) sm;
+    Option.iter (fun v -> set props (Js.string "md") v) md;
+    Option.iter (fun v -> set props (Js.string "lg") v) lg;
+    Option.iter (fun v -> set props (Js.string "xl") v) xl;
     Option.iter (fun v -> set props (Js.string "eventKey") (Js.string v)) event_key;
     Option.iter (fun v -> set props (Js.string "defaultActiveKey") (Js.string v)) default_active_key;
     Option.iter (fun v -> set props (Js.string "activeKey") (Js.string v)) active_key;

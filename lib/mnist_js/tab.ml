@@ -68,7 +68,7 @@ let react_main db signal set_signal =
                 batch_size = ev.batch_size;
                 batch_count = ev.batch_count;
                 seed = s.seed;
-                (* TODO: Images seen *)
+                images_seen = s.images_seen;
                 verbose = true;
               };
             backend = s.backend;

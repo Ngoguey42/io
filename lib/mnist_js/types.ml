@@ -23,6 +23,7 @@ type training_config = {
   batch_count : int;
   batch_size : int;
   seed : int;
+  images_seen : int;
   verbose : bool;
 }
 

@@ -17,7 +17,6 @@
          - Recall (train/test)
          - Loss
          - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
-   2. Use `images_seen` in conjunction with `seed` to sample the images
    3. Make sure errors (like memory) don't silently crash the page (either recover or alert about crashed page)
    4. Repair on firefox
    5. OWL backend

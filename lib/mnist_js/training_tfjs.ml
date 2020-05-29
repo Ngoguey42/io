@@ -49,11 +49,11 @@ let _train verbose fire_event instructions batch_count get_lr get_data encoders 
   let forward_decoder, o, pack_decoder = Fnn_tfjs.unpack_for_training decoder in
   let optimizations = Fnn_tfjs.OptiMap.union_exn optimizations o in
 
-  let train_on_batch i =
+  let train_on_batch batch_idx =
     let time = (new%js Js.date_now)##valueOf /. 1000. in
 
-    let lr = get_lr i in
-    let x, y = get_data i in
+    let lr = get_lr batch_idx in
+    let x, y = get_data batch_idx in
     let batch_size = (Bigarray.Genarray.dims x).(0) in
 
     let x =
@@ -123,8 +123,8 @@ let _train verbose fire_event instructions batch_count get_lr get_data encoders 
       let classif_grad = Tfjs.to_float classif_grad in
 
       let time' = (new%js Js.date_now)##valueOf /. 1000. in
-      Printf.printf "%5d, lr:%6.1e, l:%9.6f, grad:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" i lr
-        (Tfjs.to_float loss) classif_grad (iou *. 100.) (recall *. 100.) (time' -. time);
+      Printf.printf "%5d, lr:%6.1e, l:%9.6f, grad:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!"
+        batch_idx lr (Tfjs.to_float loss) classif_grad (iou *. 100.) (recall *. 100.) (time' -. time);
 
       () );
     Tfjs.dispose_tensor y'_1hot;

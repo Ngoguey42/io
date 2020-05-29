@@ -8,6 +8,16 @@ end
 
 open Types
 
+let shuffle rng x =
+  (* Copied from owl-base, added rng *)
+  let y = Array.copy x in
+  let n = Array.length x in
+  for i = n - 1 downto 1 do
+    let j = i + 1 |> float_of_int |> ( *. ) (Random.State.float rng 1.) |> int_of_float in
+    Owl_utils_array.swap y i j
+  done;
+  y
+
 let repair_bigarray : 'a -> 'a =
  fun a ->
   let f : _ -> _ -> _ -> _ -> 'a = Js.Unsafe.global##.jsoo_runtime_##.caml_ba_create_unsafe_ in
@@ -21,29 +31,54 @@ let routine { db = train_imgs, train_labs; networks = encoders, decoder; config 
     instructions =
   let module Backend = (val Backend.create config.backend) in
   let verbose = config.verbose in
-  let rng = Random.State.make [| config.seed |] in
+
   let batch_count, batch_size = (config.batch_count, config.batch_size) in
   let get_lr =
     match config.lr with
     | `Down (lr0, lr1) ->
-        assert (0. <= lr1);
-        assert (lr1 <= lr0);
-        let lr2 = lr0 -. lr1 in
-        fun i ->
-          let ratio = float_of_int i /. float_of_int batch_count in
-          lr1 +. (lr2 *. (1. -. ratio))
+       (* If lr1=0, will decrease the lr on the range [lr0; lr1[
+          otherwise, will decrease the lr on the range [lr0; lr1]
+        *)
+       assert (lr0 >= lr1);
+       assert (lr1 >= 0.);
+       let big_vec = lr1 -. lr0 in
+       let small_vec =
+         if batch_count <= 1 then big_vec
+         else if lr1 = 0. then big_vec /. (float_of_int batch_count)
+         else big_vec /. (float_of_int (batch_count - 1))
+       in
+       fun batch_idx -> lr0 +. small_vec *. (float_of_int batch_idx)
     | `Flat lr -> fun _ -> lr
   in
-  let get_data _ =
-    let indices = Array.init batch_size (fun _ -> Random.State.int rng 60000) in
-    let imgs =
-      Array.map (fun i -> Bigarray.Genarray.sub_left train_imgs i 1) indices
-      |> Ndarray.concatenate ~axis:0
-    in
-    let labs =
-      Array.map (fun i -> Bigarray.Genarray.sub_left train_labs i 1) indices
-      |> Ndarray.concatenate ~axis:0
-    in
+
+  let shuffled_indices = Hashtbl.create 2 in
+  let get_shuffled_sample_indices_of_epoch epoch_idx =
+    match Hashtbl.find_opt shuffled_indices epoch_idx with
+    | Some idxs -> idxs
+    | None ->
+        let rng = Random.State.make [| config.seed + epoch_idx |] in
+        let idxs = Array.init 60000 Fun.id |> shuffle rng in
+        Hashtbl.add shuffled_indices epoch_idx idxs;
+        idxs
+  in
+  let get_data batch_idx =
+    (* Images and labels of a batch are determined by config.seed, config.images_seen,
+       config.batch_size and batch_idx.
+       That way, given a model seed, the images are always seen in the same order no matter
+       the batch size/batch count/number of trainings/early stops.
+    *)
+    let imgs = Ndarray.empty Bigarray.Int8_unsigned [| batch_size; 28; 28 |] in
+    let labs = Ndarray.empty Bigarray.Int8_unsigned [| batch_size |] in
+    for batch_sample_idx = 0 to batch_size - 1 do
+      let global_sample_idx = config.images_seen + (batch_idx * batch_size) + batch_sample_idx in
+      let epoch_idx = global_sample_idx / 60000 in
+      let sample_idx_in_epoch = global_sample_idx mod 60000 in
+      let train_db_idx = (get_shuffled_sample_indices_of_epoch epoch_idx).(sample_idx_in_epoch) in
+      let img = Bigarray.Genarray.sub_left train_imgs train_db_idx 1 in
+      let lab = Bigarray.Genarray.sub_left train_labs train_db_idx 1 in
+      Ndarray.set_slice [ [ batch_sample_idx ]; []; [] ] imgs img;
+      Ndarray.set_slice [ [ batch_sample_idx ] ] labs lab
+    done;
     (imgs, labs)
   in
   Backend.train ~fire_event ~instructions ~verbose ~batch_count ~get_lr ~get_data ~encoders ~decoder

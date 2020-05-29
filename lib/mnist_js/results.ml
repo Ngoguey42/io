@@ -55,7 +55,7 @@ let jsx_of_test_set_sample test_set_sample_urls probas =
   |> of_bootstrap "Container"
 
 let construct_results ((test_imgs, _), tabsignal, tabevents) =
-  Printf.printf "> construct component: results\n%!";
+  Printf.printf "> Component - results | construct\n%!";
   let signal_evaluating = create_evaluating_signal tabsignal tabevents in
 
   let test_set_sample_urls =

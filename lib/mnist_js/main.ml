@@ -15,9 +15,6 @@ end
 open Types
 
 let favicon_routine signal =
-  let is_firefox =
-    Dom_html.window##.navigator##.userAgent##toLowerCase##indexOf (Js.string "firefox") > -1
-  in
   let link =
     [%html {|<link rel="icon" type="image/png" href="images/ocaml.png" />|}]
     |> Tyxml_js.To_dom.of_element |> Dom_html.CoerceTo.link |> Js.Opt.to_option |> Option.get
@@ -34,9 +31,7 @@ let favicon_routine signal =
   signal |> React.S.map is_computing |> React.S.changes
   |> React.E.map (function
        | false -> link##.href := Js.string "images/ocaml.png"
-       | true ->
-           if is_firefox then link##.href := Js.string "images/spinner-blue.gif"
-           else link##.href := Js.string "images/ocaml-blue.png")
+       | true -> link##.href := Js.string "images/ocaml-blue.png")
   |> ignore
 
 let jsx_of_tab db gsignal set_gsignal i state =
@@ -85,7 +80,8 @@ let tab_states_equal a b =
   | Selecting_backend _, _ -> false
   | Evaluating _, Evaluating _ -> true
   | Evaluating _, _ -> false
-  | Creating_training s, Creating_training s' -> s.backend = s'.backend
+  | Creating_training s, Creating_training s' ->
+      s.backend = s'.backend && s.from_webworker = s'.from_webworker
   | Creating_training _, _ -> false
   | Training _, Training _ -> true
   | Training _, _ -> false
@@ -101,7 +97,7 @@ let states_equal a b =
       else List.for_all2 tab_states_equal (Array.to_list tabstates) (Array.to_list tabstates')
 
 let construct_mnist_js _ =
-  Printf.printf "> construct component: mnist_js\n%!";
+  Printf.printf "> Component - mnist_js | construct\n%!";
   let signal, set_signal = React.S.create ~eq:states_equal Loading in
   let fire_resources db = set_signal (Loaded (db, 0, [| Types.Creating_network |])) in
   let on_select k _ =
@@ -109,7 +105,8 @@ let construct_mnist_js _ =
     | Loading -> ()
     | Loaded (db, _, tabstates) ->
         let k = Js.to_string k in
-        if k = "+" then
+        if k = "head" then ()
+        else if k = "+" then
           let i = Array.length tabstates in
           let tabstates = Array.concat [ tabstates; [| Types.Creating_network |] ] in
           set_signal (Loaded (db, i, tabstates))
@@ -118,24 +115,24 @@ let construct_mnist_js _ =
           set_signal (Loaded (db, i, tabstates))
   in
   let render _ =
-    Printf.printf "> Main.construct.render | rendering \n%!";
+    Printf.printf "> Component - mnist_js | render\n%!";
     let open Reactjs.Jsx in
+    let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
     ( match React.S.value signal with
-    | Loading ->
-        of_constructor ~key:"res" Resources.construct_react_table fire_resources
-        >> of_tag "div" ~class_:[ "mnistdiv" ]
-        >> of_bootstrap "Col"
+    | Loading -> [ res ]
     | Loaded (db, focusidx, tabstates) ->
         let focusidx = string_of_int focusidx in
+        let head =
+          of_bootstrap "Tab" ~title_jsx:(of_string "Networks") ~event_key:"head" ~disabled:true []
+        in
         let tabs = Array.mapi (jsx_of_tab db signal set_signal) tabstates |> Array.to_list in
         let plus = of_bootstrap "Tab" ~title_jsx:(of_string "+" >> of_tag "b") ~event_key:"+" [] in
         [
-          of_constructor ~key:"res" Resources.construct_react_table fire_resources;
+          res;
           of_bootstrap "Tabs" ~transition:false ~active_key:focusidx ~on_select ~id:"network-tabs"
-            (tabs @ [ plus ]);
-        ]
-        |> of_bootstrap "Col" )
-    >> of_bootstrap "Row"
+            ([ head ] @ tabs @ [ plus ]);
+        ] )
+    |> of_bootstrap "Col" >> of_bootstrap "Row"
     >> of_bootstrap "Container" ~fluid:"sm" ~class_:[ "mnistdiv" ]
   in
 

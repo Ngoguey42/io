@@ -23,37 +23,63 @@ let react_main db signal set_signal =
    fun ev s ->
     match (s, ev) with
     | Creating_network, Network_made ev ->
+        (* Just created network. Very first event *)
         Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
     | Creating_network, _ -> failwith "react_main@reduce@Creating_network : unexpected event"
-    | Selecting_backend s, Backend_selected backend ->
-        let config = { backend; from_webworker = true; verbose = true; batch_size = 500 } in
+    | Selecting_backend s, Backend_selected (backend, from_webworker) ->
+        (* Selected backend for the first time, can select it again later *)
+        let config = { backend; from_webworker; verbose = false; batch_size = 500 } in
         let params = { db = (testi, testl); encoder = s.encoder; decoder = s.decoder; config } in
         Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluation_event);
         Evaluating
           {
+            old_encoder = None;
+            old_decoder = None;
+            old_images_seen = None;
             encoder = s.encoder;
             decoder = s.decoder;
             seed = s.seed;
             backend;
+            from_webworker;
             images_seen = 0;
             config;
           }
     | Selecting_backend _, _ -> failwith "react_main@reduce@Selecting_backend : unexpected event"
-    | Evaluating _, Evaluation_event `Init -> s
-    | Evaluating _, Evaluation_event (`Batch_begin _) -> s
-    | Evaluating _, Evaluation_event (`Batch_end _) -> s
-    | Evaluating _, Evaluation_event (`Outcome (`Crash _)) -> Creating_network
+    | Evaluating _, Evaluation_event `Init
+    | Evaluating _, Evaluation_event (`Batch_begin _)
+    | Evaluating _, Evaluation_event (`Batch_end _) ->
+        (* Ignoring eval events *)
+        s
+    | ( Evaluating
+          {
+            old_encoder = Some encoder;
+            old_decoder = Some decoder;
+            old_images_seen = Some images_seen;
+            seed;
+            backend;
+            from_webworker;
+            _;
+          },
+        Evaluation_event (`Outcome (`Crash _)) ) ->
+        (* Recovering from eval crash following training *)
+        Creating_training { encoder; decoder; images_seen; seed; backend; from_webworker }
+    | Evaluating s, Evaluation_event (`Outcome (`Crash _)) ->
+        (* Recovering from initial eval crash *)
+        Selecting_backend { encoder = s.encoder; decoder = s.decoder; seed = s.seed }
     | Evaluating s, Evaluation_event (`Outcome (`End _)) ->
+        (* Eval done *)
         Creating_training
           {
             encoder = s.encoder;
             decoder = s.decoder;
             seed = s.seed;
             backend = s.backend;
+            from_webworker = s.from_webworker;
             images_seen = s.images_seen;
           }
     | Evaluating _, _ -> failwith "react_main@reduce@Evaluating : unexpected event"
     | Creating_training s, Training_conf ev ->
+        (* Launching training *)
         Training
           {
             encoder = s.encoder;
@@ -62,8 +88,8 @@ let react_main db signal set_signal =
             images_seen = s.images_seen;
             config =
               {
-                from_webworker = true;
                 backend = s.backend;
+                from_webworker = s.from_webworker;
                 lr = ev.lr;
                 batch_size = ev.batch_size;
                 batch_count = ev.batch_count;
@@ -72,70 +98,105 @@ let react_main db signal set_signal =
                 verbose = true;
               };
             backend = s.backend;
+            from_webworker = s.from_webworker;
           }
-    | Creating_training { encoder; decoder; seed; images_seen; _ }, Backend_selected backend ->
-        Creating_training { encoder; decoder; seed; images_seen; backend }
+    | ( Creating_training { encoder; decoder; seed; images_seen; _ },
+        Backend_selected (backend, from_webworker) ) ->
+        (* Selecting new backend *)
+        Creating_training { encoder; decoder; seed; images_seen; backend; from_webworker }
     | Creating_training _, _ -> failwith "react_main@reduce@Creating_training : unexpected event"
-    | Training _, Training_event `Init -> s
-    | Training _, Training_event (`Batch_begin _) -> s
-    | Training _, Training_event (`Batch_end _) -> s
+    | Training _, Training_event `Init
+    | Training _, Training_event (`Batch_begin _)
+    | Training _, Training_event (`Batch_end _) ->
+        (* Ignoring Training events *)
+        s
     | Training s, Training_event (`Outcome (`End (encoders, decoder, stats))) ->
+        (* Training done, launching eval *)
         let encoder = List.hd encoders in
         let config =
-          { from_webworker = true; backend = s.backend; verbose = true; batch_size = 500 }
+          {
+            backend = s.backend;
+            from_webworker = s.from_webworker;
+            verbose = false;
+            batch_size = 500;
+          }
         in
         let params = { db = (testi, testl); encoder; decoder; config } in
         Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluation_event);
         Evaluating
           {
+            old_encoder = Some s.encoder;
+            old_decoder = Some s.decoder;
+            old_images_seen = Some s.images_seen;
             encoder;
             decoder;
             seed = s.seed;
             backend = s.backend;
+            from_webworker = s.from_webworker;
             images_seen = s.images_seen + (s.config.batch_size * stats.batch_count);
             config;
           }
-    | Training { encoder; decoder; seed; images_seen; backend; _ }, Training_event (`Outcome `Abort)
-      ->
-        Creating_training { encoder; decoder; seed; images_seen; backend }
-    | ( Training { encoder; decoder; seed; images_seen; backend; _ },
+    | ( Training { encoder; decoder; seed; images_seen; backend; from_webworker; _ },
+        Training_event (`Outcome `Abort) ) ->
+        (* Aborting training *)
+        Creating_training { encoder; decoder; seed; images_seen; backend; from_webworker }
+    | ( Training { encoder; decoder; seed; images_seen; backend; from_webworker; _ },
         Training_event (`Outcome (`Crash _)) ) ->
-        Creating_training { encoder; decoder; seed; images_seen; backend }
+        (* Training crashed *)
+        Creating_training { encoder; decoder; seed; images_seen; backend; from_webworker }
     | Training _, _ -> failwith "react_main@reduce@Training : unexpected event"
   in
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
   (events, fire_event)
 
+let options = [ (`Tfjs_webgl, true); (`Tfjs_cpu, true); (`Tfjs_webgl, false); (`Tfjs_cpu, false) ]
+
+let option_of_idx = function
+  | 0 -> (`Tfjs_webgl, true)
+  | 1 -> (`Tfjs_wasm, true)
+  | 2 -> (`Tfjs_cpu, true)
+  | 3 -> (`Tfjs_webgl, false)
+  | 4 -> (`Tfjs_wasm, false)
+  | 5 -> (`Tfjs_cpu, false)
+  | _ -> failwith "Unknown computation option"
+
+let idx_of_option = function
+  | `Tfjs_webgl, true -> 0
+  | `Tfjs_wasm, true -> 1
+  | `Tfjs_cpu, true -> 2
+  | `Tfjs_webgl, false -> 3
+  | `Tfjs_wasm, false -> 4
+  | `Tfjs_cpu, false -> 5
+
+let name_of_option = function
+  | `Tfjs_webgl, true -> "TensorFlow.js WebGL from Web Worker"
+  | `Tfjs_wasm, true -> "TensorFlow.js WASM from Web Worker"
+  | `Tfjs_cpu, true -> "TensorFlow.js cpu from Web Worker"
+  | `Tfjs_webgl, false -> "TensorFlow.js WebGL"
+  | `Tfjs_wasm, false -> "TensorFlow.js WASM"
+  | `Tfjs_cpu, false -> "TensorFlow.js cpu"
+
 let construct_backend_selection : _ Reactjs.constructor =
- fun (fire_upstream_event, _) ->
-  Printf.printf "> construct component: backend selection\n%!";
-  let name_of_backend = function
-    | `Tfjs_webgl -> "TensorFlow.js WebGL"
-    | `Tfjs_wasm -> "TensorFlow.js WASM"
-    | `Tfjs_cpu -> "TensorFlow.js cpu"
-  in
-  let disable_backend = function `Tfjs_webgl -> false | `Tfjs_wasm -> true | `Tfjs_cpu -> false in
+ fun (fire_upstream_event, tabidx, _) ->
+  Printf.printf "> Component - backend_selection | construct\n%!";
 
   let on_change ev =
-    ev##.target##.value
-    |> Js.to_string |> int_of_string |> backend_of_enum |> Option.get |> fire_upstream_event
+    ev##.target##.value |> Js.to_string |> int_of_string |> option_of_idx |> fire_upstream_event
   in
-  let render (_, enabled) =
-    Printf.printf "> Tab.construct_backend_selection.render | render\n%!";
+  let render (_, _, enabled) =
+    Printf.printf "> Component - backend_selection | render\n%!";
     let open Reactjs.Jsx in
     let tbody =
-      List.init (max_backend + 1) backend_of_enum
-      |> List.map Option.get
-      |> List.map (fun v ->
-             let n = name_of_backend v in
+      options
+      |> List.map (fun option ->
+             let n = name_of_option option in
              of_bootstrap "Form.Check" ~label:n ~type_:"radio" ~id:("radio-" ^ n)
-               ~name:"selecting-backend"
-               ~value:(backend_to_enum v |> string_of_int)
-               ~on_change ~inline:true
-               ~disabled:((not enabled) || disable_backend v)
-               [])
-      |> of_tag "div" ~style:[ ("display", "flex"); ("justifyContent", "center") ]
-      >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
+               ~name:(Printf.sprintf "selecting-backend-tab%d" tabidx)
+               ~value:(idx_of_option option |> string_of_int)
+               ~on_change ~inline:true ~disabled:(not enabled) []
+             >> of_bootstrap "Col" ~md_span:6)
+      |> of_bootstrap "Row" ~no_gutters:true
+      >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in
     let thead = of_string "Backend Selection" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
     of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm" [ thead; tbody ]
@@ -143,8 +204,8 @@ let construct_backend_selection : _ Reactjs.constructor =
 
   Reactjs.construct render
 
-let construct_tab (db, _tabidx, signal, set_signal) =
-  Printf.printf "> construct component: tab%d\n%!" _tabidx;
+let construct_tab (db, tabidx, signal, set_signal) =
+  Printf.printf "> Component - tab%d | construct\n%!" tabidx;
   let traini, trainl, testi, testl = db in
   let events, fire_event = react_main db signal set_signal in
   let fire_network_made (encoder, decoder, seed) =
@@ -157,19 +218,21 @@ let construct_tab (db, _tabidx, signal, set_signal) =
   in
 
   let render _ =
-    Printf.printf "> Tab.construct_tab.render | render\n%!";
+    Printf.printf "> Component - tab%d | render\n%!" tabidx;
     let open Reactjs.Jsx in
     let net enabled =
-      of_constructor Network_construction.construct_react_component (fire_network_made, enabled)
+      of_constructor Network_construction.construct_training_config (fire_network_made, enabled)
     in
     let backend enabled =
-      of_constructor construct_backend_selection (fire_backend_selected, enabled)
+      of_constructor construct_backend_selection (fire_backend_selected, tabidx, enabled)
     in
     let results () = of_constructor Results.construct_results ((testi, testl), signal, events) in
     let train enabled =
-      of_constructor Training_configuration.construct_react_component (fire_training_conf, enabled)
+      of_constructor Training_configuration.construct_training_config (fire_training_conf, enabled)
     in
-    let training params = of_constructor Training.construct (params, fire_training_event) in
+    let training params =
+      of_constructor Training.construct_training (params, fire_training_event)
+    in
     match React.S.value signal with
     | Creating_network -> net true >> of_react "Fragment"
     | Selecting_backend _ -> [ net false; backend true ] |> of_react "Fragment"

@@ -9,12 +9,19 @@ end
 open Types
 
 let _routine { db; encoder; decoder; config = { verbose; batch_size; backend; _ } } fire_event =
-  let module Backend = (val Backend.create backend) in
-  Backend.eval ~fire_event ~verbose ~batch_size ~db ~encoder ~decoder
+  let main () =
+    let module Backend = (val Backend.create backend) in
+    Backend.eval ~fire_event ~verbose ~batch_size ~db ~encoder ~decoder
+  in
+  let on_error exn =
+    fire_event (`Outcome (`Crash exn));
+    Lwt.return ()
+  in
+  Lwt.catch main on_error
 
 let repair_bigarray : 'a -> 'a =
  fun a ->
-  let f : _ -> _ -> _ -> _ -> 'a = Js.Unsafe.global##.jsoo_runtime_##.caml_ba_create_unsafe_ in
+  let f : _ -> _ -> _ -> _ -> 'a = Ft_js.caml_ba_create_unsafe in
   f
     (Js.Unsafe.get a (Js.string "kind"))
     (Js.Unsafe.get a (Js.string "layout"))
@@ -91,13 +98,24 @@ end
 let routine params fire_upstream_event =
   if not params.config.from_webworker then _routine params fire_upstream_event
   else
+    let on_error ev =
+      let ev =
+        match
+          ( (Js.Unsafe.coerce ev)##.msg |> Js.Optdef.to_option,
+            (Js.Unsafe.coerce ev)##.message |> Js.Optdef.to_option )
+        with
+        | None, None -> "unknown"
+        | Some s, _ -> Js.to_string s
+        | _, Some s -> Js.to_string s
+      in
+      let ev = `Outcome (`Crash (Failure ev)) in
+      fire_upstream_event ev
+    in
     let fire_upstream_event ww ev =
       let ev = ev |> Webworker_routine.postprocess_out_msg in
       (match ev with `Outcome _ -> Webworker_routine.terminate ww | _ -> ());
       fire_upstream_event ev
     in
-    let ww =
-      Webworker_routine.create fire_upstream_event (fun _err -> Printf.eprintf "Webworker err\n%!")
-    in
+    let ww = Webworker_routine.create fire_upstream_event on_error in
     Webworker_routine.post_in_message ww (Webworker_routine.preprocess_in_msg (`Prime params));
     Lwt.return ()

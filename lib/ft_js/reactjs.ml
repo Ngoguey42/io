@@ -268,11 +268,15 @@ module Jsx = struct
     in
     _create_element o
 
-  (* Constructor is called with `props`. `render` is also called with `props` because React doesn't
-     re-instanciate the component when `props` changes. Two design patterns can be adopted:
-     - Ignore the props passed to `render`, and use a `key` in `of_constructor` to trigger
-       re-instanciations (a.k.a. Fully uncontrolled component with a key).
-     - Ignore the mutable props passed to construct and read the props passed to `render`.
+  (* Constructor is called with `props`. `render` is also called with `props` too because React
+     doesn't re-instanciate the component when `props` changes. Three design patterns can be adopted:
+     - Don't perform render conditionned on props. Use signals.
+     - Perform render conditionned on constructor's props. To do so, use a new `key` in parent's
+       `of_constructor` call to trigger re-instanciations
+       (a.k.a. Fully uncontrolled component with a key).
+     - Perform render conditionned on render's props. To do so, ignore the mutable props passed to
+       construct and read them from `render`. (Caveat: I couldn't get rid of certain re-renders).
+       It also might be enough to use `of_render` instead of `of_constructor` in that case.
   *)
   let of_constructor : ?key:'a -> 'props constructor -> 'props -> jsx Js.t =
    fun ?key constructor props ->
@@ -293,6 +297,7 @@ module Jsx = struct
             |> Fun.flip Js.Optdef.get (fun () -> "no_name")
             |> Js.string
           in
+          (* Printf.printf "> Reactjs - cache miss | constructing %s's class \n%!" (Js.to_string name); *)
           let cls =
             let g self props =
               let render, mount, update, unmount, setup_signals = constructor props##.data in

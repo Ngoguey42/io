@@ -17,8 +17,9 @@
          - Recall (train/test)
          - Loss
          - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
-   3. Make sure errors (like memory) don't silently crash the page (either recover or alert about crashed page)
-   4. Repair on firefox
+   3. Display popup on crash
+   4. Fix determinism WW vs no-WW
+   4. Find out why cpu+ww is sometime slow on chrome
    5. OWL backend
    6. Shut down the webworker on abort
    - time left on training?
@@ -36,3 +37,5 @@
       - Different initial seeds rougly yield the same results
       - Hint on how to reach good performances?
 - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`?
+- PR or issue `js_of_ocaml ErrorError##.msg -> ErrorError##.message`
+- PR or issue `owl get_slice [first; start] -> [start; stop[`

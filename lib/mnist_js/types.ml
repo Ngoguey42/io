@@ -7,7 +7,7 @@ type db_train = uint8_ba * uint8_ba
 
 type db_test = uint8_ba * uint8_ba
 
-type backend = [ `Tfjs_webgl | `Tfjs_cpu | `Tfjs_wasm ] [@@deriving enum]
+type backend = [ `Tfjs_webgl | `Tfjs_cpu | `Tfjs_wasm ]
 
 type lr = [ `Down of float * float | `Flat of float ]
 
@@ -120,10 +120,14 @@ type tab_state =
   | Creating_network
   | Selecting_backend of { encoder : Fnn.network; decoder : Fnn.network; seed : int }
   | Evaluating of {
+      old_encoder : Fnn.network option;
+      old_decoder : Fnn.network option;
+      old_images_seen : int option;
       encoder : Fnn.network;
       decoder : Fnn.network;
       seed : int;
       backend : backend;
+      from_webworker : bool;
       images_seen : int;
       config : evaluation_config;
     }
@@ -132,6 +136,7 @@ type tab_state =
       decoder : Fnn.network;
       seed : int;
       backend : backend;
+      from_webworker : bool;
       images_seen : int;
     }
   | Training of {
@@ -139,13 +144,14 @@ type tab_state =
       decoder : Fnn.network;
       seed : int;
       backend : backend;
+      from_webworker : bool;
       images_seen : int;
       config : training_config;
     }
 
 type tab_event =
   | Network_made of { encoder : Fnn.network; decoder : Fnn.network; seed : int }
-  | Backend_selected of backend
+  | Backend_selected of (backend * bool)
   | Evaluation_event of evaluation_routine_event
   | Training_conf of { lr : lr; batch_size : int; batch_count : int }
   | Training_event of training_routine_event

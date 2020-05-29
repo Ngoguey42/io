@@ -268,9 +268,9 @@ let construct_select :
   in
   Reactjs.construct ~signal render
 
-let construct_react_component : _ Reactjs.constructor =
+let construct_training_config : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
-  Printf.printf "> construct component: training_configuration\n%!";
+  Printf.printf "> Component - training_configuration | construct\n%!";
   let rconf_signal, update_rconf =
     React.S.create
       {
@@ -304,16 +304,9 @@ let construct_react_component : _ Reactjs.constructor =
       of_string "Train"
       >> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit" ~size:"lg"
       >> of_tag "div" ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
-      (* >> of_bootstrap "Col" ~md_span:6 ~style:[ ("display", "flex"); ("alignItems", "flex-end") ] *)
     in
-    let select m =
-      of_constructor construct_select (m, update_rconf, dconf_signal, enabled)
-      (* >> of_bootstrap "Col" ~md_span:6 *)
-    in
-    let input m =
-      of_constructor construct_int_input (m, update_rconf, dconf_signal, enabled)
-      (* >> of_bootstrap "Col" ~md_span:6 *)
-    in
+    let select m = of_constructor construct_select (m, update_rconf, dconf_signal, enabled) in
+    let input m = of_constructor construct_int_input (m, update_rconf, dconf_signal, enabled) in
     let tbody =
       [
         [ select (module Lr); button ]

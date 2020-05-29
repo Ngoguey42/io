@@ -20,14 +20,14 @@ let shuffle rng x =
 
 let repair_bigarray : 'a -> 'a =
  fun a ->
-  let f : _ -> _ -> _ -> _ -> 'a = Js.Unsafe.global##.jsoo_runtime_##.caml_ba_create_unsafe_ in
+  let f : _ -> _ -> _ -> _ -> 'a = Ft_js.caml_ba_create_unsafe in
   f
     (Js.Unsafe.get a (Js.string "kind"))
     (Js.Unsafe.get a (Js.string "layout"))
     (Js.Unsafe.get a (Js.string "dims"))
     (Js.Unsafe.get a (Js.string "data"))
 
-let routine { db = train_imgs, train_labs; networks = encoders, decoder; config } fire_event
+let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config } fire_event
     instructions =
   let module Backend = (val Backend.create config.backend) in
   let verbose = config.verbose in
@@ -76,12 +76,24 @@ let routine { db = train_imgs, train_labs; networks = encoders, decoder; config 
       let train_db_idx = (get_shuffled_sample_indices_of_epoch epoch_idx).(sample_idx_in_epoch) in
       let img = Bigarray.Genarray.sub_left train_imgs train_db_idx 1 in
       let lab = Bigarray.Genarray.sub_left train_labs train_db_idx 1 in
+      if batch_sample_idx = 0 && batch_idx = 0 then (
+        Printf.eprintf "> get_data for first sample of training\n%!";
+        Owl_pretty.print_dsnda img;
+        Owl_pretty.print_dsnda lab;
+      );
       Ndarray.set_slice [ [ batch_sample_idx ]; []; [] ] imgs img;
       Ndarray.set_slice [ [ batch_sample_idx ] ] labs lab
     done;
     (imgs, labs)
   in
   Backend.train ~fire_event ~instructions ~verbose ~batch_count ~get_lr ~get_data ~encoders ~decoder
+
+let routine params fire_event instructions =
+  let on_error exn =
+    fire_event (`Outcome (`Crash exn));
+    Lwt.return ()
+  in
+  Lwt.catch (fun () -> _routine params fire_event instructions) on_error
 
 module Webworker_routine = struct
   type parameters = {
@@ -160,9 +172,9 @@ module Webworker_routine = struct
 end
 
 let construct_instructions (_, _, set_user_status) =
-  Printf.printf "> construct component : training instructions\n%!";
+  Printf.printf "> Component - training control instructions | construct\n%!";
   let render (user_status, routine_status, _) =
-    Printf.printf "> Training.render_instructions | render\n%!";
+    Printf.printf "> Component - training control instructions | render\n%!";
     let open Reactjs.Jsx in
     let button txt t =
       match (t, routine_status) with
@@ -215,8 +227,8 @@ let construct_instructions (_, _, set_user_status) =
 
 type props = training_parameters * (training_routine_event -> unit)
 
-let construct (props : props) =
-  Printf.printf "> construct component: training control\n%!";
+let construct_training (props : props) =
+  Printf.printf "> Component - training control | construct\n%!";
   let params, fire_upstream_event = props in
 
   let routine_events, fire_routine_event = React.E.create () in
@@ -245,11 +257,32 @@ let construct (props : props) =
   let set_user_status : training_user_status -> unit = set_user_status in
 
   let render _ =
-    Printf.printf "> Training.construct.render | rendering \n%!";
+    Printf.printf "> Component - training control | render\n%!";
     let open Reactjs.Jsx in
     let routine_status = React.S.value routine_status in
     let prog = React.S.value routine_progress in
     let user_status = React.S.value user_status in
+    let badge0 =
+      match routine_status with
+      | `Allocating ->
+          "Allocating" |> of_string
+          >> of_bootstrap "Badge" ~variant:"warning" ~style:[ ("marginLeft", "6px") ]
+      | `Running ->
+          "Running" |> of_string
+          >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ]
+      | `Ended ->
+          "Ended" |> of_string
+          >> of_bootstrap "Badge" ~variant:"success" ~style:[ ("marginLeft", "6px") ]
+      | `Aborted ->
+          "Aborted" |> of_string
+          >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ]
+      | `Crashed ->
+          "Crashed" |> of_string
+          >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ]
+    in
+    let badge1 =
+      prog |> of_string >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ]
+    in
     let style =
       [
         ("display", "flex");
@@ -264,31 +297,8 @@ let construct (props : props) =
         of_constructor construct_instructions ~key:"buttons"
           (user_status, routine_status, set_user_status)
         >> of_bootstrap "Col" ~md_span:6 ~style;
-        [
-          of_string "Routine |";
-          ( match routine_status with
-          | `Allocating ->
-              "Allocating" |> of_string
-              >> of_bootstrap "Badge" ~variant:"warning" ~style:[ ("marginLeft", "6px") ]
-          | `Running ->
-              "Running" |> of_string
-              >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ]
-          | `Ended ->
-              "Ended" |> of_string
-              >> of_bootstrap "Badge" ~variant:"success" ~style:[ ("marginLeft", "6px") ]
-          | `Aborted ->
-              "Aborted" |> of_string
-              >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ]
-          | `Crashed ->
-              "Crashed" |> of_string
-              >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ] );
-        ]
-        |> of_bootstrap "Col" ~md_span:3 ~style;
-        [
-          of_string "Progress |";
-          prog |> of_string >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
-        ]
-        |> of_bootstrap "Col" ~md_span:3 ~style;
+        [ of_string "Routine |"; badge0 ] |> of_bootstrap "Col" ~md_span:3 ~style;
+        [ of_string "Progress |"; badge1 ] |> of_bootstrap "Col" ~md_span:3 ~style;
       ]
       |> of_bootstrap "Row" >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr"
       >> of_tag "tbody"
@@ -300,12 +310,23 @@ let construct (props : props) =
   let mount () =
     React.E.map (fun ev -> fire_upstream_event ev) routine_events |> ignore;
     if params.config.from_webworker then (
+      let on_error ev =
+        let ev =
+          match
+            ( (Js.Unsafe.coerce ev)##.msg |> Js.Optdef.to_option,
+              (Js.Unsafe.coerce ev)##.message |> Js.Optdef.to_option )
+          with
+          | None, None -> "unknown"
+          | Some s, _ -> Js.to_string s
+          | _, Some s -> Js.to_string s
+        in
+        let ev = `Outcome (`Crash (Failure ev)) in
+        fire_upstream_event ev
+      in
       let fire_routine_event _ ev =
         ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event
       in
-      let ww =
-        Webworker_routine.create fire_routine_event (fun _err -> Printf.eprintf "Webworker err\n%!")
-      in
+      let ww = Webworker_routine.create fire_routine_event on_error in
       let user_status = React.S.map Webworker_routine.preprocess_in_msg user_status in
       React.S.changes user_status |> React.E.map (Webworker_routine.post_in_message ww) |> ignore;
       React.S.changes routine_status

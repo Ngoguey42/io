@@ -10,6 +10,8 @@ open struct
   module XmlHttpRequest = Js_of_ocaml_lwt.XmlHttpRequest
 end
 
+external caml_ba_create_unsafe : 'a -> 'b -> 'c -> 'd -> 'e = "caml_ba_create_unsafe"
+
 module CryptoJs = struct
   class type js_hash =
     object

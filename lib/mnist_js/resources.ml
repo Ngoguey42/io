@@ -68,18 +68,22 @@ let urls_of_entry : Vertex.t -> string list = function
 
 (* Some hard-coded compressed file sizes that I couldn't retrieve through XHR at runtime *)
 let byte_count_of_url_opt : string -> Int64.t option = function
-  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" -> Some 204294L
-  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js"
-    ->
-      Some 11545L
+  | "https://cdn.plot.ly/plotly-latest.min.js" -> Some 960324L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js" -> Some 1463L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js" -> Some 700L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js" -> Some 830L
-  | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7412L
   | "https://unpkg.com/react@16/umd/react.development.js" -> Some 30840L
+  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" -> Some 22555L
   | "https://unpkg.com/react-dom@16/umd/react-dom.development.js" -> Some 245565L
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" -> Some 204294L
   | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" ->
       Some 33519L
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.js" -> Some 554971L
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js"
+    ->
+      Some 11545L
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js" -> Some 242498L
+  | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7412L
   | _ -> None
 
 let string_of_byte_count count =
@@ -205,7 +209,7 @@ let create_download_procedure fire_upstream_event =
   in
   (events, launch)
 
-let construct_react_row : _ Reactjs.constructor =
+let construct_resources_row : _ Reactjs.constructor =
  fun (entry, procedure_events) ->
   let name = name_of_entry entry in
   let description = description_of_entry entry in
@@ -273,10 +277,9 @@ let construct_react_row : _ Reactjs.constructor =
 
   Reactjs.construct ~signal ~signal:size_option_signal ~mount render
 
-let construct_react_table : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor
-    =
+let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor =
  fun fire_upstream_event ->
-  Printf.printf "> construct component: resources\n%!";
+  Printf.printf "> Component - resources | construct\n%!";
   let procedure_events, launch = create_download_procedure fire_upstream_event in
 
   let render _ =
@@ -285,12 +288,15 @@ let construct_react_table : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) 
     let entries = List.map fst dependencies in
     let tails =
       List.map
-        (fun entry -> of_constructor ~key:entry construct_react_row (entry, procedure_events))
+        (fun entry -> of_constructor ~key:entry construct_resources_row (entry, procedure_events))
         entries
     in
     of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm"
       [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
   in
 
-  let mount () = launch () in
+  let mount () =
+    Printf.printf "> Component - resources | mount\n%!";
+    launch ()
+  in
   Reactjs.construct ~mount render

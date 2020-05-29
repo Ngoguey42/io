@@ -206,18 +206,11 @@ struct
   let train : Types.training_backend_routine =
    fun ?(verbose = true) ~fire_event ~instructions ~batch_count ~get_lr ~get_data ~encoders ~decoder ->
     let open Lwt.Infix in
-    Lwt.catch
-      (fun () ->
-        Tfjs.setup_backend Backend.v >>= fun _ ->
-        Tfjs.tidy_lwt (fun () ->
-            _train verbose fire_event instructions batch_count get_lr get_data encoders decoder)
-        >>= fun res ->
-        Tfjs.disposeVariables ();
-        if verbose then Firebug.console##log (Tfjs.memory ());
-        Lwt.return res)
-      (fun exn ->
-        let msg = Printexc.to_string exn in
-        Printf.eprintf "Train fire error %s\n%!" msg;
-        fire_event (`Outcome (`Crash exn));
-        Lwt.return ())
+    Tfjs.setup_backend Backend.v >>= fun _ ->
+    Tfjs.tidy_lwt (fun () ->
+        _train verbose fire_event instructions batch_count get_lr get_data encoders decoder)
+    >>= fun () ->
+    Tfjs.disposeVariables ();
+    if verbose then Firebug.console##log (Tfjs.memory ());
+    Lwt.return ()
 end

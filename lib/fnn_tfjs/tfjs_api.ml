@@ -1147,6 +1147,16 @@ let engine_registered_variables : unit -> variable Js.t Named_tensor_map.t =
   Named_tensor_map.of_js map_js
 
 (* Backend manipulations ************************************************************************ *)
+let has_webgl : unit -> bool =
+ fun () ->
+  let open Js.Unsafe in
+  (fun_call global##.tf##.env [||])##getBool (Js.string "HAS_WEBGL")
+
+let has_offscreencanvas : unit -> bool =
+ fun () ->
+  let open Js.Unsafe in
+  global ##. OffscreenCanvas = Js.undefined
+
 let setup_backend : backend -> unit Lwt.t =
  fun b ->
   (* WASM backend is not mature yet (some bug and lack of implemented functions)

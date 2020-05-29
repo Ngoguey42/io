@@ -59,8 +59,8 @@ module Webworker_routine = struct
 
   let postprocess_out_msg : _out_msg -> Types.evaluation_routine_event = function
     | `Outcome (`End stats) ->
-        let marked_digits_probas = repair_bigarray stats.marked_digits_probas in
-        `Outcome (`End { stats with marked_digits_probas })
+        let test_set_sample_probas = repair_bigarray stats.test_set_sample_probas in
+        `Outcome (`End { stats with test_set_sample_probas })
     | v -> v
 
   module rec Ww : (Webworker.S with type in_msg = _in_msg and type out_msg = _out_msg) =

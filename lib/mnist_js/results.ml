@@ -29,7 +29,7 @@ let create_evaluating_signal tabsignal tabevents =
     (fun a b -> match (a, b) with `Off, _ -> `Off | `On bs, i -> `On (i, bs))
     evaluating latest_batch_end_idx
 
-let jsx_of_marked_digits marked_digits_urls probas =
+let jsx_of_test_set_sample test_set_sample_urls probas =
   let open Reactjs.Jsx in
   let aux digit url =
     let probas = List.init 10 (fun i -> Ndarray.get probas [| digit; i |]) in
@@ -48,7 +48,7 @@ let jsx_of_marked_digits marked_digits_urls probas =
     of_string "Test-set sample"
     >> of_bootstrap "Col" ~class_:[ "mnist-pred" ] ~md:12 ~as_:"h5"
     >> of_bootstrap "Row";
-    List.mapi aux marked_digits_urls |> of_bootstrap "Row" ~no_gutters:true;
+    List.mapi aux test_set_sample_urls |> of_bootstrap "Row" ~no_gutters:true;
   ]
   |> of_bootstrap "Container"
 
@@ -56,23 +56,21 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
   Printf.printf "> construct component: results\n%!";
   let signal_evaluating = create_evaluating_signal tabsignal tabevents in
 
-  let marked_digits_urls =
+  let test_set_sample_urls =
     List.map
       (fun (_, idx) -> Ndarray.get_slice [ [ idx ]; []; [] ] test_imgs)
-      Constants.marked_digits
+      Constants.test_set_sample
     |> List.map Mnist.b64_url_of_digit
   in
-  ignore marked_digits_urls;
-
   let test_stats_events =
     React.E.fmap
       (function Evaluation_event (`Outcome (`End stats)) -> Some stats | _ -> None)
       tabevents
   in
 
-  let marked_digits_signal =
+  let test_set_sample_signal =
     test_stats_events
-    |> React.E.map (fun stats -> Some stats.marked_digits_probas)
+    |> React.E.map (fun stats -> Some stats.test_set_sample_probas)
     |> React.S.hold ~eq:( == ) None
   in
 
@@ -80,9 +78,9 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
     Printf.printf "> Results | render\n%!";
     let open Reactjs.Jsx in
     let digits =
-      match React.S.value marked_digits_signal with
+      match React.S.value test_set_sample_signal with
       | None -> of_string ""
-      | Some probas -> jsx_of_marked_digits marked_digits_urls probas
+      | Some probas -> jsx_of_test_set_sample test_set_sample_urls probas
     in
     let tbody =
       [
@@ -119,4 +117,4 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
     of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
-  Reactjs.construct ~signal:signal_evaluating ~signal:marked_digits_signal render
+  Reactjs.construct ~signal:signal_evaluating ~signal:test_set_sample_signal render

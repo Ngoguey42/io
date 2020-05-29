@@ -30,7 +30,7 @@ let _eval verbose fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
   let confusion_matrix_sum =
     Tfjs.Ops.zeros [| 10; 10 |] |> Tfjs.variable ~trainable:false ~dtype:`Float32
   in
-  let marked_digits_probas =
+  let test_set_sample_probas =
     Bigarray.Genarray.create Bigarray.Float32 Bigarray.c_layout [| 10; 10 |]
   in
 
@@ -83,8 +83,8 @@ let _eval verbose fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
           assert (Ndarray.shape pred = [| 1; 10 |]);
           let pred = Ndarray.squeeze ~axis:[| 0 |] pred in
           assert (Ndarray.shape pred = [| 10 |]);
-          Ndarray.set_slice [ [ digit ]; [] ] marked_digits_probas pred ))
-      Constants.marked_digits
+          Ndarray.set_slice [ [ digit ]; [] ] test_set_sample_probas pred ))
+      Constants.test_set_sample
   in
 
   let rec aux i =
@@ -101,11 +101,11 @@ let _eval verbose fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
   let time1 = (new%js Js.date_now)##valueOf /. 1000. in
   Printf.printf "> Took %fsec\n%!" (time1 -. time0);
 
-  assert (Ndarray.sum' marked_digits_probas > 9.5);
-  assert (Ndarray.sum' marked_digits_probas < 10.5);
+  assert (Ndarray.sum' test_set_sample_probas > 9.5);
+  assert (Ndarray.sum' test_set_sample_probas < 10.5);
   let mean_iou_top1, mean_recall_top1, mean_precision_top1 = _stats_of_cm confusion_matrix_sum in
   let stats =
-    Types.{ marked_digits_probas; mean_iou_top1; mean_recall_top1; mean_precision_top1 }
+    Types.{ test_set_sample_probas; mean_iou_top1; mean_recall_top1; mean_precision_top1 }
   in
   fire_event (`Outcome (`End stats));
   Lwt.return ()

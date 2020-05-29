@@ -69,8 +69,6 @@ module Webworker_routine = struct
     | `Prime Types.{ db; networks = encoders, decoder; config } ->
         let f = Fnn.storable_of_fnn in
         let networks = (List.map f encoders, f decoder) in
-        Printf.eprintf "train.preprocess_in_msg, db:\n%!";
-        Firebug.console##log db;
         `Prime { networks; db; config }
     | #training_user_status as msg -> msg
 
@@ -78,8 +76,6 @@ module Webworker_routine = struct
     | `Prime { db; networks = encoders, decoder; config } ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
         let networks = (List.map f encoders, f decoder) in
-        Printf.eprintf "train.postprocess_in_msg, db:\n%!";
-        Firebug.console##log db;
         `Prime Types.{ networks; db; config }
     | #training_user_status as msg -> msg
 
@@ -135,7 +131,7 @@ let construct_instructions (_, _, set_user_status) =
     let open Reactjs.Jsx in
     let button txt t =
       match (t, routine_status) with
-      | `On event, `Running ->
+      | `On event, `Allocating | `On event, `Running ->
           let on_click ev =
             set_user_status event;
             ev##preventDefault
@@ -189,8 +185,14 @@ let construct (props : props) =
   let params, fire_upstream_event = props in
 
   let routine_events, fire_routine_event = React.E.create () in
+  let string_of_batch_idx i =
+    (i + 1 |> float_of_int) /. (params.config.batch_count |> float_of_int) *. 100.
+    |> Printf.sprintf "%.0f%%"
+  in
   let routine_progress =
-    React.S.fold (fun i a -> match a with `Batch_end (i, _) -> i + 1 | _ -> i) 0 routine_events
+    React.S.fold
+      (fun s a -> match a with `Batch_end (i, _) -> string_of_batch_idx i | _ -> s)
+      "0%" routine_events
   in
   let routine_status =
     let reduce s ev =
@@ -198,9 +200,10 @@ let construct (props : props) =
       | `Running, `Outcome (`End _) -> `Ended
       | `Running, `Outcome `Abort -> `Aborted
       | `Running, `Outcome (`Crash _) -> `Crashed
+      | `Running, `Batch_end _ -> `Running
       | _, _ -> s
     in
-    React.S.fold reduce `Running routine_events
+    React.S.fold reduce `Allocating routine_events
   in
 
   let user_status, set_user_status = React.S.create `Train_to_end in
@@ -210,11 +213,8 @@ let construct (props : props) =
     Printf.printf "> Training.construct.render | rendering \n%!";
     let open Reactjs.Jsx in
     let routine_status = React.S.value routine_status in
-    let routine_progress = React.S.value routine_progress in
+    let prog = React.S.value routine_progress in
     let user_status = React.S.value user_status in
-    let prog =
-      (routine_progress |> float_of_int) /. (params.config.batch_count |> float_of_int) *. 100.
-    in
     let style = [ ("display", "flex"); ("alignItems", "center") ] in
     let tbody =
       [
@@ -223,28 +223,27 @@ let construct (props : props) =
         >> of_bootstrap "Col" ~md:6 ~style;
         [
           of_string "Routine |";
-          ( match (routine_status, routine_progress) with
-          | `Running, 0 ->
+          ( match routine_status with
+          | `Allocating ->
               "Allocating" |> of_string
               >> of_bootstrap "Badge" ~variant:"warning" ~style:[ ("marginLeft", "6px") ]
-          | `Running, _ ->
+          | `Running ->
               "Running" |> of_string
               >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ]
-          | `Ended, _ ->
+          | `Ended ->
               "Ended" |> of_string
               >> of_bootstrap "Badge" ~variant:"success" ~style:[ ("marginLeft", "6px") ]
-          | `Aborted, _ ->
+          | `Aborted ->
               "Aborted" |> of_string
               >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ]
-          | `Crashed, _ ->
+          | `Crashed ->
               "Crashed" |> of_string
               >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ] );
         ]
         |> of_bootstrap "Col" ~md:3 ~style;
         [
           of_string "Progress |";
-          Printf.sprintf "%.0f%%" prog |> of_string
-          >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
+          prog |> of_string >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
         ]
         |> of_bootstrap "Col" ~md:3 ~style;
       ]
@@ -268,7 +267,7 @@ let construct (props : props) =
       React.S.changes user_status |> React.E.map (Webworker_routine.post_in_message ww) |> ignore;
       React.S.changes routine_status
       |> React.E.map (function
-           | `Running -> ()
+           | `Allocating | `Running -> ()
            | `Ended | `Aborted | `Crashed ->
                (* Killing Webworker to free GPU memory *)
                Webworker_routine.terminate ww)

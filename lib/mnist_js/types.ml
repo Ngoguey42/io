@@ -49,7 +49,7 @@ type training_outcome =
 type training_routine_event =
   [ `Init | `Batch_begin of int | `Batch_end of int * training_stats | `Outcome of training_outcome ]
 
-type training_routine_status = [ `Running | `Ended | `Aborted | `Crashed ]
+type training_routine_status = [ `Allocating | `Running | `Ended | `Aborted | `Crashed ]
 
 type training_backend_routine =
   ?verbose:bool ->
@@ -85,7 +85,7 @@ type evaluation_stats = {
   mean_iou_top1 : float;
   mean_recall_top1 : float;
   mean_precision_top1 : float;
-  marked_digits_probas : float32_ba;
+  test_set_sample_probas : float32_ba;
 }
 
 type evaluation_outcome = [ `End of evaluation_stats | `Crash of exn ]

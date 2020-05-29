@@ -1,4 +1,4 @@
-let marked_digits =
+let test_set_sample =
   [
     (0, 9167);
     (1, 7270);

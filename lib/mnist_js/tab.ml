@@ -108,7 +108,7 @@ let react_main db signal set_signal =
 
 let construct_backend_selection : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
-  Printf.eprintf "> construct component: backend selection\n%!";
+  Printf.printf "> construct component: backend selection\n%!";
   let name_of_backend = function
     | `Tfjs_webgl -> "TensorFlow.js WebGL"
     | `Tfjs_wasm -> "TensorFlow.js WASM"
@@ -117,13 +117,11 @@ let construct_backend_selection : _ Reactjs.constructor =
   let disable_backend = function `Tfjs_webgl -> false | `Tfjs_wasm -> true | `Tfjs_cpu -> false in
 
   let on_change ev =
-    Printf.eprintf "> construct_backend_selection.on_change `%s`\n%!"
-      (ev##.target##.value |> Js.to_string);
     ev##.target##.value
     |> Js.to_string |> int_of_string |> backend_of_enum |> Option.get |> fire_upstream_event
   in
   let render (_, enabled) =
-    Printf.eprintf "> Tab.construct_backend_selection.render | render\n%!";
+    Printf.printf "> Tab.construct_backend_selection.render | render\n%!";
     let open Reactjs.Jsx in
     let tbody =
       List.init (max_backend + 1) backend_of_enum
@@ -161,36 +159,29 @@ let construct_tab (db, _tabidx, signal, set_signal) =
   let render _ =
     Printf.printf "> Tab.construct_tab.render | render\n%!";
     let open Reactjs.Jsx in
-    let network_creation enabled =
+    let net enabled =
       of_constructor Network_construction.construct_react_component (fire_network_made, enabled)
     in
-    let backend_selection enabled =
+    let backend enabled =
       of_constructor construct_backend_selection (fire_backend_selected, enabled)
     in
     let results () = of_constructor Results.construct_results ((testi, testl), signal, events) in
-    let training_configuration enabled =
+    let train enabled =
       of_constructor Training_configuration.construct_react_component (fire_training_conf, enabled)
     in
     let training params = of_constructor Training.construct (params, fire_training_event) in
     match React.S.value signal with
-    | Creating_network -> network_creation true >> of_react "Fragment"
-    | Selecting_backend _ ->
-        [ network_creation false; backend_selection true ] |> of_react "Fragment"
-    | Evaluating _ ->
-        [ network_creation false; backend_selection false; results () ] |> of_react "Fragment"
+    | Creating_network -> net true >> of_react "Fragment"
+    | Selecting_backend _ -> [ net false; backend true ] |> of_react "Fragment"
+    | Evaluating s when s.images_seen = 0 ->
+        [ net false; backend false; results () ] |> of_react "Fragment"
     | Creating_training _ ->
-        [ network_creation false; backend_selection true; results (); training_configuration true ]
-        |> of_react "Fragment"
+        [ net false; backend true; results (); train true ] |> of_react "Fragment"
     | Training s ->
         let networks = ([ s.encoder ], s.decoder) in
         let params = Types.{ db = (traini, trainl); networks; config = s.config } in
-        [
-          network_creation false;
-          backend_selection false;
-          results ();
-          training_configuration false;
-          training params;
-        ]
+        [ net false; backend false; results (); train false; training params ]
         |> of_react "Fragment"
+    | Evaluating _ -> [ net false; backend false; results (); train false ] |> of_react "Fragment"
   in
   Reactjs.construct ~signal render

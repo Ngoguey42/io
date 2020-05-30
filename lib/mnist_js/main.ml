@@ -51,9 +51,9 @@ let jsx_of_tab db gsignal set_gsignal fire_toast i state =
     let open Types in
     match state with
     | Creating_network -> []
-    | Evaluating _ -> []
     | Creating_training _ -> []
     | Selecting_backend _ -> []
+    | Evaluating _
     | Training _ ->
         [
           of_string "\u{a0}";

@@ -21,7 +21,7 @@ let main () =
     [%html
       "<div id='header'>" "<a href='index.html'>&#127968; Homepage</a> | "
         "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | "
-        "<a href='mnist-js.html'>&#x1f4bb; MNIST Js</a> | "
+        "<a href='mnist-jsoo.html'>&#x1f4bb; MNIST Js_of_ocaml</a> | "
         "<a href='about.html'>&#128196; Making-of</a>" "</div>"]
   in
   let error exn =
@@ -48,7 +48,7 @@ let main () =
     | "index" | "/" ->
         display @@ Index.create_content ();
         Lwt.return ()
-    | "mnist-js" -> Mnist_js.main ()
+    | "mnist-jsoo" -> Mnist_jsoo.main ()
     | "about" ->
         display @@ About.create_content ();
         Lwt.return ()

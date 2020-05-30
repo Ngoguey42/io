@@ -193,7 +193,9 @@ let construct_backend_selection : _ Reactjs.constructor =
       options
       |> List.map (fun option ->
              let n = name_of_option option in
-             of_bootstrap "Form.Check" ~label:n ~type_:"radio" ~id:("radio-" ^ n)
+             of_bootstrap "Form.Check" ~label:n ~type_:"radio"
+               (* ~id:("radio-" ^ n) *)
+               ~id:(Printf.sprintf "selecting-backend-tab%d-radio%s" tabidx n)
                ~name:(Printf.sprintf "selecting-backend-tab%d" tabidx)
                ~value:(idx_of_option option |> string_of_int)
                ~on_change ~inline:true ~disabled:(not enabled) []

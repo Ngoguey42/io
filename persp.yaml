@@ -28,7 +28,7 @@ perspectives:
     - [ <up>,         ./.ocamlformat, ./dune-project ]
   "+0":
     - [ ./index.html, ./cinquante.html,   ./styles.css ]
-    - [ ./about.html, ./mnist-js.html,    <up> ]
+    - [ ./about.html, ./mnist-jsoo.html,    <up> ]
   "++0":
     - [./ft.opam, ./, ./fnn.opam]
     - [./ft_js.opam, ./, ./pshape.opam]
@@ -39,13 +39,13 @@ perspectives:
   "10":
     - [ lib/game/shapes.ml ]
 
-  # mnist_js
+  # mnist_jsoo
   "+4" :
-    - [ lib/mnist_js/dune, lib/mnist_js/mnist.ml, lib/mnist_js/resources.ml ]
-    - [ lib/mnist_js/mnist_js.ml, <up>, <up> ]
-    - [ lib/mnist_js/backend.ml, <up>, <up> ]
-  "4" : [[ lib/mnist_js/main.ml, lib/mnist_js/tab.ml, lib/mnist_js/types.ml ]]
+    - [ lib/mnist_jsoo/dune, lib/mnist_jsoo/mnist.ml, lib/mnist_jsoo/resources.ml ]
+    - [ lib/mnist_jsoo/mnist_jsoo.ml, <up>, <up> ]
+    - [ lib/mnist_jsoo/backend.ml, <up>, <up> ]
+  "4" : [[ lib/mnist_jsoo/main.ml, lib/mnist_jsoo/tab.ml, lib/mnist_jsoo/types.ml ]]
 
-  "+5" : [[ lib/mnist_js/network_construction.ml, lib/mnist_js/network_architectures.ml, lib/mnist_js/training_configuration.ml ]]
-  "5": [[lib/mnist_js/results.ml, lib/mnist_js/evaluation.ml, lib/mnist_js/evaluation_tfjs.ml]]
-  "6" : [[ lib/mnist_js/training.ml, lib/mnist_js/training_tfjs.ml ]]
+  "+5" : [[ lib/mnist_jsoo/network_construction.ml, lib/mnist_jsoo/network_architectures.ml, lib/mnist_jsoo/training_configuration.ml ]]
+  "5": [[lib/mnist_jsoo/results.ml, lib/mnist_jsoo/evaluation.ml, lib/mnist_jsoo/evaluation_tfjs.ml]]
+  "6" : [[ lib/mnist_jsoo/training.ml, lib/mnist_jsoo/training_tfjs.ml ]]

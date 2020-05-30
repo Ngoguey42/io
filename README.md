@@ -2,6 +2,7 @@
 - Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
 - Update js_of_ocaml for new bigarray conversions
 - Ensure good propagation of exceptions throughout reactml/reactjs/webworker/lwt
+- Ensure no mem leaks with Reactml
 - Handle the case of corrupted cache/indexeddb
 - constrain lib dependencies (with >=)
 - Finish `Making-of` as soon as MNIST-js is finished
@@ -17,7 +18,6 @@
          - Recall (train/test)
          - Loss
          - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
-   4. Rename to MNIST js_of_ocaml
    4. Find out why cpu+ww is sometime slow on chrome
    5. OWL backend
    - time left on training?

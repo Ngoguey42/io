@@ -131,8 +131,8 @@ let create_toast_frp_primitives () =
   in
   (toast_signal, fire_toast, water_toast)
 
-let construct_mnist_js _ =
-  Printf.printf "> Component - mnist_js | construct\n%!";
+let construct_mnist_jsoo _ =
+  Printf.printf "> Component - mnist_jsoo | construct\n%!";
   let signal, set_signal = React.S.create ~eq:states_equal Loading in
   let toast_signal, fire_toast, water_toast = create_toast_frp_primitives () in
   let fire_resources db = set_signal (Loaded (db, 0, [| Types.Creating_network |])) in
@@ -151,7 +151,7 @@ let construct_mnist_js _ =
           set_signal (Loaded (db, i, tabstates))
   in
   let render _ =
-    Printf.printf "> Component - mnist_js | render\n%!";
+    Printf.printf "> Component - mnist_jsoo | render\n%!";
     let open Reactjs.Jsx in
     let toasts =
       toast_signal |> React.S.value
@@ -159,30 +159,30 @@ let construct_mnist_js _ =
       |> of_tag "div" ~class_:[ "toast-holder" ]
       (* ~style:[ ("position", "fixed"); ("top", "5px"); ("right", "5px"); ("z-index", "50") ] *)
     in
-    let body =
-      let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
+    let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
+    let tabs =
       match React.S.value signal with
-      | Loading -> [ res ]
+      | Loading -> of_string ""
       | Loaded (db, focusidx, tabstates) ->
-          let focusidx = string_of_int focusidx in
-          let head =
-            of_bootstrap "Tab" ~title_jsx:(of_string "Networks") ~event_key:"head" ~disabled:true []
-          in
-          let tabs =
-            Array.mapi (jsx_of_tab db signal set_signal fire_toast) tabstates |> Array.to_list
-          in
-          let plus =
-            of_bootstrap "Tab" ~title_jsx:(of_string "+" >> of_tag "b") ~event_key:"+" []
-          in
-          [
-            res;
-            of_bootstrap "Tabs" ~transition:false ~active_key:focusidx ~on_select ~id:"network-tabs"
-              ([ head ] @ tabs @ [ plus ]);
-          ]
+         let focusidx = string_of_int focusidx in
+         let head =
+           of_bootstrap "Tab" ~title_jsx:(of_string "Networks") ~event_key:"head" ~disabled:true []
+         in
+         let tabs =
+           Array.mapi (jsx_of_tab db signal set_signal fire_toast) tabstates |> Array.to_list
+         in
+         let plus =
+           of_bootstrap "Tab" ~title_jsx:(of_string "+" >> of_tag "b") ~event_key:"+" []
+         in
+         of_bootstrap "Tabs" ~transition:false ~active_key:focusidx ~on_select ~id:"network-tabs"
+                      ([ head ] @ tabs @ [ plus ])
     in
     [
       toasts;
-      body |> of_bootstrap "Col" >> of_bootstrap "Row"
+      [
+        res;
+        tabs;
+      ] |> of_bootstrap "Col" >> of_bootstrap "Row"
       >> of_bootstrap "Container" ~fluid:"sm" ~class_:[ "mnistdiv" ];
     ]
     |> of_react "Fragment"
@@ -195,10 +195,14 @@ let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
 
+  let div = [%html {|<div id="mnist-title"><h1>MNIST training with Js_of_ocaml</h1></div>|}]
+            |> Tyxml_js.To_dom.of_element in
+  Dom.appendChild body div;
+
   let div = [%html "<div></div>"] |> Tyxml_js.To_dom.of_element in
   Dom.appendChild body div;
   Ft_js.Scripts.import `Reactjs >>= fun () ->
   Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->
   Ft_js.import_css "styles.css" >>= fun () ->
-  Reactjs.render (Reactjs.Jsx.of_constructor construct_mnist_js ()) div;
+  Reactjs.render (Reactjs.Jsx.of_constructor construct_mnist_jsoo ()) div;
   Lwt.return ()

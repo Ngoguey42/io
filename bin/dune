@@ -27,7 +27,7 @@
     digestif.ocaml
     ft
     ft_js
-    mnist_js
+    mnist_jsoo
     lwt_react
     ocamlgraph
   )

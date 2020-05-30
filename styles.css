@@ -10,7 +10,7 @@ h1, h2 { border-bottom: 1px solid black; }
 h2, h3 { padding-left: 9px; }
 h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 /* ************************************************************************** */
-#header { margin-bottom: 25px; text-align: center; }
+#header { text-align: center; }
 #header a {
     font-family: "Fira Sans", sans-serif;
     font-weight: normal;
@@ -21,6 +21,7 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 .textdiv {
     width: 768px;
     margin: 0 auto;
+    margin-top: 25px;
     background: #F7F7F7;
     padding: 10px 20px 30px 20px;
     line-height: 1.4;
@@ -31,10 +32,9 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
 }
 .mnistdiv {
     max-width: 768px;
-    /* width: 768px; */
     margin: 0 auto;
     background: #F7F7F7;
-    padding: 10px 20px 30px 20px;
+    padding: 1px 20px 30px 20px;
     line-height: 1.1;
     border-color: #000000;
     border-style: solid;
@@ -101,4 +101,17 @@ button:disabled { /* https://stackoverflow.com/a/61659811 */ pointer-events: non
     top: 5px;
     right: 5px;
     z-index: 50;
+}
+#mnist-title {
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#mnist-title h1 {
+    width: 768px;
+    text-align: center;
+    border-color: #ebebeb;
+    font-size: 2em;
+    margin-bottom: 0;
 }

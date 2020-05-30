@@ -106,6 +106,7 @@ module Jsx = struct
       ?key:string ->
       ?on_click:(Dom_html.buttonElement Js.t event Js.t -> unit) ->
       ?on_select:(Js.js_string Js.t -> Dom_html.anchorElement Js.t event Js.t -> unit) ->
+      ?on_close:(unit -> unit) ->
       ?disabled:bool ->
       ?inline:bool ->
       ?colspan:string ->
@@ -129,7 +130,8 @@ module Jsx = struct
       ?default_active_key:string ->
       ?active_key:string ->
       ?placeholder:string ->
-      ?animation:string ->
+      ?animation_string:string ->
+      ?animation_bool:bool ->
       ?variant:string ->
       ?type_:string ->
       ?min:float ->
@@ -150,11 +152,12 @@ module Jsx = struct
       ?no_gutters:bool ->
       jsx Js.t list ->
       jsx Js.t =
-   fun ctor ?ref ?key ?on_click ?on_select ?disabled ?inline ?colspan ?href ?src ?placement ?fluid
-       ?overlay ?bordered ?xs_span ?sm_span ?md_span ?lg_span ?xl_span ?xs_order ?sm_order ?md_order
-       ?lg_order ?xl_order ?event_key ?default_active_key ?active_key ?placeholder ?animation
-       ?variant ?type_ ?min ?step ?default_value ?value ?on_change ?as_ ?size ?title ?title_jsx
-       ?transition ?id ?class_ ?style ?label ?name ?no_gutters children ->
+   fun ctor ?ref ?key ?on_click ?on_select ?on_close ?disabled ?inline ?colspan ?href ?src
+       ?placement ?fluid ?overlay ?bordered ?xs_span ?sm_span ?md_span ?lg_span ?xl_span ?xs_order
+       ?sm_order ?md_order ?lg_order ?xl_order ?event_key ?default_active_key ?active_key
+       ?placeholder ?animation_string ?animation_bool ?variant ?type_ ?min ?step ?default_value
+       ?value ?on_change ?as_ ?size ?title ?title_jsx ?transition ?id ?class_ ?style ?label ?name
+       ?no_gutters children ->
     let open Js.Unsafe in
     let props = object%js end in
 
@@ -187,6 +190,7 @@ module Jsx = struct
     Option.iter (fun v -> set props (Js.string "key") v) key;
     Option.iter (fun fn -> set props (Js.string "onClick") (Js.wrap_callback fn)) on_click;
     Option.iter (fun fn -> set props (Js.string "onSelect") (Js.wrap_callback fn)) on_select;
+    Option.iter (fun fn -> set props (Js.string "onClose") (Js.wrap_callback fn)) on_close;
     Option.iter (fun v -> set props (Js.string "disabled") v) disabled;
     Option.iter (fun v -> set props (Js.string "inline") v) inline;
     Option.iter (fun v -> set props (Js.string "colSpan") (Js.string v)) colspan;
@@ -204,7 +208,8 @@ module Jsx = struct
     Option.iter (fun v -> set props (Js.string "defaultActiveKey") (Js.string v)) default_active_key;
     Option.iter (fun v -> set props (Js.string "activeKey") (Js.string v)) active_key;
     Option.iter (fun v -> set props (Js.string "placeholder") (Js.string v)) placeholder;
-    Option.iter (fun v -> set props (Js.string "animation") (Js.string v)) animation;
+    Option.iter (fun v -> set props (Js.string "animation") (Js.string v)) animation_string;
+    Option.iter (fun v -> set props (Js.string "animation") v) animation_bool;
     Option.iter (fun v -> set props (Js.string "variant") (Js.string v)) variant;
     Option.iter (fun v -> set props (Js.string "type") (Js.string v)) type_;
     Option.iter (fun v -> set props (Js.string "min") v) min;

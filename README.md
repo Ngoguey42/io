@@ -17,7 +17,7 @@
          - Recall (train/test)
          - Loss
          - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
-   3. Display popup on crash
+   4. Rename to MNIST js_of_ocaml
    4. Find out why cpu+ww is sometime slow on chrome
    5. OWL backend
    - time left on training?
@@ -37,3 +37,4 @@
 - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`?
 - PR or issue `js_of_ocaml ErrorError##.msg -> ErrorError##.message`
 - PR or issue `owl get_slice [first; start] -> [start; stop[`
+- PR or issue `why not WeakMap in js_of_ocaml?`

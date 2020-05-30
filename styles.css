@@ -96,3 +96,9 @@ button:disabled { /* https://stackoverflow.com/a/61659811 */ pointer-events: non
     font-weight: bold;
     border: 0;
 }
+.toast-holder {
+    position: fixed;
+    top: 5px;
+    right: 5px;
+    z-index: 50;
+}

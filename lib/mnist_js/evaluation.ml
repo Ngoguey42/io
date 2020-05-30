@@ -15,10 +15,12 @@ let _routine { db; encoder; decoder; config = { verbose; batch_size; backend; _ 
     Backend.eval ~fire_event ~verbose ~yield_sleep_length ~batch_size ~db ~encoder ~decoder
   in
   let on_error exn =
-    fire_event (`Outcome (`Crash exn));
+    fire_event (`Outcome (`Crash (Printexc.to_string exn)));
     Lwt.return ()
   in
   Lwt.catch main on_error
+
+let repair_string : string -> string = fun s -> String.sub s 0 (String.length s)
 
 let repair_bigarray : 'a -> 'a =
  fun a ->
@@ -69,6 +71,7 @@ module Webworker_routine = struct
     | `Outcome (`End stats) ->
         let test_set_sample_probas = repair_bigarray stats.test_set_sample_probas in
         `Outcome (`End { stats with test_set_sample_probas })
+    | `Outcome (`Crash msg) -> `Outcome (`Crash (repair_string msg))
     | v -> v
 
   module rec Ww : (Webworker.S with type in_msg = _in_msg and type out_msg = _out_msg) =
@@ -109,7 +112,7 @@ let routine params fire_upstream_event =
         | Some s, _ -> Js.to_string s
         | _, Some s -> Js.to_string s
       in
-      let ev = `Outcome (`Crash (Failure ev)) in
+      let ev = `Outcome (`Crash ev) in
       fire_upstream_event ev
     in
     let fire_upstream_event ww ev =

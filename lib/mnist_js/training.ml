@@ -28,6 +28,8 @@ let repair_bigarray : 'a -> 'a =
     (Js.Unsafe.get a (Js.string "dims"))
     (Js.Unsafe.get a (Js.string "data"))
 
+let repair_string : string -> string = fun s -> String.sub s 0 (String.length s)
+
 let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config } fire_event
     instructions =
   let module Backend = (val Backend.create config.backend) in
@@ -88,7 +90,7 @@ let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config
 
 let routine params fire_event instructions =
   let on_error exn =
-    fire_event (`Outcome (`Crash exn));
+    fire_event (`Outcome (`Crash (Printexc.to_string exn)));
     Lwt.return ()
   in
   Lwt.catch (fun () -> _routine params fire_event instructions) on_error
@@ -103,7 +105,7 @@ module Webworker_routine = struct
   type _in_msg = [ `Prime of parameters | training_user_status ]
 
   type outcome =
-    [ `End of Fnn.storable_nn list * Fnn.storable_nn * training_stats | `Abort | `Crash of exn ]
+    [ `End of Fnn.storable_nn list * Fnn.storable_nn * training_stats | `Abort | `Crash of string ]
 
   type routine_event =
     [ `Init | `Batch_begin of int | `Batch_end of int * training_stats | `Outcome of outcome ]
@@ -137,7 +139,8 @@ module Webworker_routine = struct
     | `Init as ev -> (ev :> Types.training_routine_event)
     | `Batch_begin _ as ev -> (ev :> Types.training_routine_event)
     | `Batch_end _ as ev -> (ev :> Types.training_routine_event)
-    | (`Outcome (`Crash _) as ev) | (`Outcome `Abort as ev) -> (ev :> Types.training_routine_event)
+    | `Outcome (`Crash msg) -> `Outcome (`Crash (repair_string msg))
+    | `Outcome `Abort as ev -> (ev :> Types.training_routine_event)
     | `Outcome (`End (encoders, decoder, stats)) ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
         `Outcome (`End (List.map f encoders, f decoder, stats))
@@ -338,7 +341,7 @@ let construct_training (props : props) =
               Printf.sprintf "Filtering out an error comming from training routine (%s)" msg
             in
             Firebug.console##warn (Js.string msg)
-        | _ -> `Outcome (`Crash (Failure msg)) |> fire_upstream_event
+        | _ -> `Outcome (`Crash msg) |> fire_upstream_event
       in
       let on_new_user_status ww = function
         | `Abort ->

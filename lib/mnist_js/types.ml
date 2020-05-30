@@ -45,7 +45,7 @@ type training_stats = {
 type training_user_status = [ `Train_to_end | `Early_stop | `Abort ]
 
 type training_outcome =
-  [ `End of Fnn.network list * Fnn.network * training_stats | `Abort | `Crash of exn ]
+  [ `End of Fnn.network list * Fnn.network * training_stats | `Abort | `Crash of string ]
 
 type training_routine_event =
   [ `Init | `Batch_begin of int | `Batch_end of int * training_stats | `Outcome of training_outcome ]
@@ -90,7 +90,7 @@ type evaluation_stats = {
   test_set_sample_probas : float32_ba;
 }
 
-type evaluation_outcome = [ `End of evaluation_stats | `Crash of exn ]
+type evaluation_outcome = [ `End of evaluation_stats | `Crash of string ]
 
 type evaluation_routine_event =
   [ `Init | `Batch_begin of int | `Batch_end of int | `Outcome of evaluation_outcome ]

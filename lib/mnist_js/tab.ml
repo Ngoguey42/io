@@ -14,7 +14,7 @@ end
 
 open Types
 
-let react_main db signal set_signal =
+let react_main db signal set_signal fire_toast =
   let _traini, _trainl, testi, testl = db in
   let (events : tab_event React.event), fire_event = React.E.create () in
   let fire_evaluation_event ev = Evaluation_event ev |> fire_event in
@@ -58,11 +58,13 @@ let react_main db signal set_signal =
             from_webworker;
             _;
           },
-        Evaluation_event (`Outcome (`Crash _)) ) ->
+        Evaluation_event (`Outcome (`Crash msg)) ) ->
         (* Recovering from eval crash following training *)
+        fire_toast ("Evaluation crashed", msg);
         Creating_training { encoder; decoder; images_seen; seed; backend; from_webworker }
-    | Evaluating s, Evaluation_event (`Outcome (`Crash _)) ->
+    | Evaluating s, Evaluation_event (`Outcome (`Crash msg)) ->
         (* Recovering from initial eval crash *)
+        fire_toast ("Evaluation crashed", msg);
         Selecting_backend { encoder = s.encoder; decoder = s.decoder; seed = s.seed }
     | Evaluating s, Evaluation_event (`Outcome (`End _)) ->
         (* Eval done *)
@@ -137,8 +139,9 @@ let react_main db signal set_signal =
         (* Aborting training *)
         Creating_training { encoder; decoder; seed; images_seen; backend; from_webworker }
     | ( Training { encoder; decoder; seed; images_seen; backend; from_webworker; _ },
-        Training_event (`Outcome (`Crash _)) ) ->
+        Training_event (`Outcome (`Crash msg)) ) ->
         (* Training crashed *)
+        fire_toast ("Training crashed", msg);
         Creating_training { encoder; decoder; seed; images_seen; backend; from_webworker }
     | Creating_network, _ -> failwith "react_main@reduce@Creating_network : unexpected event"
     | Selecting_backend _, _ -> failwith "react_main@reduce@Selecting_backend : unexpected event"
@@ -204,10 +207,10 @@ let construct_backend_selection : _ Reactjs.constructor =
 
   Reactjs.construct render
 
-let construct_tab (db, tabidx, signal, set_signal) =
+let construct_tab (db, tabidx, signal, set_signal, fire_toast) =
   Printf.printf "> Component - tab%d | construct\n%!" tabidx;
   let traini, trainl, testi, testl = db in
-  let events, fire_event = react_main db signal set_signal in
+  let events, fire_event = react_main db signal set_signal fire_toast in
   let fire_network_made (encoder, decoder, seed) =
     Network_made { encoder; decoder; seed } |> fire_event
   in

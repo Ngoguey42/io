@@ -26,7 +26,7 @@ let _eval verbose fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
   let forward_encoder = Fnn_tfjs.unpack_for_evaluation encoder in
   let forward_decoder = Fnn_tfjs.unpack_for_evaluation decoder in
 
-  let batch_count = (10000 + batch_size - 1) / batch_size in
+  let batch_count = (Mnist.test_set_size + batch_size - 1) / batch_size in
   let confusion_matrix_sum =
     Tfjs.Ops.zeros [| 10; 10 |] |> Tfjs.variable ~trainable:false ~dtype:`Float32
   in
@@ -38,13 +38,13 @@ let _eval verbose fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
     let time = (new%js Js.date_now)##valueOf /. 1000. in
 
     let i0 = batch_idx * batch_size in
-    let i1 = min 10000 (i0 + batch_size) in
+    let i1 = min Mnist.test_set_size (i0 + batch_size) in
     let x = Ndarray.get_slice [ [ i0; i1 - 1 ] ] eval_imgs in
     let y = Ndarray.get_slice [ [ i0; i1 - 1 ] ] eval_labs in
     let batch_size =
       let v = (Bigarray.Genarray.dims x).(0) in
       if batch_idx < batch_count - 1 then assert (v = batch_size)
-      else assert (v = 10000 - (batch_size * (batch_count - 1)));
+      else assert (v = Mnist.test_set_size - (batch_size * (batch_count - 1)));
       v
     in
 
@@ -84,7 +84,7 @@ let _eval verbose fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
           let pred = Ndarray.squeeze ~axis:[| 0 |] pred in
           assert (Ndarray.shape pred = [| 10 |]);
           Ndarray.set_slice [ [ digit ]; [] ] test_set_sample_probas pred ))
-      Constants.test_set_sample
+      Mnist.test_set_sample
   in
 
   let rec aux i =

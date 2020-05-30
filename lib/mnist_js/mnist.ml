@@ -14,6 +14,22 @@ type entry = [ `Train_imgs | `Train_labs | `Test_imgs | `Test_labs ]
 
 type status = [ `Unknown | `Check | `Download of int * int | `Ready of uint8_ba | `Store | `Unzip ]
 
+let test_set_sample =
+  [
+    (0, 9167);
+    (1, 7270);
+    (2, 8838);
+    (3, 6873);
+    (4, 3444);
+    (5, 3556);
+    (6, 161);
+    (7, 4658);
+    (8, 391);
+    (9, 8322);
+  ]
+let test_set_size = 10000
+let train_set_size = 60000
+
 let entries = [ `Train_imgs; `Train_labs; `Test_imgs; `Test_labs ]
 
 let filename_of_entry = function
@@ -37,16 +53,16 @@ let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
     match entry with
     | `Train_imgs ->
         Ft_js.Conv.Uint8.ba_of_ta arr
-        |> sub 16 (60000 * 28 * 28)
-        |> Fun.flip Bigarray.reshape [| 60000; 28; 28 |]
+        |> sub 16 (train_set_size * 28 * 28)
+        |> Fun.flip Bigarray.reshape [| train_set_size; 28; 28 |]
     | `Train_labs ->
-        Ft_js.Conv.Uint8.ba_of_ta arr |> sub 8 60000 |> Fun.flip Bigarray.reshape [| 60000 |]
+        Ft_js.Conv.Uint8.ba_of_ta arr |> sub 8 train_set_size |> Fun.flip Bigarray.reshape [| train_set_size |]
     | `Test_imgs ->
         Ft_js.Conv.Uint8.ba_of_ta arr
-        |> sub 16 (10000 * 28 * 28)
-        |> Fun.flip Bigarray.reshape [| 10000; 28; 28 |]
+        |> sub 16 (test_set_size * 28 * 28)
+        |> Fun.flip Bigarray.reshape [| test_set_size; 28; 28 |]
     | `Test_labs ->
-        Ft_js.Conv.Uint8.ba_of_ta arr |> sub 8 10000 |> Fun.flip Bigarray.reshape [| 10000 |]
+        Ft_js.Conv.Uint8.ba_of_ta arr |> sub 8 test_set_size |> Fun.flip Bigarray.reshape [| test_set_size |]
   in
   let arr =
     Ft_js.Idb.get store n >>= function

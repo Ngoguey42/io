@@ -57,7 +57,7 @@ let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config
     | Some idxs -> idxs
     | None ->
         let rng = Random.State.make [| config.seed + epoch_idx |] in
-        let idxs = Array.init 60000 Fun.id |> shuffle rng in
+        let idxs = Array.init Mnist.train_set_size Fun.id |> shuffle rng in
         Hashtbl.add shuffled_indices epoch_idx idxs;
         idxs
   in
@@ -71,8 +71,8 @@ let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config
     let labs = Ndarray.empty Bigarray.Int8_unsigned [| batch_size |] in
     for batch_sample_idx = 0 to batch_size - 1 do
       let global_sample_idx = config.images_seen + (batch_idx * batch_size) + batch_sample_idx in
-      let epoch_idx = global_sample_idx / 60000 in
-      let sample_idx_in_epoch = global_sample_idx mod 60000 in
+      let epoch_idx = global_sample_idx / Mnist.train_set_size in
+      let sample_idx_in_epoch = global_sample_idx mod Mnist.train_set_size in
       let train_db_idx = (get_shuffled_sample_indices_of_epoch epoch_idx).(sample_idx_in_epoch) in
       let img = Bigarray.Genarray.sub_left train_imgs train_db_idx 1 in
       let lab = Bigarray.Genarray.sub_left train_labs train_db_idx 1 in

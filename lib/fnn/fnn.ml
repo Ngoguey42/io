@@ -153,6 +153,24 @@ The Pshape (Polymorphic shape) library provides that abstraction.
 
 ---
 
+# Determinism and Init.t
+When creating a new network some randomness is required to initialize specific components like
+convolution kernels, fully-connected weights or dropout layers. The Builder module
+can be instanciated using an `rng` parameter that will be used to sample a unique seed for each
+individual component that depends on randomness. This way, an instanciated network, is always fully
+determined.
+
+More specifically, when the user passes a `Init.t` value to build a layer, the layer will
+convert it right away to a `Init.Deterministic.t` by sampling a seed if necessary.
+
+In a newly created network, the statful tensors are not instanciated right away in order to keep
+the network as light as possible for as long as possible. The first times a stateful tensor is
+fetched, it is deterministically computed using it's associated `Init.Deterministic.t` value.
+Using the `replicate` methods, the user can manually store a new version of a stateful tensor inside
+a layer (e.g. after training). Only then a layer stores some tensor.
+
+---
+
 # Possible improvements:
 - rename all `replicate` methods to `update/amend/upgrade/something else`, rename all `copy` methods/function to `replicate`
 - parameter32 takes a shape (and init too)
@@ -168,6 +186,7 @@ The Pshape (Polymorphic shape) library provides that abstraction.
   - Create an Fnn.custom_layer class and a `Builder.custom custom_defn ...` function?
   Extensible GADT?
 - Transform `parameter32` to `parameter`?
+- Find a less rigid way to implement the `pshape` lib. Modular implicits?
 - Rewrite the library without the use of ocaml objects because:
   - Those are impossible to serialize in js
   - Polymorphic variants and top-level functions could provide roughly the same properties:

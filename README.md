@@ -18,9 +18,9 @@
          - Loss
          - Gradient Norm Sum in decoder (what about bias, what about LR?, only use loss?)
    3. Display popup on crash
-   4. Fix determinism WW vs no-WW
    4. Find out why cpu+ww is sometime slow on chrome
    5. OWL backend
+   6. Add sleep in routines when not on WW
    6. Shut down the webworker on abort
    - time left on training?
    - Foldable panels?

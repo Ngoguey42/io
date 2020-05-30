@@ -61,7 +61,7 @@ let _storable_of_fnn : Make_fnn.Default.network -> storable_layer =
       `Parameter32
         ( nn#id,
           nn#out_shape |> Pshape.to_int_array,
-          nn#init_deterministic,
+          nn#init,
           nn#optimizer_conf,
           nn#tensor_opt,
           nn#optimizer_opt )

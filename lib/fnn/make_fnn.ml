@@ -35,6 +35,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
   type dtype = [ float_dtype | int_dtype ]
 
+  type state_copy_strategy = [ `Keep | `Scratch | `Reinit ]
+
   let string_of_dtype = function
     | `Float32 -> "float32"
     | `Float64 -> "float64"
@@ -49,7 +51,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> network
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> network
     ; id : Id.t
     ; layer_name : string
     ; to_string : string >
@@ -61,7 +63,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> node01
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> node01
     ; id : Id.t
     ; layer_name : string
     ; to_string : string >
@@ -75,7 +77,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_dtype : dtype
     ; id : Id.t
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> node11
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> node11
     ; layer_name : string
     ; to_string : string
     ; upstream : network >
@@ -89,7 +91,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_dtype : dtype
     ; id : Id.t
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> node21
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> node21
     ; layer_name : string
     ; to_string : string
     ; upstream0 : network
@@ -104,7 +106,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; id : Id.t
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> noden1
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> noden1
     ; layer_name : string
     ; to_string : string >
   (** node that maps n input to 1 output *)
@@ -150,7 +152,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> input
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> input
     ; id : Id.t
     ; layer_name : string
     ; to_string : string >
@@ -164,13 +166,12 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           ([< Pshape.Axis.t > `Idx ] as 'c) ) Pshape.t
     ; out_dtype : [ `Float32 ]
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> parameter32
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> parameter32
     ; replicate : ?id:Id.t -> float32_tensor -> optimizer32 -> parameter32
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
-    ; init : Init.float32
-    ; init_deterministic : Init.Deterministic.float32
+    ; init : Init.Deterministic.float32
     ; tensor : float32_tensor
     ; tensor_opt : float32_tensor option
     ; optimizer_conf : optimizer_conf
@@ -185,7 +186,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> sum
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> sum
     ; id : Id.t
     ; layer_name : string
     ; to_string : string >
@@ -197,7 +198,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> prod
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> prod
     ; id : Id.t
     ; layer_name : string
     ; to_string : string >
@@ -209,7 +210,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> concatenate
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> concatenate
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -222,7 +223,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : float_dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> softmax
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> softmax
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -236,7 +237,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> relu
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> relu
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -249,7 +250,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> astype
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> astype
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -263,7 +264,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : float_dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> normalisation
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> normalisation
     ; replicate : ?id:Id.t -> normalization_algo -> network -> normalisation
     ; id : Id.t
     ; layer_name : string
@@ -285,7 +286,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> transpose
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> transpose
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -301,7 +302,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           ([< Pshape.Axis.t > `N `C `S0 `S1 ] as 'ax) ) Pshape.t
     ; out_dtype : float_dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> maxpool2d
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> maxpool2d
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -321,7 +322,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> padding
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> padding
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -343,7 +344,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     ; out_shape : Pshape.any
     ; out_dtype : float_dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> tensordot
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> tensordot
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -365,7 +366,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           ([< Pshape.Axis.t > `N `C `S0 `S1 ] as 'ax) ) Pshape.t
     ; out_dtype : float_dtype
     ; stateful : bool
-    ; copy : ?id:Id.t -> ?reinit:bool -> ?rng:Random.State.t -> network list -> conv2d
+    ; copy : ?id:Id.t -> ?states:state_copy_strategy -> ?rng:Random.State.t -> network list -> conv2d
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
@@ -602,15 +603,17 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         - if a node is listed in {| sub |}, it will be substituted by the provided node.
         - if a node is listed in {| bind |}, the provided function will be called with the new
           parents to create the new node.
-        - otherwise a node is copied using the {| copy ~reinit ~rng |} method
+        - otherwise a node is copied using the {| copy ~states ~rng |} method
 
         Use cases:
         - The default params can be used to get a structural copy of a network that share the same
           tensor pointers in the stateful layers.
-        - {| ~reinit:true ~rng |} can be used to perform two trainings that uses different initial
+        - {| ~states:`Reinit ~rng |} can be used to perform two trainings that uses different initial
           random seeds.
-        - {| ~reinit:true ~rng |} can be used to reuse pieces of architecture several times in a
+        - {| ~states:`Reinit ~rng |} can be used to reuse pieces of architecture several times in a
           larger network.
+        - {| ~states:`Scratch |} can be used to restore a network to it's state before any
+          `replicate`.
         - {| ~keep |} can be used to share the parameter nodes between the input and the output
           networks.
         - {| ~keep |} can be used to stop the traversal of {| copy |} in order to to preserve part
@@ -636,11 +639,11 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ?remove:_ any list ->
       ?sub:(_ any * _ any) list ->
       ?bind:(_ any * (network list -> network)) list ->
-      ?reinit:bool ->
+      ?states:state_copy_strategy ->
       ?rng:Random.State.t ->
       _ any list ->
       network list =
-   fun ?(keep = []) ?(skip = []) ?(remove = []) ?(sub = []) ?(bind = []) ?(reinit = false) ?rng
+   fun ?(keep = []) ?(skip = []) ?(remove = []) ?(sub = []) ?(bind = []) ?(states = `Keep) ?rng
        network_ends ->
     let keep = List.map downcast keep in
     let skip = List.map downcast skip in
@@ -689,10 +692,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
                       match Hashtbl.find_opt bind node with
                       | Some f -> `Unbound f
                       | None ->
-                          `Unbound
-                            ( match rng with
-                            | Some rng -> node#copy ~id:node#id ~reinit ~rng
-                            | None -> (node#copy ~id:node#id ~reinit : network list -> network) ) )
+                          `Unbound (node#copy ~id:node#id ~states ?rng) )
                   ) ) )
     in
     map f network_ends
@@ -967,7 +967,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             if List.length upstreams <> 0 then invalid_arg "input#copy takes 0 upstreams";
             instanciate (Some id)
 
@@ -980,8 +980,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       in
       instanciate id
 
-    let parameter32 ?id ?rng dimensions init optimizer_conf =
+    let parameter32 ?id ?(rng = State.get_state ()) dimensions init optimizer_conf =
       let init = (init :> Init.float32) in
+      let init = Init.float32_to_deterministic ~rng init in
       let optimizer_conf = (optimizer_conf :> optimizer_conf) in
       ( match optimizer_conf with
       | `Sgd -> ()
@@ -992,14 +993,12 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           if beta2 <= 0. || beta2 >= 1. then
             invalid_arg "In parameter32: beta2 should be between 0 and 1 (excluded)";
           () );
-      let rec instanciate ?id ?rng dimensions optimizer_conf tensor_opt optim_opt =
+      let rec instanciate ?id dimensions init optimizer_conf tensor_opt optim_opt =
         let id = match id with None -> Id.create_default () | Some id -> id in
-        let init_deter = Init.float32_to_deterministic ?rng init in
-
         let get_tensor () =
           match tensor_opt with
           | Some v -> v
-          | None -> Init.Deterministic.run init_deter Bigarray.Float32 dimensions |> Tensor.of_ba
+          | None -> Init.Deterministic.run init Bigarray.Float32 dimensions |> Tensor.of_ba
         in
         let get_optim () =
           match optim_opt with
@@ -1030,10 +1029,15 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = true
 
-          method copy ?(id = self#id) ?(reinit = false) ?rng upstreams =
+          method copy ?(id = self#id) ?(states = `Keep) ?(rng = State.get_state ()) upstreams =
             if List.length upstreams <> 0 then invalid_arg "parameter32#copy takes 0 upstreams";
-            if reinit then instanciate ~id ?rng dimensions optimizer_conf None None
-            else instanciate ~id dimensions optimizer_conf tensor_opt optim_opt
+            match states with
+            | `Keep -> instanciate ~id dimensions init optimizer_conf tensor_opt optim_opt
+            | `Scratch -> instanciate ~id dimensions init optimizer_conf None None
+            | `Reinit ->
+               let init = Init.unseed_float32 init in
+               let init = Init.float32_to_deterministic ~rng init in
+               instanciate ~id dimensions init optimizer_conf None None
 
           method replicate ?(id = self#id) tensor optim =
             let newdims = Tensor.dimensions tensor in
@@ -1049,7 +1053,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
               | `Sgd -> `Sgd
               | `Adam (epsilon, beta1, beta2, _, _, _) -> `Adam (epsilon, beta1, beta2)
             in
-            instanciate ~id newdims optimizer_conf (Some tensor) (Some optim)
+            instanciate ~id newdims init optimizer_conf (Some tensor) (Some optim)
 
           method id = id
 
@@ -1058,8 +1062,6 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method to_string = Printf.sprintf "<parameter32 %s>" (Pshape.to_string shape)
 
           method init = init
-
-          method init_deterministic = init_deter
 
           method tensor = get_tensor ()
 
@@ -1076,7 +1078,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
             n
         end
       in
-      instanciate ?id ?rng dimensions optimizer_conf None None
+      instanciate ?id dimensions init optimizer_conf None None
 
     let sum =
       let rec instanciate id upstreams =
@@ -1102,7 +1104,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams = instanciate (Some id) upstreams
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instanciate (Some id) upstreams
 
           method id = id
 
@@ -1140,7 +1142,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams = instanciate (Some id) upstreams
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instanciate (Some id) upstreams
 
           method id = id
 
@@ -1179,7 +1181,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams = instanciate (Some id) upstreams
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instanciate (Some id) upstreams
 
           method id = id
 
@@ -1222,7 +1224,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
             | [ up ] -> instanciate (Some id) up
             | _ -> invalid_arg "softmax#copy takes 1 upstream"
@@ -1260,7 +1262,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
             | [ up ] -> instanciate (Some id) up
             | _ -> invalid_arg "relu#copy takes 1 upstream"
@@ -1394,9 +1396,11 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = true
 
-          method copy ?(id = self#id) ?(reinit = false) ?rng:_ upstreams =
-            match upstreams with
-            | [ up ] -> instanciate ~id algo_conf (if reinit then None else algo_opt) up
+          method copy ?(id = self#id) ?(states = `Keep) ?rng:_ upstreams =
+            match upstreams, states with
+            | [ up ], `Keep -> instanciate ~id algo_conf algo_opt up
+            | [ up ], `Scratch
+            | [ up ], `Reinit -> instanciate ~id algo_conf None up
             | _ -> invalid_arg "normalisation#copy takes 1 upstream"
 
           method replicate ?(id = self#id) algorithm upstream =
@@ -1466,7 +1470,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
             | [ up ] -> instanciate (Some id) up
             | _ -> invalid_arg "transpose#copy takes 1 upstream"
@@ -1532,7 +1536,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
             | [ up ] -> instanciate (Some id) up
             | _ -> invalid_arg "maxpool2d#copy takes 1 upstream"
@@ -1624,7 +1628,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
             | [ up ] -> instanciate (Some id) up
             | _ -> invalid_arg "padding#copy takes 1 upstream"
@@ -1692,7 +1696,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
             | [ up ] -> instanciate (Some id) up
             | _ -> invalid_arg "astype#copy takes 1 upstream"
@@ -1773,7 +1777,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
             | [ weights; x ] -> instanciate (Some id) weights x
             | _ -> invalid_arg "conv2d#copy takes 2 upstreams"
@@ -1894,7 +1898,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?reinit:_ ?rng:_ upstreams =
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
             | [ x0; x1 ] -> instanciate (Some id) x0 x1
             | _ -> invalid_arg "tensordot#copy takes 1 upstream"
@@ -1965,7 +1969,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         p
       |> padding2d ~id
 
-    let dense ?id new_sizes ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
+    let dense ?id new_sizes ?i:init ?o:optimizer ?rng upstream =
       (* Cast *)
       let new_sizes = (new_sizes :> (Pshape.Axis.t * int) list) in
       let init = Option.value (init :> Init.float option) ~default:`Tanh in
@@ -2009,14 +2013,14 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       in
       let weights =
         match (dtype, init) with
-        | `Float32, (#Init.float32 as init) -> parameter32 ~rng dimensions init optimizer
+        | `Float32, (#Init.float32 as init) -> parameter32 ?rng dimensions init optimizer
         | `Float64, #Init.float64 -> failwith "not implemented"
         | _, _ -> invalid_arg "In dense: init is incompatible with upstream's dtype"
       in
       tensordot ~id mapping_up mapping_w upstream (weights :> network)
 
     let conv2d ?id filters kernel_size ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode
-        ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
+        ?i:init ?o:optimizer ?rng upstream =
       (* Cast *)
       let filters = (filters :> [ `Full of int | `Depthwise of int | `Grouped of int * int ]) in
       let init = Option.value (init :> Init.float option) ~default:`Tanh in
@@ -2055,7 +2059,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
       let weights =
         match (dtype, init) with
-        | `Float32, (#Init.float32 as init) -> parameter32 ~rng dimensions init optimizer
+        | `Float32, (#Init.float32 as init) -> parameter32 ?rng dimensions init optimizer
         | `Float64, #Init.float64 -> failwith "not implemented"
         | _, _ -> invalid_arg "In conv2d: init is incompatible with upstream's dtype"
       in
@@ -2063,7 +2067,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         (weights :> network)
         upstream
 
-    let bias ?id ?axes ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
+    let bias ?id ?axes ?i:init ?o:optimizer ?rng upstream =
       (* Cast *)
       let axes = Option.value (axes :> Pshape.Axis.t list option) ~default:[ `C ] in
       let init = Option.value (init :> Init.float option) ~default:(`Float_constant 0.) in
@@ -2092,13 +2096,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | _ -> invalid_arg "In bias: Can only be applied on floating point input dtype"
       in
       ( match (dtype, init) with
-      | `Float32, (#Init.float32 as init) -> parameter32 ~rng dimensions init optimizer
+      | `Float32, (#Init.float32 as init) -> parameter32 ?rng dimensions init optimizer
       | `Float64, #Init.float64 -> failwith "not implemented"
       | _, _ -> invalid_arg "In bias: init is incompatible with upstream's dtype" )
       |> transpose ~mapping |> downcast
       |> fun w -> sum ~id [ upstream; w ]
 
-    let scale ?id ?axes ?i:init ?o:optimizer ?(rng = State.get_state ()) upstream =
+    let scale ?id ?axes ?i:init ?o:optimizer ?rng upstream =
       (* Cast *)
       let axes = Option.value (axes :> Pshape.Axis.t list option) ~default:[ `C ] in
       let init = Option.value (init :> Init.float option) ~default:(`Float_constant 1.) in
@@ -2127,7 +2131,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | _ -> invalid_arg "In scale: Can only be applied on floating point input dtype"
       in
       ( match (dtype, init) with
-      | `Float32, (#Init.float32 as init) -> parameter32 ~rng dimensions init optimizer
+      | `Float32, (#Init.float32 as init) -> parameter32 ?rng dimensions init optimizer
       | `Float64, #Init.float64 -> failwith "not implemented"
       | _, _ -> invalid_arg "In scale: init is incompatible with upstream's dtype" )
       |> transpose ~mapping |> downcast
@@ -2150,6 +2154,9 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
     let get_state = Random.get_state
   end)
 
+  (* The `rng` will only be used to transform the various Init.t passed to the `Builder` functions
+     to Init.Deterministic.t. (In parameters32 of conv2d and dense, in dropout layers, ...).
+   *)
   let create_builder ?rng () =
     let rng = match rng with Some rng -> rng | None -> Random.State.make_self_init () in
     ( module Make_builder (struct

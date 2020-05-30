@@ -29,6 +29,10 @@ open struct
       (Float.t, b, Bigarray.c_layout) Bigarray.Genarray.t =
    fun kind seed a b dims ->
     let rng = Random.State.make [| seed |] in
+    Printf.eprintf "> Running (uniform %f %f) on (seed %d) (first int:%d)\n%!"
+     a b seed (Random.State.int rng 1000)
+    ;
+    let rng = Random.State.make [| seed |] in
     init kind dims (fun _ -> uniform_rvs rng a b)
 
   let gaussian_rvs rng mu sigma =
@@ -239,6 +243,26 @@ let to_deterministic : ?rng:Random.State.t -> [< t ] -> Deterministic.t =
   | `Glorot_normal -> `Glorot_normal_seeded seed
   | `Lecun_normal -> `Lecun_normal_seeded seed
   | #Deterministic.t as t -> t
+
+let unseed : [< t ] -> t = function
+  | `Uniform_seeded (a, b, _) -> `Uniform (a, b)
+  | `Gaussian_seeded (mu, sigma, _) -> `Gaussian (mu, sigma)
+  | `Standard_seeded _ -> `Standard
+  | `Tanh_seeded _ -> `Tanh
+  | `Glorot_uniform_seeded _ -> `Glorot_uniform
+  | `Glorot_normal_seeded _ -> `Glorot_normal
+  | `Lecun_normal_seeded _ -> `Lecun_normal
+  | t -> t
+
+let unseed_float32 : [< float32 ] -> float32 = function
+  | `Uniform_seeded (a, b, _) -> `Uniform (a, b)
+  | `Gaussian_seeded (mu, sigma, _) -> `Gaussian (mu, sigma)
+  | `Standard_seeded _ -> `Standard
+  | `Tanh_seeded _ -> `Tanh
+  | `Glorot_uniform_seeded _ -> `Glorot_uniform
+  | `Glorot_normal_seeded _ -> `Glorot_normal
+  | `Lecun_normal_seeded _ -> `Lecun_normal
+  | #float32 as t -> t
 
 let float32_to_deterministic : ?rng:Random.State.t -> [< float32 ] -> Deterministic.float32 =
  fun ?rng t ->

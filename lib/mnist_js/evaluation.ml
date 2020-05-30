@@ -11,7 +11,8 @@ open Types
 let _routine { db; encoder; decoder; config = { verbose; batch_size; backend; _ } } fire_event =
   let main () =
     let module Backend = (val Backend.create backend) in
-    Backend.eval ~fire_event ~verbose ~batch_size ~db ~encoder ~decoder
+    let yield_sleep_length = if Ft_js.Webworker.is_web_worker then 0. else 0.01 in
+    Backend.eval ~fire_event ~verbose ~yield_sleep_length ~batch_size ~db ~encoder ~decoder
   in
   let on_error exn =
     fire_event (`Outcome (`Crash exn));

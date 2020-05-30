@@ -22,7 +22,8 @@ let create_evaluating_signal tabsignal tabevents =
   let evaluating =
     React.S.map
       (function
-        | Evaluating s -> `On ((Mnist.test_set_size + s.config.batch_size - 1) / s.config.batch_size) | _ -> `Off)
+        | Evaluating s -> `On ((Mnist.test_set_size + s.config.batch_size - 1) / s.config.batch_size)
+        | _ -> `Off)
       tabsignal
   in
   React.S.l2
@@ -59,9 +60,7 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
   let signal_evaluating = create_evaluating_signal tabsignal tabevents in
 
   let test_set_sample_urls =
-    List.map
-      (fun (_, idx) -> Ndarray.get_slice [ [ idx ]; []; [] ] test_imgs)
-      Mnist.test_set_sample
+    List.map (fun (_, idx) -> Ndarray.get_slice [ [ idx ]; []; [] ] test_imgs) Mnist.test_set_sample
     |> List.map Mnist.b64_url_of_digit
   in
   let test_stats_events =

@@ -76,17 +76,14 @@ let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config
       let train_db_idx = (get_shuffled_sample_indices_of_epoch epoch_idx).(sample_idx_in_epoch) in
       let img = Bigarray.Genarray.sub_left train_imgs train_db_idx 1 in
       let lab = Bigarray.Genarray.sub_left train_labs train_db_idx 1 in
-      if batch_sample_idx = 0 && batch_idx = 0 then (
-        Printf.eprintf "> get_data for first sample of training\n%!";
-        Owl_pretty.print_dsnda img;
-        Owl_pretty.print_dsnda lab;
-      );
       Ndarray.set_slice [ [ batch_sample_idx ]; []; [] ] imgs img;
       Ndarray.set_slice [ [ batch_sample_idx ] ] labs lab
     done;
     (imgs, labs)
   in
-  Backend.train ~fire_event ~instructions ~verbose ~batch_count ~get_lr ~get_data ~encoders ~decoder
+  let yield_sleep_length = if Ft_js.Webworker.is_web_worker then 0. else 0.01 in
+  Backend.train ~fire_event ~instructions ~verbose ~yield_sleep_length ~batch_count ~get_lr
+    ~get_data ~encoders ~decoder
 
 let routine params fire_event instructions =
   let on_error exn =

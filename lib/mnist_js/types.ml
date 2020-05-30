@@ -54,6 +54,7 @@ type training_routine_status = [ `Allocating | `Running | `Ended | `Aborted | `C
 
 type training_backend_routine =
   ?verbose:bool ->
+  yield_sleep_length:float ->
   fire_event:(training_routine_event -> unit) ->
   instructions:training_user_status React.signal ->
   batch_count:int ->
@@ -98,6 +99,7 @@ type evaluation_routine_status = [ `Running | `Ended | `Crashed ]
 
 type evaluation_backend_routine =
   ?verbose:bool ->
+  yield_sleep_length:float ->
   fire_event:(evaluation_routine_event -> unit) ->
   batch_size:int ->
   db:db_test ->

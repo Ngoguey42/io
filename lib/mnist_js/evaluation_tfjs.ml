@@ -19,7 +19,8 @@ let _stats_of_cm confusion_matrix =
 
   (mean_iou, mean_recall, mean_precision)
 
-let _eval verbose fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
+let _eval verbose yield_sleep_length fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
+  let open Lwt.Infix in
   let node0 = Fnn.inputs [ encoder ] |> List.hd |> Fnn.downcast in
   let node0_decoder = Fnn.inputs [ decoder ] |> List.hd |> Fnn.downcast in
 
@@ -88,16 +89,19 @@ let _eval verbose fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
   in
 
   let rec aux i =
-    if i < batch_count then (
+    if i = batch_count then Lwt.return ()
+    else (
       fire_event (`Batch_begin i);
       Tfjs.tidy (fun () ->
           train_on_batch i;
           fire_event (`Batch_end i));
-      aux (i + 1) )
+
+      if yield_sleep_length = 0. then Lwt_js.yield () >>= fun () -> aux (i + 1)
+      else Lwt_js.sleep yield_sleep_length >>= fun () -> aux (i + 1) )
   in
 
   let time0 = (new%js Js.date_now)##valueOf /. 1000. in
-  aux 0;
+  aux 0 >>= fun () ->
   let time1 = (new%js Js.date_now)##valueOf /. 1000. in
   Printf.printf "> Took %fsec\n%!" (time1 -. time0);
 
@@ -115,10 +119,12 @@ module Make_backend (Backend : sig
 end) =
 struct
   let eval : Types.evaluation_backend_routine =
-   fun ?(verbose = false) ~fire_event ~batch_size ~db ~encoder ~decoder ->
+   fun ?(verbose = false) ~yield_sleep_length ~fire_event ~batch_size ~db ~encoder ~decoder ->
     let open Lwt.Infix in
     Tfjs.setup_backend Backend.v >>= fun _ ->
-    Tfjs.tidy_lwt (fun () -> _eval verbose fire_event batch_size db encoder decoder) >>= fun () ->
+    Tfjs.tidy_lwt (fun () ->
+        _eval verbose yield_sleep_length fire_event batch_size db encoder decoder)
+    >>= fun () ->
     Tfjs.disposeVariables ();
     if verbose then Firebug.console##log (Tfjs.memory ());
     Lwt.return ()

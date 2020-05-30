@@ -25,7 +25,8 @@ let _stats_of_cm confusion_matrix =
 
   (mean_iou, mean_recall, mean_precision)
 
-let _train verbose fire_event instructions batch_count get_lr get_data encoders decoder =
+let _train verbose yield_sleep_length fire_event instructions batch_count get_lr get_data encoders
+    decoder =
   let open Lwt.Infix in
   let node0 =
     let open Pshape.Size in
@@ -189,7 +190,8 @@ let _train verbose fire_event instructions batch_count get_lr get_data encoders 
                 }
             in
             fire_event (`Batch_end (i, stats)));
-        Lwt_js.yield () >>= fun () -> aux (i + 1)
+        if yield_sleep_length = 0. then Lwt_js.yield () >>= fun () -> aux (i + 1)
+        else Lwt_js.sleep yield_sleep_length >>= fun () -> aux (i + 1)
   in
 
   let time0 = (new%js Js.date_now)##valueOf /. 1000. in
@@ -204,11 +206,13 @@ module Make_backend (Backend : sig
 end) =
 struct
   let train : Types.training_backend_routine =
-   fun ?(verbose = true) ~fire_event ~instructions ~batch_count ~get_lr ~get_data ~encoders ~decoder ->
+   fun ?(verbose = true) ~yield_sleep_length ~fire_event ~instructions ~batch_count ~get_lr
+       ~get_data ~encoders ~decoder ->
     let open Lwt.Infix in
     Tfjs.setup_backend Backend.v >>= fun _ ->
     Tfjs.tidy_lwt (fun () ->
-        _train verbose fire_event instructions batch_count get_lr get_data encoders decoder)
+        _train verbose yield_sleep_length fire_event instructions batch_count get_lr get_data
+          encoders decoder)
     >>= fun () ->
     Tfjs.disposeVariables ();
     if verbose then Firebug.console##log (Tfjs.memory ());

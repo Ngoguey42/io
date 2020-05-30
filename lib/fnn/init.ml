@@ -29,10 +29,6 @@ open struct
       (Float.t, b, Bigarray.c_layout) Bigarray.Genarray.t =
    fun kind seed a b dims ->
     let rng = Random.State.make [| seed |] in
-    Printf.eprintf "> Running (uniform %f %f) on (seed %d) (first int:%d)\n%!"
-     a b seed (Random.State.int rng 1000)
-    ;
-    let rng = Random.State.make [| seed |] in
     init kind dims (fun _ -> uniform_rvs rng a b)
 
   let gaussian_rvs rng mu sigma =

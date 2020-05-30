@@ -4,6 +4,7 @@ open struct
   module Js = Js_of_ocaml.Js
   module Ndarray = Owl_base_dense_ndarray_generic
   module Webworker = Ft_js.Webworker
+  module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 end
 
 open Types
@@ -241,10 +242,13 @@ let construct_training (props : props) =
   let routine_status =
     let reduce s ev =
       match (s, ev) with
+      | `Allocating, `Batch_end _ -> `Running
       | `Running, `Outcome (`End _) -> `Ended
       | `Running, `Outcome `Abort -> `Aborted
       | `Running, `Outcome (`Crash _) -> `Crashed
-      | `Running, `Batch_end _ -> `Running
+      | _, `Outcome _ ->
+          Firebug.console##warn (Js.string "Two outcomes for 1 training");
+          s
       | _, _ -> s
     in
     React.S.fold reduce `Allocating routine_events
@@ -305,10 +309,21 @@ let construct_training (props : props) =
   in
 
   let mount () =
-    React.E.map (fun ev -> fire_upstream_event ev) routine_events |> ignore;
     if params.config.from_webworker then (
-      let on_error ev =
-        let ev =
+      (* 1. Create worker
+         2. Setup events and signals processing
+         3. Setup user_state in worker
+         4. Prime worker
+      *)
+      let on_out_msg _ ev =
+        match React.S.value user_status with
+        | `Abort ->
+            Firebug.console##warn
+              (Js.string "Filtering out a message comming from training routine")
+        | _ -> ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event
+      in
+      let on_out_error_msg ev =
+        let msg =
           match
             ( (Js.Unsafe.coerce ev)##.msg |> Js.Optdef.to_option,
               (Js.Unsafe.coerce ev)##.message |> Js.Optdef.to_option )
@@ -317,27 +332,47 @@ let construct_training (props : props) =
           | Some s, _ -> Js.to_string s
           | _, Some s -> Js.to_string s
         in
-        let ev = `Outcome (`Crash (Failure ev)) in
-        fire_upstream_event ev
+        match React.S.value user_status with
+        | `Abort ->
+            let msg =
+              Printf.sprintf "Filtering out an error comming from training routine (%s)" msg
+            in
+            Firebug.console##warn (Js.string msg)
+        | _ -> `Outcome (`Crash (Failure msg)) |> fire_upstream_event
       in
-      let fire_routine_event _ ev =
-        ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event
+      let on_new_user_status ww = function
+        | `Abort ->
+            fire_routine_event (`Outcome `Abort);
+            Webworker_routine.terminate ww
+        | s -> Webworker_routine.post_in_message ww s
       in
-      let ww = Webworker_routine.create fire_routine_event on_error in
-      let user_status = React.S.map Webworker_routine.preprocess_in_msg user_status in
-      React.S.changes user_status |> React.E.map (Webworker_routine.post_in_message ww) |> ignore;
-      React.S.changes routine_status
-      |> React.E.map (function
-           | `Allocating | `Running -> ()
-           | `Ended | `Aborted | `Crashed ->
-               (* Killing Webworker to free GPU memory *)
-               Webworker_routine.terminate ww)
+      let on_new_routine_status ww = function
+        | `Allocating | `Running -> ()
+        | `Ended | `Aborted | `Crashed ->
+            (* Killing Webworker to free GPU memory *)
+            Webworker_routine.terminate ww
+      in
+
+      let ww = Webworker_routine.create on_out_msg on_out_error_msg in
+
+      routine_events |> React.E.map (fun ev -> fire_upstream_event ev) |> ignore;
+
+      user_status
+      |> React.S.map Webworker_routine.preprocess_in_msg
+      |> React.S.changes
+      |> React.E.map (on_new_user_status ww)
       |> ignore;
-      Webworker_routine.post_in_message ww (React.S.value user_status);
-      Webworker_routine.post_in_message ww (Webworker_routine.preprocess_in_msg (`Prime params)) )
-    else
+
+      routine_status |> React.S.changes |> React.E.map (on_new_routine_status ww) |> ignore;
+
+      user_status |> React.S.value |> Webworker_routine.preprocess_in_msg
+      |> Webworker_routine.post_in_message ww;
+
+      `Prime params |> Webworker_routine.preprocess_in_msg |> Webworker_routine.post_in_message ww )
+    else (
+      routine_events |> React.E.map (fun ev -> fire_upstream_event ev) |> ignore;
       let routine () = routine params fire_routine_event user_status in
-      Js_of_ocaml_lwt.Lwt_js_events.async routine
+      Js_of_ocaml_lwt.Lwt_js_events.async routine )
   in
 
   Reactjs.construct ~mount ~signal:routine_progress ~signal:user_status ~signal:routine_status

@@ -25,7 +25,6 @@ let react_main db signal set_signal =
     | Creating_network, Network_made ev ->
         (* Just created network. Very first event *)
         Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
-    | Creating_network, _ -> failwith "react_main@reduce@Creating_network : unexpected event"
     | Selecting_backend s, Backend_selected (backend, from_webworker) ->
         (* Selected backend for the first time, can select it again later *)
         let config = { backend; from_webworker; verbose = false; batch_size = 500 } in
@@ -44,7 +43,6 @@ let react_main db signal set_signal =
             images_seen = 0;
             config;
           }
-    | Selecting_backend _, _ -> failwith "react_main@reduce@Selecting_backend : unexpected event"
     | Evaluating _, Evaluation_event `Init
     | Evaluating _, Evaluation_event (`Batch_begin _)
     | Evaluating _, Evaluation_event (`Batch_end _) ->
@@ -77,7 +75,6 @@ let react_main db signal set_signal =
             from_webworker = s.from_webworker;
             images_seen = s.images_seen;
           }
-    | Evaluating _, _ -> failwith "react_main@reduce@Evaluating : unexpected event"
     | Creating_training s, Training_conf ev ->
         (* Launching training *)
         Training
@@ -104,7 +101,6 @@ let react_main db signal set_signal =
         Backend_selected (backend, from_webworker) ) ->
         (* Selecting new backend *)
         Creating_training { encoder; decoder; seed; images_seen; backend; from_webworker }
-    | Creating_training _, _ -> failwith "react_main@reduce@Creating_training : unexpected event"
     | Training _, Training_event `Init
     | Training _, Training_event (`Batch_begin _)
     | Training _, Training_event (`Batch_end _) ->
@@ -144,6 +140,10 @@ let react_main db signal set_signal =
         Training_event (`Outcome (`Crash _)) ) ->
         (* Training crashed *)
         Creating_training { encoder; decoder; seed; images_seen; backend; from_webworker }
+    | Creating_network, _ -> failwith "react_main@reduce@Creating_network : unexpected event"
+    | Selecting_backend _, _ -> failwith "react_main@reduce@Selecting_backend : unexpected event"
+    | Evaluating _, _ -> failwith "react_main@reduce@Evaluating : unexpected event"
+    | Creating_training _, _ -> failwith "react_main@reduce@Creating_training : unexpected event"
     | Training _, _ -> failwith "react_main@reduce@Training : unexpected event"
   in
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;

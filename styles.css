@@ -6,20 +6,54 @@ code {
     border-style: solid;
     border-width: 0;
 }
-h1, h2 { border-bottom: 1px solid black; }
-h2, h3 { padding-left: 9px; }
-h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
+h1 {
+    border-bottom: 1px solid black;
+    font-weight: normal; font-family: "Fira Sans", sans-serif;
+
+    display: block;
+    font-size: 2em;
+    margin-block-start: 0.67em;
+    margin-block-end: 0.67em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+}
+h2 {
+    border-bottom: 1px solid black;
+    padding-left: 9px;
+    font-weight: normal; font-family: "Fira Sans", sans-serif;
+
+    display: block;
+    font-size: 1.5em;
+    margin-block-start: 0.83em;
+    margin-block-end: 0.83em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+}
+h3 {
+    padding-left: 9px;
+    font-weight: normal; font-family: "Fira Sans", sans-serif;
+
+    display: block;
+    font-size: 1.17em;
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+}
+
 /* ************************************************************************** */
-#header { text-align: center; }
-#header a {
+#header {
+    text-align: center;
     font-family: "Fira Sans", sans-serif;
     font-weight: normal;
     color: #007bff;
+}
+#header a {
     text-decoration: none !important;
 }
 #header a:visited { color: #007bff; }
 .textdiv {
-    width: 768px;
+    width: 825px;
     margin: 0 auto;
     margin-top: 25px;
     background: #F7F7F7;
@@ -41,6 +75,24 @@ h1, h2, h3 { font-weight: normal; font-family: "Fira Sans", sans-serif; }
     border-width: 0;
     border-radius: 5px;
 }
+.mnist-icon-whitebg {
+    height: 18px;
+    width: 18px;
+    display: inline-block;
+    margin-bottom: 1px;
+    margin-right: 2px;
+    vertical-align: middle;
+    filter: invert();
+}
+.mnist-icon-blackbg {
+    height: 18px;
+    width: 18px;
+    display: inline-block;
+    margin-bottom: 1px;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
 /* ************************************************************************** */
 .mnist-panel { margin: 0; margin-bottom: 7px; }
 .mnist-panel > thead > tr { background: #EBEBEB; text-align: center }

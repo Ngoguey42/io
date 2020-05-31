@@ -53,8 +53,7 @@ let jsx_of_tab db gsignal set_gsignal fire_toast i state =
     | Creating_network -> []
     | Creating_training _ -> []
     | Selecting_backend _ -> []
-    | Evaluating _
-    | Training _ ->
+    | Evaluating _ | Training _ ->
         [
           of_string "\u{a0}";
           of_bootstrap "Spinner" ~animation_string:"border" ~variant:"primary" ~size:"sm" [];
@@ -164,25 +163,22 @@ let construct_mnist_jsoo _ =
       match React.S.value signal with
       | Loading -> of_string ""
       | Loaded (db, focusidx, tabstates) ->
-         let focusidx = string_of_int focusidx in
-         let head =
-           of_bootstrap "Tab" ~title_jsx:(of_string "Networks") ~event_key:"head" ~disabled:true []
-         in
-         let tabs =
-           Array.mapi (jsx_of_tab db signal set_signal fire_toast) tabstates |> Array.to_list
-         in
-         let plus =
-           of_bootstrap "Tab" ~title_jsx:(of_string "+" >> of_tag "b") ~event_key:"+" []
-         in
-         of_bootstrap "Tabs" ~transition:false ~active_key:focusidx ~on_select ~id:"network-tabs"
-                      ([ head ] @ tabs @ [ plus ])
+          let focusidx = string_of_int focusidx in
+          let head =
+            of_bootstrap "Tab" ~title_jsx:(of_string "Networks") ~event_key:"head" ~disabled:true []
+          in
+          let tabs =
+            Array.mapi (jsx_of_tab db signal set_signal fire_toast) tabstates |> Array.to_list
+          in
+          let plus =
+            of_bootstrap "Tab" ~title_jsx:(of_string "+" >> of_tag "b") ~event_key:"+" []
+          in
+          of_bootstrap "Tabs" ~transition:false ~active_key:focusidx ~on_select ~id:"network-tabs"
+            ([ head ] @ tabs @ [ plus ])
     in
     [
       toasts;
-      [
-        res;
-        tabs;
-      ] |> of_bootstrap "Col" >> of_bootstrap "Row"
+      [ res; tabs ] |> of_bootstrap "Col" >> of_bootstrap "Row"
       >> of_bootstrap "Container" ~fluid:"sm" ~class_:[ "mnistdiv" ];
     ]
     |> of_react "Fragment"
@@ -195,8 +191,10 @@ let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
 
-  let div = [%html {|<div id="mnist-title"><h1>MNIST training with Js_of_ocaml</h1></div>|}]
-            |> Tyxml_js.To_dom.of_element in
+  let div =
+    [%html {|<div id="mnist-title"><h1>MNIST training with Js_of_ocaml</h1></div>|}]
+    |> Tyxml_js.To_dom.of_element
+  in
   Dom.appendChild body div;
 
   let div = [%html "<div></div>"] |> Tyxml_js.To_dom.of_element in

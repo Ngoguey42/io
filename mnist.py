@@ -1,10 +1,14 @@
+# Proof Of Concept code, please don't judge me!
 
 import numpy as np
 np.set_printoptions(linewidth=300, threshold=100000)
 rng = np.random.RandomState(42)
 
-
 def find_countour(img):
+    """
+    Hard-coded implementation of a find-contour algorithm. I could have use GDAL or something else
+    but I will eventually need the algorithm in ocaml/js.
+    """
     assert img.size > 0
     assert img.ndim == 2
     img = img.astype(bool, copy=False)
@@ -28,16 +32,13 @@ def find_countour(img):
                 bl = infos[i    , j - 1] != 0
                 zone = [ tl, tr, bl, br ]
                 if zone == [f_, t_, t_, f_]:
-                    # print('add br', i, j)
                     infos[i    , j    ] = 1
                     dirty = True
                 elif zone == [t_, f_, f_, t_]:
-                    # print('add bl at', i, j)
                     infos[i    , j - 1] = 1
                     dirty = True
 
     def find_component(i0, j0):
-        # print('>>> find_component', i0, j0)
         coords = []
         previj = i0 + 1, j0
 
@@ -143,7 +144,6 @@ def find_countour(img):
             assert (i, j) not in debug_unique_set, (i, j)
             debug_unique_set.add((i, j))
             count += 1
-            # if count == 500: break
 
             (i, j), previj = follow(), (i, j)
 
@@ -162,11 +162,8 @@ def find_countour(img):
             v = infos[i, j]
             outside = not inside
 
-            # print(i, j, (['outside', 'inside'][inside], u, v))
-
             if outside and u == 0 and v == 1:
                 components.append(find_component(i, j))
-                # debug_break = True
                 inside = True
             elif inside and u == 2 and v == -1:
                 inside = False
@@ -184,24 +181,20 @@ def find_countour(img):
     #     for edge0, ij, edge1 in zip(edges, coords[1:], edges[1:]):
     #         if edge0 != edge1:
     #             yield ij
-
     # components = [list(simplify(coords)) for coords in components]
 
-    test = np.zeros((h * 2, w * 2), 'int8')
-    for i in range(h):
-        for j in range(w):
-            if infos[i, j] != 0:
-                test[i * 2 + 1, j * 2 + 1] = infos[i, j]
-    for coords in components:
-        for (i, j), (k, l) in zip(coords, coords[1:]):
-            test[i * 2, j * 2] = 9
-            test[k * 2, l * 2] = 9
-            k = k + i
-            l = l + j
-            # test[k, l] += 8
-
-    # print(infos)
-    test[test == -1] = 5
+    # test = np.zeros((h * 2, w * 2), 'int8')
+    # for i in range(h):
+    #     for j in range(w):
+    #         if infos[i, j] != 0:
+    #             test[i * 2 + 1, j * 2 + 1] = infos[i, j]
+    # for coords in components:
+    #     for (i, j), (k, l) in zip(coords, coords[1:]):
+    #         test[i * 2, j * 2] = 9
+    #         test[k * 2, l * 2] = 9
+    #         k = k + i
+    #         l = l + j
+    # test[test == -1] = 5
     # print(str(test)
     #       .replace('5', ' ')
     #       .replace('0', ' ')
@@ -211,7 +204,6 @@ def find_countour(img):
     #       .replace('9', '*')
     #       .replace('8', '.')
     # )
-
 
     components = [
         [(i - 1, j - 1) for (i, j) in coords]
@@ -237,6 +229,7 @@ test 18
 """
 
 def dump(img, mask, ijs):
+    """Dump JSON on stdout"""
     ijs = np.asarray(ijs[::-1]).astype(float)
     xys = np.asarray(ijs)[::-1, ::-1].astype(float)
 
@@ -299,23 +292,7 @@ def dump(img, mask, ijs):
         s,
     ))
 
-# for j in range(len(labs)):
-    # input()
-    # i = labs[j]
-
-# for i in [0]:
-# for i in [1]:
 for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
-# for i in [0, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9]:
-
-# for j in [11]:
-# for j in [3]:
-# for j in [0]:
-# for j in [18]:
-# for j in [8]:
-# for j in [222]:
-# for j in [1087]:
-#     i = labs[j]
     while True:
         j = rng.randint(1000)
         if labs[j] != i:
@@ -324,14 +301,8 @@ for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
         img = imgs[j].copy()
         mask = img > 50
         img[~mask] = 0
-        # img = .copy()
-        # print(img.astype(bool).astype(int))
         components = find_countour(mask)
-        # print([len(c) for c in components])
         if len(components) != 1:
             continue
         dump(img, mask, components[0])
-        # exit()
         break
-        # if len(components) != 1:
-        # input()

@@ -126,7 +126,7 @@ module Lr = struct
   let of_string v =
     match int_of_string v |> lr_tag_of_enum with Some v -> v | None -> failwith "unreachable"
 
-  let default = `Down
+  let default = `Flat
 
   let string_of_dconf : derived_conf -> string =
    fun c ->

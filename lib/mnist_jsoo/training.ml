@@ -193,7 +193,7 @@ let construct_instructions (_, _, set_user_status) =
       | `Target, _ ->
           of_bootstrap "Button" ~as_:"div"
             ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
-            ~size:"sm" ~class_:[ "active"; "focus" ] ~variant:"success" [ of_string txt ]
+            ~size:"sm" ~classes:[ "active"; "focus" ] ~variant:"success" [ of_string txt ]
     in
     match user_status with
     | `Train_to_end ->
@@ -308,7 +308,7 @@ let construct_training (props : props) =
       >> of_tag "tbody"
     in
     let thead = of_string "Training Control" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
-    of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
+    of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
   let mount () =

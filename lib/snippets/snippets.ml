@@ -18,38 +18,24 @@ let construct_reactjs_snippet () =
     let open Reactjs.Jsx in
     Printf.printf "> Component - reactjs_snippet | render\n%!";
     let head = of_string "Reactjs wrapper" in
-    let head =
-      head
-      >> of_tag "th"
-      >> of_tag "tr"
-      >> of_tag "thead"
-    in
+    let head = head >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
 
-    let body = of_string "COOODE!" in
-    let body =
-      body
-      >> of_tag "th"
-      >> of_tag "tr"
-      >> of_tag "tbody"
-    in
+    let body = of_constructor Reactjs_snip.construct_component () in
+    (* let body = of_string "COOODE!" in *)
+    let body = body >> of_tag "th" >> of_tag "tr" >> of_tag "tbody" in
 
-    [head; body]
-    |> of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm"
+    [ head; body ] |> of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm"
   in
   Reactjs.construct render
-
 
 let construct_snippets () =
   Printf.printf "> Component - snippets | construct\n%!";
   let render () =
     let open Reactjs.Jsx in
     Printf.printf "> Component - snippets | render\n%!";
-    [
-      Reactjs.Jsx.of_constructor construct_reactjs_snippet ();
-    ]
-    |> of_bootstrap "Col"
-    >> of_bootstrap "Row"
-    >> of_bootstrap "Container" ~fluid:"sm" ~class_:[ "bigbox1" ];
+    [ Reactjs.Jsx.of_constructor construct_reactjs_snippet () ]
+    |> of_bootstrap "Col" >> of_bootstrap "Row"
+    >> of_bootstrap "Container" ~fluid:true ~classes:[ "bigbox1" ]
   in
   Reactjs.construct render
 
@@ -58,8 +44,7 @@ let main () =
   let body = Dom_html.window##.document##.body in
 
   let div =
-    [%html {|<div class="bigbox-title"><h1>Snippets</h1></div>|}]
-    |> Tyxml_js.To_dom.of_element
+    [%html {|<div class="bigbox-title"><h1>Snippets</h1></div>|}] |> Tyxml_js.To_dom.of_element
   in
   Dom.appendChild body div;
 

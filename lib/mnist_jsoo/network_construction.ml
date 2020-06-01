@@ -362,7 +362,7 @@ let construct_int_input :
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%Ld)" M.name v |> of_string ];
         of_bootstrap "Form.Control" ~placeholder:(Int64.to_string M.default) ~disabled:(not enabled)
           ~size:"sm" ~type_:"number" ~on_change [];
-        of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ];
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ];
       ]
   in
   Reactjs.construct ~signal render
@@ -386,7 +386,7 @@ let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool)
       [
         of_bootstrap "Form.Label" [ of_string M.name ];
         control;
-        of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ];
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ];
       ]
   in
   Reactjs.construct render
@@ -424,7 +424,7 @@ let construct_training_config : _ Reactjs.constructor =
     let dconf = React.S.value dconf_signal in
     let tt =
       of_tag "div"
-        ~class_:[ "text-monospace"; "text-left"; "small" ]
+        ~classes:[ "text-monospace"; "text-left"; "small" ]
         (jsx_of_code (code_of_dconf dconf))
       >> of_bootstrap "Tooltip" ~id:"network-code-tooltip"
     in
@@ -436,7 +436,7 @@ let construct_training_config : _ Reactjs.constructor =
         >> of_bootstrap
              ~on_click:(fun ev -> ev##preventDefault)
              "Button" ~type_:"submit"
-             ~class_:[ "btn-info"; "network-code-button" ]
+             ~classes:[ "btn-info"; "network-code-button" ]
         >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt;
       ]
       |> of_bootstrap "Col"
@@ -463,7 +463,7 @@ let construct_training_config : _ Reactjs.constructor =
       |> of_bootstrap "Row" >> of_bootstrap "Form" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in
     let thead = of_string "Network Creation" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
-    of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
+    of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
   Reactjs.construct ~signal:dconf_signal render

@@ -203,7 +203,7 @@ let construct_backend_selection : _ Reactjs.constructor =
       >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in
     let thead = of_string "Backend Selection" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
-    of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
+    of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
   Reactjs.construct render

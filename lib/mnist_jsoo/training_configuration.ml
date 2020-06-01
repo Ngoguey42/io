@@ -183,7 +183,7 @@ let construct_int_input :
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%s)" M.name s |> of_string ];
         of_bootstrap "Form.Control" ~placeholder:(Int64.to_string M.default) ~disabled:(not enabled)
           ~size:"sm" ~type_:"number" ~on_change [];
-        of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ];
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ];
       ]
   in
   Reactjs.construct ~signal render
@@ -216,7 +216,7 @@ let construct_float_input :
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%s)" M.name s |> of_string ];
         of_bootstrap "Form.Control" ~placeholder:(string_of_float M.default) ~disabled:(not enabled)
           ~size:"sm" ~type_:"number" ~on_change [];
-        of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ];
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ];
       ]
       |> of_bootstrap "Form.Group"
   in
@@ -260,7 +260,7 @@ let construct_select :
     ]
     @ submodules
     @ [
-        of_bootstrap "Form.Text" ~class_:[ "text-muted" ] [ of_string M.description ]
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ]
         >> of_bootstrap "Col" ~md_span:12;
       ]
     |> of_bootstrap "Row" ~no_gutters:true
@@ -319,7 +319,7 @@ let construct_training_config : _ Reactjs.constructor =
     let thead =
       of_string "Training Configuration" >> of_tag "th" >> of_tag "tr" >> of_tag "thead"
     in
-    of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
+    of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
   Reactjs.construct ~signal:dconf_signal render

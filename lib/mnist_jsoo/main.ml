@@ -19,7 +19,7 @@ let render_toast (id, (title, body), water_toast) =
   Printf.printf "> Component - toast%s | render\n%!" id;
   let on_close () = water_toast id in
   let header =
-    of_string title >> of_tag "strong" ~class_:[ "mr-auto" ] >> of_bootstrap "Toast.Header"
+    of_string title >> of_tag "strong" ~classes:[ "mr-auto" ] >> of_bootstrap "Toast.Header"
   in
   let body = of_string body >> of_bootstrap "Toast.Body" in
   of_bootstrap "Toast" ~on_close ~animation_bool:false [ header; body ]
@@ -155,7 +155,7 @@ let construct_mnist_jsoo _ =
     let toasts =
       toast_signal |> React.S.value
       |> List.map (fun (id, data) -> of_render ~key:id render_toast (id, data, water_toast))
-      |> of_tag "div" ~class_:[ "toast-holder" ]
+      |> of_tag "div" ~classes:[ "toast-holder" ]
       (* ~style:[ ("position", "fixed"); ("top", "5px"); ("right", "5px"); ("z-index", "50") ] *)
     in
     let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
@@ -179,7 +179,7 @@ let construct_mnist_jsoo _ =
     [
       toasts;
       [ res; tabs ] |> of_bootstrap "Col" >> of_bootstrap "Row"
-      >> of_bootstrap "Container" ~fluid:"sm" ~class_:[ "bigbox1" ];
+      >> of_bootstrap "Container" ~fluid:true ~classes:[ "bigbox1" ];
     ]
     |> of_react "Fragment"
   in

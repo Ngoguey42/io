@@ -1,11 +1,9 @@
 open struct
   module Dom_html = Js_of_ocaml.Dom_html
-  module Dom = Js_of_ocaml.Dom
-  module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
-  module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
   module Js = Js_of_ocaml.Js
-  module Firebug = Js_of_ocaml.Firebug
 end
+
+(* Types **************************************************************************************** *)
 
 module WeakJsObjDict = Ephemeron.K1.Make (struct
   type t = Js.Unsafe.any
@@ -42,15 +40,33 @@ class type ref_ =
     method current : Dom_html.element Js.t Js.Opt.t Js.readonly_prop
   end
 
-let create_ref () : ref_ Js.t =
-  let open Js.Unsafe in
-  fun_call global##._React##.createRef [||]
+(* Functions ************************************************************************************ *)
 
+(** https://reactjs.org/docs/react-dom.html#render *)
+let render : jsx Js.t -> Dom_html.element Js.t -> unit =
+ fun elt container ->
+  let open Js.Unsafe in
+  fun_call global##._ReactDOM##.render [| inject elt; inject container |]
+
+(** To be called at the end of a constructor.
+
+    OCaml piece of code | React.Component class equivalent
+    ------------------------------------------------------
+    construct caller    | .constructor
+    ~mount              | .componentDidMount
+    ~update             | .componentDidUpdate
+    ~unmount            | .componentDidMount
+    ~signal             | .state
+    ~events             | .state
+    render              | .render
+
+    How to improve the {| ?signal -> ?signal -> ?signal |} trick?
+*)
 let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4
     ?events:e0 render : 'props construction =
-  let mount = match mount with None -> fun () -> () | Some mount -> mount in
-  let update = match update with None -> fun () -> () | Some update -> update in
-  let unmount = match unmount with None -> fun () -> () | Some unmount -> unmount in
+  let mount = Option.value ~default:(fun () -> ()) mount in
+  let update = Option.value ~default:(fun () -> ()) update in
+  let unmount = Option.value ~default:(fun () -> ()) unmount in
 
   let setup_signal signal idx self =
     Js.Unsafe.set (Js.Unsafe.get self (Js.string "state")) idx (React.S.value signal);
@@ -87,6 +103,12 @@ let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s
   in
   (render, mount, update, unmount, setup_signals)
 
+(** https://reactjs.org/docs/refs-and-the-dom.html *)
+let create_ref () : ref_ Js.t =
+  let open Js.Unsafe in
+  fun_call global##._React##.createRef [||]
+
+(** Reactjs.Jsx to be opened in render functions *)
 module Jsx = struct
   let ( >> ) : jsx Js.t -> (jsx Js.t list -> jsx Js.t) -> jsx Js.t = fun v f -> f [ v ]
 
@@ -98,151 +120,147 @@ module Jsx = struct
 
   let _class_of_render : Js.Unsafe.any WeakJsObjDict.t = WeakJsObjDict.create 25
 
-  let of_string s : jsx Js.t = s |> Js.string |> Obj.magic
-
   let _create_element :
       'a ->
-      ?ref:ref_ Js.t ->
-      ?key:string ->
-      ?on_click:(Dom_html.buttonElement Js.t event Js.t -> unit) ->
-      ?on_select:(Js.js_string Js.t -> Dom_html.anchorElement Js.t event Js.t -> unit) ->
-      ?on_close:(unit -> unit) ->
-      ?disabled:bool ->
-      ?inline:bool ->
-      ?colspan:string ->
-      ?href:string ->
-      ?src:string ->
-      ?placement:string ->
-      ?fluid:string ->
-      ?overlay:jsx Js.t ->
-      ?bordered:bool ->
-      ?xs_span:int ->
-      ?sm_span:int ->
-      ?md_span:int ->
-      ?lg_span:int ->
-      ?xl_span:int ->
-      ?xs_order:int ->
-      ?sm_order:int ->
-      ?md_order:int ->
-      ?lg_order:int ->
-      ?xl_order:int ->
-      ?event_key:string ->
-      ?default_active_key:string ->
       ?active_key:string ->
-      ?placeholder:string ->
-      ?animation_string:string ->
       ?animation_bool:bool ->
-      ?variant:string ->
-      ?type_:string ->
-      ?min:float ->
-      ?step:float ->
-      ?default_value:string ->
-      ?value:string ->
-      ?on_change:(Dom_html.inputElement Js.t event Js.t -> unit) ->
+      ?animation_string:string ->
       ?as_:string ->
+      ?bordered:bool ->
+      ?classes:string list ->
+      ?colspan:string ->
+      ?default_active_key:string ->
+      ?default_value:string ->
+      ?disabled:bool ->
+      ?event_key:string ->
+      ?fluid:bool ->
+      ?href:string ->
+      ?id:string ->
+      ?inline:bool ->
+      ?key:string ->
+      ?label:string ->
+      ?min:float ->
+      ?name:string ->
+      ?no_gutters:bool ->
+      ?on_change:(Dom_html.inputElement Js.t event Js.t -> unit) ->
+      ?on_click:(Dom_html.buttonElement Js.t event Js.t -> unit) ->
+      ?on_close:(unit -> unit) ->
+      ?on_select:(Js.js_string Js.t -> Dom_html.anchorElement Js.t event Js.t -> unit) ->
+      ?overlay:jsx Js.t ->
+      ?placeholder:string ->
+      ?placement:string ->
+      ?ref:ref_ Js.t ->
       ?size:string ->
+      ?src:string ->
+      ?step:float ->
+      ?style:(string * string) list ->
       ?title:string ->
       ?title_jsx:jsx Js.t ->
       ?transition:bool ->
-      ?id:string ->
-      ?class_:string list ->
-      ?style:(string * string) list ->
-      ?label:string ->
-      ?name:string ->
-      ?no_gutters:bool ->
+      ?type_:string ->
+      ?value:string ->
+      ?variant:string ->
+      ?lg_order:int ->
+      ?lg_span:int ->
+      ?md_order:int ->
+      ?md_span:int ->
+      ?sm_order:int ->
+      ?sm_span:int ->
+      ?xl_order:int ->
+      ?xl_span:int ->
+      ?xs_order:int ->
+      ?xs_span:int ->
       jsx Js.t list ->
       jsx Js.t =
-   fun ctor ?ref ?key ?on_click ?on_select ?on_close ?disabled ?inline ?colspan ?href ?src
-       ?placement ?fluid ?overlay ?bordered ?xs_span ?sm_span ?md_span ?lg_span ?xl_span ?xs_order
-       ?sm_order ?md_order ?lg_order ?xl_order ?event_key ?default_active_key ?active_key
-       ?placeholder ?animation_string ?animation_bool ?variant ?type_ ?min ?step ?default_value
-       ?value ?on_change ?as_ ?size ?title ?title_jsx ?transition ?id ?class_ ?style ?label ?name
-       ?no_gutters children ->
+   fun ctor ?active_key ?animation_bool ?animation_string ?as_ ?bordered ?classes ?colspan
+       ?default_active_key ?default_value ?disabled ?event_key ?fluid ?href ?id ?inline ?key ?label
+       ?min ?name ?no_gutters ?on_change ?on_click ?on_close ?on_select ?overlay ?placeholder
+       ?placement ?ref ?size ?src ?step ?style ?title ?title_jsx ?transition ?type_ ?value ?variant
+       ?lg_order ?lg_span ?md_order ?md_span ?sm_order ?sm_span ?xl_order ?xl_span ?xs_order
+       ?xs_span children ->
     let open Js.Unsafe in
     let props = object%js end in
+    let set_prop opt bootstrap_name preprocess =
+      Option.iter (fun v -> set props (Js.string bootstrap_name) (preprocess v)) opt
+    in
 
-    let xs = lazy (object%js end) in
-    Option.iter (fun v -> set (Lazy.force xs) (Js.string "span") v) xs_span;
-    Option.iter (fun v -> set (Lazy.force xs) (Js.string "order") v) xs_order;
-    if Lazy.is_val xs then set props (Js.string "xs") (Lazy.force xs);
-
-    let sm = lazy (object%js end) in
-    Option.iter (fun v -> set (Lazy.force sm) (Js.string "span") v) sm_span;
-    Option.iter (fun v -> set (Lazy.force sm) (Js.string "order") v) sm_order;
-    if Lazy.is_val sm then set props (Js.string "sm") (Lazy.force sm);
-
-    let md = lazy (object%js end) in
-    Option.iter (fun v -> set (Lazy.force md) (Js.string "span") v) md_span;
-    Option.iter (fun v -> set (Lazy.force md) (Js.string "order") v) md_order;
-    if Lazy.is_val md then set props (Js.string "md") (Lazy.force md);
-
-    let lg = lazy (object%js end) in
-    Option.iter (fun v -> set (Lazy.force lg) (Js.string "span") v) lg_span;
-    Option.iter (fun v -> set (Lazy.force lg) (Js.string "order") v) lg_order;
-    if Lazy.is_val lg then set props (Js.string "lg") (Lazy.force lg);
-
-    let xl = lazy (object%js end) in
-    Option.iter (fun v -> set (Lazy.force xl) (Js.string "span") v) xl_span;
-    Option.iter (fun v -> set (Lazy.force xl) (Js.string "order") v) xl_order;
-    if Lazy.is_val xl then set props (Js.string "xl") (Lazy.force xl);
-
-    Option.iter (fun v -> set props (Js.string "ref") v) ref;
-    Option.iter (fun v -> set props (Js.string "key") v) key;
-    Option.iter (fun fn -> set props (Js.string "onClick") (Js.wrap_callback fn)) on_click;
-    Option.iter (fun fn -> set props (Js.string "onSelect") (Js.wrap_callback fn)) on_select;
-    Option.iter (fun fn -> set props (Js.string "onClose") (Js.wrap_callback fn)) on_close;
-    Option.iter (fun v -> set props (Js.string "disabled") v) disabled;
-    Option.iter (fun v -> set props (Js.string "inline") v) inline;
-    Option.iter (fun v -> set props (Js.string "colSpan") (Js.string v)) colspan;
-    Option.iter (fun v -> set props (Js.string "href") (Js.string v)) href;
-    Option.iter (fun v -> set props (Js.string "src") (Js.string v)) src;
-    Option.iter (fun v -> set props (Js.string "title") (Js.string v)) title;
-    Option.iter (fun v -> set props (Js.string "title") v) title_jsx;
-    Option.iter (fun v -> set props (Js.string "transition") v) transition;
-    Option.iter (fun v -> set props (Js.string "placement") (Js.string v)) placement;
-    Option.iter (fun _ -> set props (Js.string "fluid") true) fluid;
-    (* Option.iter (fun v -> set props (Js.string "fluid") (Js.string v)) fluid; *)
-    Option.iter (fun v -> set props (Js.string "overlay") v) overlay;
-    Option.iter (fun v -> set props (Js.string "bordered") v) bordered;
-    Option.iter (fun v -> set props (Js.string "eventKey") (Js.string v)) event_key;
-    Option.iter (fun v -> set props (Js.string "defaultActiveKey") (Js.string v)) default_active_key;
-    Option.iter (fun v -> set props (Js.string "activeKey") (Js.string v)) active_key;
-    Option.iter (fun v -> set props (Js.string "placeholder") (Js.string v)) placeholder;
-    Option.iter (fun v -> set props (Js.string "animation") (Js.string v)) animation_string;
-    Option.iter (fun v -> set props (Js.string "animation") v) animation_bool;
-    Option.iter (fun v -> set props (Js.string "variant") (Js.string v)) variant;
-    Option.iter (fun v -> set props (Js.string "type") (Js.string v)) type_;
-    Option.iter (fun v -> set props (Js.string "min") v) min;
-    Option.iter (fun v -> set props (Js.string "step") v) step;
-    Option.iter (fun v -> set props (Js.string "defaultValue") (Js.string v)) default_value;
-    Option.iter (fun v -> set props (Js.string "value") (Js.string v)) value;
-    Option.iter (fun fn -> set props (Js.string "onChange") (Js.wrap_callback fn)) on_change;
-    Option.iter (fun v -> set props (Js.string "as") (Js.string v)) as_;
-
-    Option.iter (fun v -> set props (Js.string "size") (Js.string v)) size;
-    Option.iter (fun v -> set props (Js.string "id") v) id;
-    Option.iter
-      (fun l -> set props (Js.string "className") (String.concat " " l |> Js.string))
-      class_;
-    Option.iter
-      (fun l ->
+    (* Props *)
+    set_prop active_key "activeKey" Js.string;
+    set_prop animation_bool "animation" Js.bool;
+    set_prop animation_string "animation" Js.string;
+    set_prop as_ "as" Js.string;
+    set_prop bordered "bordered" Js.bool;
+    set_prop classes "className" (fun l -> String.concat " " l |> Js.string);
+    set_prop colspan "colSpan" Js.string;
+    set_prop default_active_key "defaultActiveKey" Js.string;
+    set_prop default_value "defaultValue" Js.string;
+    set_prop disabled "disabled" Js.bool;
+    set_prop event_key "eventKey" Js.string;
+    set_prop fluid "fluid" Js.bool;
+    set_prop href "href" Js.string;
+    set_prop id "id" Js.string;
+    set_prop inline "inline" Js.bool;
+    set_prop key "key" Js.string;
+    set_prop label "label" Js.string;
+    set_prop min "min" Fun.id;
+    set_prop name "name" Js.string;
+    set_prop no_gutters "noGutters" Js.bool;
+    set_prop on_change "onChange" Js.wrap_callback;
+    set_prop on_click "onClick" Js.wrap_callback;
+    set_prop on_close "onClose" Js.wrap_callback;
+    set_prop on_select "onSelect" Js.wrap_callback;
+    set_prop overlay "overlay" Fun.id;
+    set_prop overlay "overlay" Fun.id;
+    set_prop placeholder "placeholder" Js.string;
+    set_prop placement "placement" Js.string;
+    set_prop ref "ref" Fun.id;
+    set_prop size "size" Js.string;
+    set_prop src "src" Js.string;
+    set_prop step "step" Fun.id;
+    set_prop style "style" (fun l ->
         let style = object%js end in
         List.iter (fun (k, v) -> set style (Js.string k) (Js.string v)) l;
-        set props (Js.string "style") style)
-      style;
-    Option.iter (fun v -> set props (Js.string "label") (Js.string v)) label;
-    Option.iter (fun v -> set props (Js.string "name") (Js.string v)) name;
-    Option.iter (fun v -> set props (Js.string "noGutters") v) no_gutters;
+        style);
+    set_prop title "title" Js.string;
+    set_prop title_jsx "title" Fun.id;
+    set_prop transition "transition" Js.bool;
+    set_prop type_ "type" Js.string;
+    set_prop value "value" Js.string;
+    set_prop variant "variant" Js.string;
 
-    let args =
-      Array.concat [ [| ctor; inject props |]; List.map inject children |> Array.of_list ]
+    (* Props: ReactBootstrap.Col specific *)
+    let set_col_prop bootstrap_name span_opt order_opt =
+      let o = lazy (object%js end) in
+      Option.iter (fun v -> set (Lazy.force o) (Js.string "span") v) span_opt;
+      Option.iter (fun v -> set (Lazy.force o) (Js.string "order") v) order_opt;
+      if Lazy.is_val o then set props (Js.string bootstrap_name) (Lazy.force o)
     in
-    fun_call global##._React##.createElement args
+    set_col_prop "xs" xs_span xs_order;
+    set_col_prop "sm" sm_span sm_order;
+    set_col_prop "md" md_span md_order;
+    set_col_prop "lg" lg_span lg_order;
+    set_col_prop "xl" xl_span xl_order;
 
+    Array.concat [ [| ctor; inject props |]; List.map inject children |> Array.of_list ]
+    |> fun_call global##._React##.createElement
+
+  (** Create a Jsx object from an OCaml string *)
+  let of_string : string -> jsx Js.t = fun s -> s |> Js.string |> Obj.magic
+
+  (** Create a Jsx object from:
+      - an html tag name (e.g. "img", "div"),
+      - optional properties (e.g. ~title:"Hello", ~style:["width", "200px"])
+      - a list of Jsx children
+   *)
   let of_tag name =
     let open Js.Unsafe in
     _create_element (name |> Js.string |> inject)
 
+  (** Create a Jsx object from:
+      - a React object path, (e.g. "Fragment")
+      - optional properties (e.g. ~title:"Hello", ~style:["width", "200px"])
+      - a list of Jsx children
+   *)
   let of_react path =
     let open Js.Unsafe in
     let fail name = Printf.sprintf "Could not find %s in React.%s" name path |> failwith in
@@ -257,6 +275,11 @@ module Jsx = struct
     in
     _create_element o
 
+  (** Create a Jsx object from:
+      - a ReactBootstrap object path, (e.g. "Col" or "Form.Group")
+      - optional properties (e.g. ~title:"Hello", ~style:["width", "200px"])
+      - a list of Jsx children
+   *)
   let of_bootstrap path =
     let open Js.Unsafe in
     let fail name = Printf.sprintf "Could not find %s in ReactBootstrap.%s" name path |> failwith in
@@ -273,7 +296,11 @@ module Jsx = struct
     in
     _create_element o
 
-  (* Constructor is called with `props`. `render` is also called with `props` too because React
+  (** Create a Jsx object from:
+      - an OCaml function ending with a call to `Reactjs.constructor`,
+      - the props taken by that constructor and its render function.
+
+     Constructor is called with `props`. `render` is also called with `props` too because React
      doesn't re-instanciate the component when `props` changes. Three design patterns can be adopted:
      - Don't perform render conditionned on props. Use signals.
      - Perform render conditionned on constructor's props. To do so, use a new `key` in parent's
@@ -291,7 +318,7 @@ module Jsx = struct
         val data = props
       end
     in
-    (match key with None -> () | Some key -> set props "key" key);
+    Option.iter (fun v -> set props (Js.string "key") v) key;
 
     let cls : 'props component_class Js.t =
       match WeakJsObjDict.find_opt _class_of_constructor (inject constructor) with
@@ -321,6 +348,10 @@ module Jsx = struct
 
     fun_call global##._React##.createElement [| inject cls; inject props |]
 
+  (** Create a Jsx object from:
+      - an OCaml function returning Jsx a object
+      - the props taken by that render function.
+   *)
   let of_render : ?key:'a -> ('props -> jsx Js.t) -> 'props -> jsx Js.t =
    fun ?key render props ->
     let open Js.Unsafe in
@@ -329,7 +360,7 @@ module Jsx = struct
         val data = props
       end
     in
-    (match key with None -> () | Some key -> set props "key" key);
+    Option.iter (fun v -> set props (Js.string "key") v) key;
 
     let cls : 'props component_class Js.t =
       match WeakJsObjDict.find_opt _class_of_render (inject render) with
@@ -352,36 +383,3 @@ module Jsx = struct
 
     fun_call global##._React##.createElement [| inject cls; inject props |]
 end
-
-let use_reducer : ('state -> 'action -> 'state) -> (unit -> 'state) -> 'state * ('action -> unit) =
- fun reduce init ->
-  let open Js.Unsafe in
-  let args =
-    [| reduce |> Js.wrap_callback |> inject; inject Js.null; init |> Js.wrap_callback |> inject |]
-  in
-  let arr = fun_call global##._React##.useReducer args |> Js.to_array in
-  match arr with
-  | [| s; f |] -> (s, fun s -> fun_call f [| inject s |])
-  | _ -> failwith "unreachable, bad useReducer return"
-
-let use_state : (unit -> 'state) -> 'state * (('state -> 'state) -> unit) =
- fun init ->
-  let open Js.Unsafe in
-  let arr =
-    fun_call global##._React##.useState [| init |> Js.wrap_callback |> inject |] |> Js.to_array
-  in
-  match arr with
-  | [| s; f |] -> (s, fun s -> fun_call f [| inject s |])
-  | _ -> failwith "unreachable, bad useState return"
-
-let use_effect : ?deps:'a array -> (unit -> unit -> unit) -> unit =
- fun ?deps f ->
-  let open Js.Unsafe in
-  let deps = match deps with None -> Js.null | Some a -> Js.Opt.return (Js.array a) in
-  let f = Js.wrap_callback (fun () -> Js.wrap_callback (f ())) in
-  fun_call global##._React##.useEffect [| inject f; inject deps |]
-
-let render : jsx Js.t -> Dom_html.element Js.t -> unit =
- fun elt container ->
-  let open Js.Unsafe in
-  fun_call global##._ReactDOM##.render [| inject elt; inject container |]

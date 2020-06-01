@@ -1,3 +1,4 @@
+/* ************************************************************************** */
 body { background: #FCFCFC; margin: 0; }
 code {
     border-radius: 3px;
@@ -9,7 +10,6 @@ code {
 h1 {
     border-bottom: 1px solid black;
     font-weight: normal; font-family: "Fira Sans", sans-serif;
-
     display: block;
     font-size: 2em;
     margin-block-start: 0.67em;
@@ -21,7 +21,6 @@ h2 {
     border-bottom: 1px solid black;
     padding-left: 9px;
     font-weight: normal; font-family: "Fira Sans", sans-serif;
-
     display: block;
     font-size: 1.5em;
     margin-block-start: 0.83em;
@@ -32,7 +31,6 @@ h2 {
 h3 {
     padding-left: 9px;
     font-weight: normal; font-family: "Fira Sans", sans-serif;
-
     display: block;
     font-size: 1.17em;
     margin-block-start: 1em;
@@ -52,29 +50,6 @@ h3 {
     text-decoration: none !important;
 }
 #header a:visited { color: #007bff; }
-.textdiv {
-    width: 825px;
-    margin: 0 auto;
-    margin-top: 25px;
-    background: #F7F7F7;
-    padding: 10px 20px 30px 20px;
-    line-height: 1.4;
-    border-color: #000000;
-    border-style: solid;
-    border-width: 0;
-    border-radius: 5px;
-}
-.mnistdiv {
-    max-width: 768px;
-    margin: 0 auto;
-    background: #F7F7F7;
-    padding: 1px 20px 30px 20px;
-    line-height: 1.1;
-    border-color: #000000;
-    border-style: solid;
-    border-width: 0;
-    border-radius: 5px;
-}
 .mnist-icon-whitebg {
     height: 18px;
     width: 18px;
@@ -94,76 +69,47 @@ h3 {
 }
 
 /* ************************************************************************** */
-.mnist-panel { margin: 0; margin-bottom: 7px; }
-.mnist-panel > thead > tr { background: #EBEBEB; text-align: center }
-.mnist-panel .entry-name { text-align: right; width: 50%; }
-.mnist-panel .entry-status { text-align: center; }
-/* ************************************************************************** */
-.mnist-pred {
-    /* border: 1px solid black; */
-    /* border-radius: 3px; */
-    /* padding: 1px; */
-    /* width: max-content; */
-    /* margin: 1px; */
-    display: flex;
-    justify-content: center;
-}
-.mnist-pred img {
-    height: 28px;
-    width: 28px;
-    margin: 1px 0 0 0;
-}
-.mnist-pred div {
-    font-family: "Fira Sans", sans-serif;
-    font-size: small;
-    /* text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; */
-    width: 28px;
-    height: 28px;
-    text-align: center;
-    color: black;
-    overflow: hidden;
-    display: inline-block;
-    /* margin: 1px; */
-    margin: 1px 0 0 1px;
-    vertical-align: middle;
-    line-height: 29px;
-}
-/* .mnist-pred .good-one { outline: 2px solid black;  } */
-.mnist-pred .good-one { font-weight: bolder; }
-/* .mnist-pred .not-highest-one { font-style: italic; } */
-/* ************************************************************************** */
-.form-control { color: #007bff; font-weight: bold; }
-.form-control::placeholder { color: black; font-weight: normal; opacity: 0.5; }
-.form-control:focus { color: #007bff; }
-form { padding: 15px }
-button:disabled { /* https://stackoverflow.com/a/61659811 */ pointer-events: none !important }
-#network-code .tooltip-inner { min-width: 500px; }
-.code-overlay {
-    width: 42px;
-    height: 42px;
-    padding: 0 1px 0 3px;
-    margin: 0 0 3px 6px;
-    border-radius: 22px;
-    font-size: 29px;
-    font-weight: bold;
-    border: 0;
-}
-.toast-holder {
-    position: fixed;
-    top: 5px;
-    right: 5px;
-    z-index: 50;
-}
-#mnist-title {
-    margin-top: 15px;
+.bigbox-title {
     display: flex;
     align-items: center;
     justify-content: center;
 }
-#mnist-title h1 {
+.bigbox-title h1 {
     width: 768px;
     text-align: center;
     border-color: #ebebeb;
     font-size: 2em;
-    margin-bottom: 0;
+    border-bottom-width: 3px;
+    margin-bottom: 3px;
+    margin-top: 36px;
+    font-weight: bold;
 }
+.bigbox0 {
+    width: 825px;
+    margin: 0 auto;
+    margin-top: 25px;
+    background: #F7F7F7;
+    padding: 10px 20px 30px 20px;
+    line-height: 1.4;
+    border-color: #000000;
+    border-style: solid;
+    border-width: 0;
+    border-radius: 5px;
+}
+.bigbox1 {
+    max-width: 768px;
+    margin: 0 auto;
+    background: #F7F7F7;
+    padding: 0px 20px 30px 20px;
+    line-height: 1.1;
+    border-color: #000000;
+    border-style: solid;
+    border-width: 0;
+    border-radius: 5px;
+}
+.smallbox0 { margin: 0; margin-bottom: 7px; }
+.smallbox0 > thead > tr { background: #EBEBEB; text-align: center }
+.smallbox0 .entry-name { text-align: right; width: 60%; }
+.smallbox0 .entry-status { text-align: center; }
+
+/* ************************************************************************** */

@@ -17,6 +17,7 @@
    1. Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
    1. OWL backend
    1. Split the repo. Keep only the Github Pages resources inside this one (through copy and dune build). Move the source code to another one where the build directory has been removed from all commits.
+   1. Fix the `Uncaught TypeError: Cannot read property '__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED' of undefined` `TypeError: Js_of_ocaml_Js[50][1].ReactDOM.render is not a function` error
 
 - mnist-jsoo maybe
    - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`

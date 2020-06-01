@@ -8,6 +8,30 @@ end
 
 open Types
 
+(* asd
+   Plotly events:
+   - plotly_afterplot
+     - To be used to avoid spamming redraw when no CPU time available
+   - plotly_legendclick, plotly_legenddoubleclick
+     - Save this config globally (watch out for infinite loops)
+   - plotly_relayout, plotly_autosize
+     - emits only the xaxis and yaxis ranges which were directly changed by the triggering event
+     - Save this config globally (watch out for infinite loops)
+   - plotly_webglcontextlost
+     - TODO: Try to trigger error with large batch size
+     - When crashed, put a button to reload chart
+
+   Plotly.newPlot(graphDiv, data, layout, config)
+
+   Plotly.relayout(graphDiv, update)
+
+   Plotly.makeTemplate(figure)
+     - layout = {template:template}
+
+   Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
+
+ *)
+
 let create_evaluating_signal tabsignal tabevents =
   let latest_batch_end_idx =
     React.S.sample
@@ -115,7 +139,7 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
           ]
     in
     let thead = [ of_string "Results" ] @ badges |> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
-    of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm" [ thead; tbody ]
+    of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
   Reactjs.construct ~signal:signal_evaluating ~signal:test_set_sample_signal render

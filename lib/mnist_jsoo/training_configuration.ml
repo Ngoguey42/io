@@ -319,7 +319,7 @@ let construct_training_config : _ Reactjs.constructor =
     let thead =
       of_string "Training Configuration" >> of_tag "th" >> of_tag "tr" >> of_tag "thead"
     in
-    of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm" [ thead; tbody ]
+    of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
   Reactjs.construct ~signal:dconf_signal render

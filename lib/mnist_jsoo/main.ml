@@ -179,7 +179,7 @@ let construct_mnist_jsoo _ =
     [
       toasts;
       [ res; tabs ] |> of_bootstrap "Col" >> of_bootstrap "Row"
-      >> of_bootstrap "Container" ~fluid:"sm" ~class_:[ "mnistdiv" ];
+      >> of_bootstrap "Container" ~fluid:"sm" ~class_:[ "bigbox1" ];
     ]
     |> of_react "Fragment"
   in
@@ -192,7 +192,7 @@ let main () =
   let body = Dom_html.window##.document##.body in
 
   let div =
-    [%html {|<div id="mnist-title"><h1>MNIST training with Js_of_ocaml</h1></div>|}]
+    [%html {|<div class="bigbox-title"><h1>MNIST training with Js_of_ocaml</h1></div>|}]
     |> Tyxml_js.To_dom.of_element
   in
   Dom.appendChild body div;
@@ -202,5 +202,6 @@ let main () =
   Ft_js.Scripts.import `Reactjs >>= fun () ->
   Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->
   Ft_js.import_css "styles.css" >>= fun () ->
+  Ft_js.import_css "mnist-jsoo.css" >>= fun () ->
   Reactjs.render (Reactjs.Jsx.of_constructor construct_mnist_jsoo ()) div;
   Lwt.return ()

@@ -426,7 +426,7 @@ let construct_training_config : _ Reactjs.constructor =
       of_tag "div"
         ~class_:[ "text-monospace"; "text-left"; "small" ]
         (jsx_of_code (code_of_dconf dconf))
-      >> of_bootstrap "Tooltip" ~id:"network-code"
+      >> of_bootstrap "Tooltip" ~id:"network-code-tooltip"
     in
     let button xs_order md_order =
       [
@@ -435,7 +435,7 @@ let construct_training_config : _ Reactjs.constructor =
         of_string "?"
         >> of_bootstrap
              ~on_click:(fun ev -> ev##preventDefault)
-             "Button" ~type_:"submit" ~class_:[ "btn-info"; "code-overlay" ]
+             "Button" ~type_:"submit" ~class_:[ "btn-info"; "network-code-button" ]
         >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt;
       ]
       |> of_bootstrap "Col"
@@ -462,7 +462,7 @@ let construct_training_config : _ Reactjs.constructor =
       |> of_bootstrap "Row" >> of_bootstrap "Form" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in
     let thead = of_string "Network Creation" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
-    of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm" [ thead; tbody ]
+    of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
   Reactjs.construct ~signal:dconf_signal render

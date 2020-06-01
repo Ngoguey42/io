@@ -26,10 +26,13 @@ perspectives:
   "0":
     - [ ./persp.yaml, ./README.md,    ./build.sh ]
     - [ <up>,         ./.ocamlformat, ./dune-project ]
-  "+0":
-    - [ ./index.html, ./cinquante.html,   ./styles.css ]
-    - [ ./about.html, ./mnist-jsoo.html,    <up> ]
-  "++0":
+  "01":
+    - [ ./index.html,      ./styles.css, ./mnist-jsoo.css ]
+    - [ ./about.html,      <up>,         <up> ]
+    - [ ./mnist-jsoo.html, <up>,         <up> ]
+  "02":
+    - [ ./cinquante.html, ./cinquante.js, ./cinquante_bis.js ]
+  "03":
     - [./ft.opam, ./, ./fnn.opam]
     - [./ft_js.opam, ./, ./pshape.opam]
     - [./ft_cnnjs.opam, ./, ./]

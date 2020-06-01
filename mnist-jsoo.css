@@ -1,0 +1,55 @@
+/* ************************************************************************** */
+.mnist-pred {
+    display: flex;
+    justify-content: center;
+}
+.mnist-pred img {
+    height: 28px;
+    width: 28px;
+    margin: 1px 0 0 0;
+}
+.mnist-pred div {
+    font-family: "Fira Sans", sans-serif;
+    font-size: small;
+    width: 28px;
+    height: 28px;
+    text-align: center;
+    color: black;
+    overflow: hidden;
+    display: inline-block;
+    margin: 1px 0 0 1px;
+    vertical-align: middle;
+    line-height: 29px;
+}
+.mnist-pred .good-one { font-weight: bolder; }
+
+/* ************************************************************************** */
+.network-code-button {
+    width: 42px;
+    height: 42px;
+    padding: 0 1px 0 3px;
+    margin: 0 0 3px 6px;
+    border-radius: 22px;
+    font-size: 29px;
+    font-weight: bold;
+    border: 0;
+}
+#network-code-tooltip .tooltip-inner { min-width: 500px; }
+
+/* ************************************************************************** */
+.toast-holder {
+    position: fixed;
+    top: 5px;
+    right: 5px;
+    z-index: 50;
+}
+.form-control { color: #007bff; font-weight: bold; }
+.form-control::placeholder { color: black; font-weight: normal; opacity: 0.5; }
+.form-control:focus { color: #007bff; }
+form { padding: 15px }
+
+/* ************************************************************************** */
+.resource-name { text-align: right; width: 60%; }
+.resource-status { text-align: center; }
+
+/* ************************************************************************** */

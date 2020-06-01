@@ -18,7 +18,7 @@ let url_entrypoint =
 let url_jsooppx = "https://ocsigen.org/js_of_ocaml/3.1.0/manual/ppx"
 
 let[@ocamlformat "disable"] create_content () = [%html {|
-<div class="textdiv">
+<div class="bigbox0">
   <h1>Making-of</h1>
   <h2>This website</h2>
 
@@ -45,7 +45,7 @@ let[@ocamlformat "disable"] create_content () = [%html {|
     OCaml library or using the
     <a href="https://reactjs.org/"><cite>React</cite></a> and
     <a href="https://react-bootstrap.github.io/"><cite>React Bootstrap</cite></a>
-    JavaScript library when complex interactions are required.
+    JavaScript libraries when complex interactions are required.
     <a href="|} url_ftreact {|">This small wrapper</a>
     enhances the <cite>Reactjs</cite> experience in OCaml by hiding most of the
     boilerplate (e.g. <cite>Reactjs states</cite> are made available through the functionnal
@@ -84,11 +84,11 @@ let[@ocamlformat "disable"] create_content () = [%html {|
     for polygon simplification and
     <a href="https://github.com/mapbox/earcut"><cite>Earcut</cite></a> for polygon tessellation. The
     10 digits used in the game are pre-computed with a python script. This game is a proof of concept
-    preceding an end to end implementation with <cite>Js_of_ocaml</cite> where the game could either
+    preceding an end-to-end implementation with <cite>Js_of_ocaml</cite> where the game could either
     be played by a human or by a <cite>Reinforcement Learning</cite> bot trained by the human in the
     same webpage (possibly using <cite>DeepMind</cite>'s
     <a href="https://arxiv.org/abs/1911.08265"><cite>MuZero</cite></a>). This POC revealed that the
-    physical engine used would most likely be too slow to simulate a sufficient amount of game,
+    current physical engine would most likely be too slow to simulate a sufficient amount of game,
     this
     <a href="https://github.com/kripken/box2d.js"><cite>Wasm</cite> port of <cite>Box2d</cite></a>
     might offer better performances.
@@ -98,13 +98,13 @@ let[@ocamlformat "disable"] create_content () = [%html {|
 
   <p>
     All the pages share a single entry point:
-    <a href="|} url_entrypoint {|">bin/page_builder.ml</a>,
-    the rest of the code is scattered between the <a href="|} url_bin {|">bin</a>
+    <a href="|} url_entrypoint {|">bin/page_builder.ml</a>.
+    The rest of the code is scattered between the <a href="|} url_bin {|">bin</a>
     directory and a collection of libraries living in the <a href="|} url_lib {|">lib</a>
     directory. The entry point and all its OCaml dependencies are transpiled to
     a single <cite>.js</cite> file living in the <cite>build</cite> directory
     The generated <cite>.js</cite> file is then commited to the repository and
-    each page of the website owns a small <cite>html</cite> file that loads the generated
+    each page of the website owns a small <cite>.html</cite> file that loads the generated
     file. (TODO: Update for future workflow)
   </p>
 

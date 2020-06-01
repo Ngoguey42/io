@@ -258,12 +258,12 @@ let construct_resources_row : _ Reactjs.constructor =
     in
     of_tag "tr"
       [
-        of_tag "th" ~class_:[ "entry-name" ]
+        of_tag "th" ~class_:[ "resource-name" ]
           [
             of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt
               [ of_tag "div" [ of_string (name ^ size) ] ];
           ];
-        of_tag "th" ~class_:[ "entry-status" ] [ of_string s ];
+        of_tag "th" ~class_:[ "resource-status" ] [ of_string s ];
       ]
   in
   let mount () =
@@ -291,7 +291,7 @@ let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Re
         (fun entry -> of_constructor ~key:entry construct_resources_row (entry, procedure_events))
         entries
     in
-    of_bootstrap "Table" ~class_:[ "mnist-panel" ] ~bordered:true ~size:"sm"
+    of_bootstrap "Table" ~class_:[ "smallbox0" ] ~bordered:true ~size:"sm"
       [ of_tag "thead" [ head ]; of_tag "tbody" tails ]
   in
 

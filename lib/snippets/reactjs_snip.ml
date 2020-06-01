@@ -17,13 +17,13 @@ let t0 =
 <p>
    <a href="https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/reactjs.ml">
    This small wrapper</a>
-   enhances the <cite>Reactjs</cite> experience in OCaml by hiding most of the
-   boilerplate and offering a <cite>functionnal reactive programming</cite> experience through
-   <cite>Reactjs(ml)</cite>.
+   enhances the <a href="https://reactjs.org/"><cite>Reactjs</cite></a> experience in OCaml by
+   hiding most of the boilerplate and offering a <cite>functionnal reactive programming</cite>
+   interface through <a href="https://erratique.ch/software/react"><cite>React(ml)</cite></a>.
 </p>
 
 <p>
-   You may copy/modify/distribute this wrapper at will (without warranty, etc...).
+   You may copy/modify/distribute this wrapper at will.
 </p>
 
 <h2>React Components</h2>
@@ -49,9 +49,9 @@ let t0 =
    To access the other features of <cite>Reactjs</cite> you may return more than
    a <code>render</code> function at the end of the constructor. For example:
    <ul>
-   <li>one or more <code>React(ml)</code> signals to trigger renders (binding of <code>.state</code>)</li>
-   <li>a <code>mount</code> function (binding of <code>.componentDidMount</code>)</li>
-   <li>an <code>update</code> function (binding of <code>.componentDidUpdate</code>)</li>
+   <li>one or more <cite>React(ml)</cite> signals to trigger renders (binding of <code>.state</code>),</li>
+   <li>a <code>mount</code> function (binding of <code>.componentDidMount</code>),</li>
+   <li>an <code>update</code> function (binding of <code>.componentDidUpdate</code>),</li>
    <li>etc...</li>
    </ul>
 
@@ -63,8 +63,8 @@ let t0 =
 <p>
    <cite>Reactjs</cite> defines a very convenient syntax extension called <cite>JSX</cite> to
    help <code>render</code> functions look like HTML. This syntax hides
-   calls to <cite>React.createElement</cite> that can be called with <cite>Js_of_ocaml</cite>.
-   The <code>Reactjs.Jsx</code> module provides several high level functions above
+   calls to <cite>React.createElement</cite> that can be called from <cite>Js_of_ocaml</cite>.
+   The <code>Reactjs.Jsx</code> module of this wrapper provides several high level functions above
    <cite>React.createElement</cite>.
 </p>
 <p>
@@ -125,16 +125,16 @@ let t0 =
 
 <p>
   The one above is a stateless component that only defines a render function. It looks a lot like
-  <cite>Reactjs</cite>'s <cite>hooks</cite>. It can be turned to <cite>Jsx</cite> using
-  <code>Reactjs.of_render</code>.
+  <cite>Reactjs</cite>'s <cite>hooks</cite>. It can instanciated into a <cite>Jsx</cite> object
+  using <code>Reactjs.of_render</code>.
 </p>
 
 <p>
   The one below is a stateful component that defines one signal and a
   render function. <cite>Reactjs</cite> will call the <cite>render</cite> function
   after construction and everytime the signal's value changes
-  (i.e. after a call to <code>set_signal</code>). It can be turned to <cite>Jsx</cite> using
-  <code>Reactjs.of_constructor</code>.
+  (i.e. after a call to <code>set_signal</code>). It can instanciated into a <cite>Jsx</cite>
+  object using <code>Reactjs.of_constructor</code>.
 </p>
 
 <p>

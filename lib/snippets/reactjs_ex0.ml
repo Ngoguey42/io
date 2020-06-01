@@ -30,19 +30,18 @@ let construct_component () =
   in
   let render () =
     let open Reactjs.Jsx in
-    let current_value =
+    let value =
       React.S.value value_signal
       |> Printf.sprintf "signal's current value: %f"
       |> of_string >> of_tag "h3"
     in
     let buttons =
-      List.map
-        (fun (n, op) -> of_constructor construct_button (n, op, fire_operation))
-        ops
+      List.map (fun (name, operation) -> (name, operation, fire_operation)) ops
+      |> List.map (of_constructor construct_button)
       |> of_tag "div"
     in
-    [ current_value; buttons ]
-    |> of_tag "div" ~style:[ ("textAlign", "center") ]
+    [ value; buttons ] |> of_tag "div" ~style:[ ("textAlign", "center") ]
   in
   Reactjs.construct ~signal:value_signal render
+
 (* snip-after *)

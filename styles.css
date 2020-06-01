@@ -45,12 +45,25 @@ h3 {
     font-family: "Fira Sans", sans-serif;
     font-weight: normal;
     color: #007bff;
+    line-height: 1.5
 }
 #header a {
     text-decoration: none !important;
 }
 #header a:visited { color: #007bff; }
-.mnist-icon-whitebg {
+#header.black-bg {
+    position: absolute;
+    color: white;
+    margin-left: auto;
+    margin-right: auto;
+    left: 0;
+    right: 0;
+    text-align: center;
+}
+#header.black-bg a {
+    color: white;
+}
+.mnist-icon {
     height: 18px;
     width: 18px;
     display: inline-block;
@@ -59,15 +72,19 @@ h3 {
     vertical-align: middle;
     filter: invert();
 }
-.mnist-icon-blackbg {
-    height: 18px;
-    width: 18px;
-    display: inline-block;
-    margin-bottom: 1px;
-    margin-right: 2px;
-    vertical-align: middle;
+.black-bg .mnist-icon {
+    filter: invert(0);
 }
-
+/*
+   .mnist-icon-blackbg {
+   height: 18px;
+   width: 18px;
+   display: inline-block;
+   margin-bottom: 1px;
+   margin-right: 2px;
+   vertical-align: middle;
+   }
+ */
 /* ************************************************************************** */
 .bigbox-title {
     display: flex;
@@ -121,6 +138,7 @@ h3 {
    variable sand   240 203 128
    string   brick  239 127 89
    bool     sky    rgb(128, 240, 202)
+            violet rbg(127, 89, 239)
  */
 .hljs { background: #F7F7F7 }
 
@@ -133,7 +151,7 @@ h3 {
 .hljs-keyword { color: rgb(1, 165, 239) }
 .hljs-number { color: rgb(239, 127, 89) }
 .hljs-literal { color: rgb(239, 127, 89) }
-.hljs-built_in { color: rgb(128, 240, 127) }
+.hljs-built_in { color: rgb(127, 89, 239) }
 
 /* ************************************************************************** */
 .fttable {

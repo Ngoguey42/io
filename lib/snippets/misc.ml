@@ -12,6 +12,13 @@ open struct
   module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 end
 
+let turn_off_value_keyword code_elt =
+  let nodes = code_elt##querySelectorAll (Js.string ".hljs-keyword") in
+  List.init nodes##.length (fun i -> nodes##item i |> Js.Opt.to_option |> Option.to_list)
+  |> List.concat
+  |> List.filter (fun elt -> elt##.innerHTML = (Js.string "value"))
+  |> List.iter (fun elt -> elt##.classList##remove (Js.string "hljs-keyword"))
+
 let construct_snippet_code filename =
   let signal, set_signal = React.S.create `Loading in
   let code_ref = Reactjs.create_ref () in
@@ -64,6 +71,8 @@ let construct_snippet_code filename =
   let update () =
     match code_ref##.current |> Js.Opt.to_option with
     | None -> ()
-    | Some elt -> Js.Unsafe.global##.hljs##highlightBlock elt
+    | Some elt ->
+       Js.Unsafe.global##.hljs##highlightBlock elt |> ignore;
+       turn_off_value_keyword elt
   in
   Reactjs.construct ~signal ~mount ~update render

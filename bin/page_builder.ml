@@ -20,7 +20,7 @@ let display x =
 let main () =
   let open Lwt.Infix in
   (* Printexc.record_backtrace true; *)
-  let jsoo_icon = [ [%html {|<img class="mnist-icon-whitebg" alt="0" src="|} zero_url {|"/>|}] ] in
+  let jsoo_icon = [ [%html {|<img class="mnist-icon" alt="0" src="|} zero_url {|"/>|}] ] in
   let header =
     [%html
     "<div id='header'>"

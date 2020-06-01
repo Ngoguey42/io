@@ -172,6 +172,8 @@ let binary_string_of_blob b =
   let open Lwt.Infix in
   Js_of_ocaml_lwt.File.readAsBinaryString b >|= fun s -> Js.to_bytestring s
 
+let js_string_of_blob b = Js_of_ocaml_lwt.File.readAsText b
+
 let to_dom_html cast html =
   Tyxml_js.To_dom.of_element html |> cast |> Js.Opt.to_option |> function
   | None -> failwith "fail"

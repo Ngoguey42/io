@@ -44,6 +44,7 @@ let name_of_entry : [< Vertex.t ] -> string = function
   | `Pako -> "pako"
   | `Plotly -> "plotly"
   | `Cryptojs -> "CryptoJS"
+  | _ -> "unknown"
 
 let description_of_entry : Vertex.t -> string = function
   | `Pagebuilder ->
@@ -61,6 +62,7 @@ let description_of_entry : Vertex.t -> string = function
   | `Train_labs -> "The train-set labels of the MNIST dataset."
   | `Test_imgs -> "The 10000 28x28x1 test-set images of the MNIST dataset."
   | `Test_labs -> "The test-set labels of the MNIST dataset."
+  | _ -> ""
 
 let urls_of_entry : Vertex.t -> string list = function
   | #Ft_js.Scripts.entry as entry -> Ft_js.Scripts.urls_of_entry entry |> List.concat

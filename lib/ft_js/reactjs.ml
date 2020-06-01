@@ -137,6 +137,7 @@ module Jsx = struct
       ?href:string ->
       ?id:string ->
       ?inline:bool ->
+      ?inner_html:string ->
       ?key:string ->
       ?label:string ->
       ?min:float ->
@@ -173,11 +174,11 @@ module Jsx = struct
       jsx Js.t list ->
       jsx Js.t =
    fun ctor ?active_key ?animation_bool ?animation_string ?as_ ?bordered ?classes ?colspan
-       ?default_active_key ?default_value ?disabled ?event_key ?fluid ?href ?id ?inline ?key ?label
-       ?min ?name ?no_gutters ?on_change ?on_click ?on_close ?on_select ?overlay ?placeholder
-       ?placement ?ref ?size ?src ?step ?style ?title ?title_jsx ?transition ?type_ ?value ?variant
-       ?lg_order ?lg_span ?md_order ?md_span ?sm_order ?sm_span ?xl_order ?xl_span ?xs_order
-       ?xs_span children ->
+       ?default_active_key ?default_value ?disabled ?event_key ?fluid ?href ?id ?inline ?inner_html
+       ?key ?label ?min ?name ?no_gutters ?on_change ?on_click ?on_close ?on_select ?overlay
+       ?placeholder ?placement ?ref ?size ?src ?step ?style ?title ?title_jsx ?transition ?type_
+       ?value ?variant ?lg_order ?lg_span ?md_order ?md_span ?sm_order ?sm_span ?xl_order ?xl_span
+       ?xs_order ?xs_span children ->
     let open Js.Unsafe in
     let props = object%js end in
     let set_prop opt bootstrap_name preprocess =
@@ -200,6 +201,10 @@ module Jsx = struct
     set_prop href "href" Js.string;
     set_prop id "id" Js.string;
     set_prop inline "inline" Js.bool;
+    set_prop inner_html "dangerouslySetInnerHTML" (fun v ->
+        let o = object%js end in
+        set o (Js.string "__html") (Js.string v);
+        o);
     set_prop key "key" Js.string;
     set_prop label "label" Js.string;
     set_prop min "min" Fun.id;

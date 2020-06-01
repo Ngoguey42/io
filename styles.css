@@ -113,3 +113,20 @@ h3 {
 .smallbox0 .entry-status { text-align: center; }
 
 /* ************************************************************************** */
+/*
+   kw       blue   1 165 239
+   module   green  128 240 127
+   comment  red    240 61 61
+   fname    orange 240 165 1
+   variable sand   240 203 128
+   string   brick  239 127 89
+ */
+.hljs { color: black }
+.hljs-title { color: rgb(240, 165, 1) }
+.hljs-string { color: rgb(239, 127, 89) }
+.hljs-meta { color: black }
+.hljs-number { color: black }
+.hljs-meta-string { color: black }
+.hljs-keyword { color: rgb(1, 165, 239) }
+
+/* ************************************************************************** */

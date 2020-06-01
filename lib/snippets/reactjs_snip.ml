@@ -1,43 +1,55 @@
-[@@@ocamlformat "disable"]
+open struct
+  module Dom_html = Js_of_ocaml.Dom_html
+  module Dom = Js_of_ocaml.Dom
+  module Tyxml_js = Js_of_ocaml_tyxml.Tyxml_js
+  module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
+  module Js = Js_of_ocaml.Js
+  module Firebug = Js_of_ocaml.Firebug
+  module Ndarray = Owl_base_dense_ndarray_generic
+  module Typed_array = Js_of_ocaml.Typed_array
+  module Reactjs = Ft_js.Reactjs
+  module Lwt_js = Js_of_ocaml_lwt.Lwt_js
+  module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
+end
 
-module Reactjs = Ft_js.Reactjs
+let t0 =
+  {|
+<h1>Reactjs wrapper</h1>
+<p>
+  <a href="https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/reactjs.ml">
+  This small wrapper</a>
+  enhances the <cite>Reactjs</cite> experience in OCaml by hiding most of the
+  boilerplate.
+</p>
+|}
 
-(* snip-before *)
-let render_operation (name, operation, fire_operation) =
-  let open Reactjs.Jsx in
-  let on_click ev =
-    fire_operation operation;
-    ev##preventDefault
-  in
-  let classes = [ "btn"; "btn-primary" ] in
-  let style = [ ("margin", "2px") ] in
-  of_tag "button" ~on_click ~classes ~style [ of_string name ]
-
-let construct_component () =
-  let operation_events, fire_operation = React.E.create () in
-  let fire_operation : (float -> float) -> unit = fire_operation in
-  let value_signal = React.S.accum operation_events 42.0 in
-  let ops =
-    [
-      ("+2", ( +. ) 2.0);
-      ("-2", fun v -> v -. 2.0);
-      ("x2", ( *. ) 2.0);
-      ("/2", fun v -> v /. 2.0);
-    ]
-  in
+let construct_reactjs_snippet () =
+  Printf.printf "> Component - reactjs_snippet | construct\n%!";
   let render () =
     let open Reactjs.Jsx in
-    let value =
-      of_tag "h3" [ React.S.value value_signal |> string_of_float |> of_string ]
+    Printf.printf "> Component - reactjs_snippet | render\n%!";
+    let to_table title content =
+      let head = of_string title >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
+      let body = content >> of_tag "th" >> of_tag "tr" >> of_tag "tbody" in
+      [ head; body ] |> of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm"
     in
-    let buttons =
-      List.map
-        (fun (name, operation) ->
-          of_render render_operation (name, operation, fire_operation))
-        ops
-      |> of_tag "div"
+
+    let snip_jsx = of_constructor Reactjs_ex0.construct_component () in
+    let snip_code = of_constructor Misc.construct_snippet_code "reactjs_ex0.ml" in
+
+    (* let title = *)
+    (*   of_string "Reactjs wrapper" >> of_tag "h1" >> of_tag "div" ~classes:[ "bigbox-title" ] *)
+    (* in *)
+    let box =
+      [
+        of_tag "div" ~inner_html:t0 [];
+        to_table "Example: Code" snip_code;
+        to_table "Example: Result" snip_jsx;
+      ]
+      |> of_bootstrap "Col" >> of_bootstrap "Row"
+      >> of_bootstrap "Container" ~fluid:true ~classes:[ "bigbox1" ]
     in
-    [ value; buttons ] |> of_tag "div" ~style:[ ("text-align", "center") ]
+    of_react "Fragment" [ box ]
   in
-  Reactjs.construct ~signal:value_signal render
-(* snip-after *)
+
+  Reactjs.construct render

@@ -7,7 +7,15 @@ open struct
   module Firebug = Js_of_ocaml.Firebug
 end
 
-type entry = [ `Pagebuilder | `Tfjs | `Cryptojs | `Pako | `Reactjs | `Reactjsbootstrap | `Plotly ]
+type entry =
+  [ `Pagebuilder
+  | `Tfjs
+  | `Cryptojs
+  | `Pako
+  | `Reactjs
+  | `Reactjsbootstrap
+  | `Plotly
+  | `Highlightjs ]
 
 let type_of_url url =
   match Filename.extension url with
@@ -68,6 +76,13 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
           Filename.concat
             (Misc.origin_of_url (Dom_html.window##.location##.href |> Js.to_string))
             "build/default/bin/page_builder.bc.js";
+        ];
+      ]
+  | `Highlightjs ->
+      [
+        [
+          "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/default.min.css";
+          "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js";
         ];
       ]
   | `Plotly -> [ [ "https://cdn.plot.ly/plotly-latest.min.js" ] ] )

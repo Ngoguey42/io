@@ -36,16 +36,8 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
   | `Tfjs ->
       [
         [
-          (* Filename.concat *)
-          (*   (Misc.origin_of_url (Dom_html.window##.location##.href |> Js.to_string)) *)
-          (*   "tf.js"; *)
-          (* "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.js"; *)
           "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js";
-          (* "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" *)
         ];
-        (* [ *)
-        (*   "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js"; *)
-        (* ]; *)
       ]
   | `Cryptojs ->
       [
@@ -82,7 +74,15 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
       [
         [
           "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/default.min.css";
+          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/solarized-light.min.css"; *)
+          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/school-book.min.css"; *)
+          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/gruvbox-light.min.css"; *)
+          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/github-gist.min.css"; *)
+          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/foundation.min.css"; *)
           "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js";
+        ];
+        [
+          "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/languages/ocaml.min.js";
         ];
       ]
   | `Plotly -> [ [ "https://cdn.plot.ly/plotly-latest.min.js" ] ] )

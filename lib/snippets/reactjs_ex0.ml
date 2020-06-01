@@ -27,7 +27,7 @@ let construct_component () =
   in
   let render () =
     let open Reactjs.Jsx in
-    let value =
+    let current_value =
       of_tag "h3" [ React.S.value value_signal |> string_of_float |> of_string ]
     in
     let buttons =
@@ -37,7 +37,7 @@ let construct_component () =
         ops
       |> of_tag "div"
     in
-    [ value; buttons ] |> of_tag "div" ~style:[ ("textAlign", "center") ]
+    [ current_value; buttons ] |> of_tag "div" ~style:[ ("textAlign", "center") ]
   in
   Reactjs.construct ~signal:value_signal render
 (* snip-after *)

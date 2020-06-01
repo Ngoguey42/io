@@ -21,8 +21,8 @@ let construct_snippet_code filename =
   in
   let raw_gh_url, gh_url =
     let ( / ) = Filename.concat in
-    ( "https://raw.githubusercontent.com/Ngoguey42/ngoguey42.github.io/master/lib/snippets"
-      / filename,
+    let origin = Ft_js.origin_of_url (Dom_html.window##.location##.href |> Js.to_string) in
+    ( origin / "lib/snippets" / filename,
       "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/snippets" / filename )
   in
   let load_code () =
@@ -53,10 +53,10 @@ let construct_snippet_code filename =
         ]
         |> of_react "Fragment"
     | `Error ->
-        [ of_string "failed to load code from "; of_tag ~href:gh_url "a" [ of_string gh_url ] ]
+        [ of_string "failed to load code: "; of_tag ~href:gh_url "a" [ of_string gh_url ] ]
         |> of_react "Fragment"
     | `Loaded txt ->
-        txt |> of_string >> of_tag ~ref:code_ref "code" ~classes:[ "ocaml" ] >> of_tag "pre"
+        txt |> of_string >> of_tag ~ref:code_ref "code" ~classes:[ "language-ocaml" ] >> of_tag "pre"
   in
   let mount () = Lwt.catch load_code on_error |> ignore in
   let update () =

@@ -2,7 +2,7 @@
 body { background: #FCFCFC; margin: 0; }
 code {
     border-radius: 3px;
-    background: #FCFCFC;
+    /* background: #FCFCFC; */
     padding: 1px 6px 2px 6px;
     border-style: solid;
     border-width: 0;
@@ -120,13 +120,19 @@ h3 {
    fname    orange 240 165 1
    variable sand   240 203 128
    string   brick  239 127 89
+   bool     sky    rgb(128, 240, 202)
  */
+.hljs { background: #F7F7F7 }
+
 .hljs { color: black }
-.hljs-title { color: rgb(240, 165, 1) }
-.hljs-string { color: rgb(239, 127, 89) }
 .hljs-meta { color: black }
-.hljs-number { color: black }
 .hljs-meta-string { color: black }
+.hljs-type { color: black }
+
+.hljs-string { color: rgb(239, 127, 89) }
 .hljs-keyword { color: rgb(1, 165, 239) }
+.hljs-number { color: rgb(239, 127, 89) }
+.hljs-literal { color: rgb(239, 127, 89) }
+.hljs-built_in { color: rgb(128, 240, 127) }
 
 /* ************************************************************************** */

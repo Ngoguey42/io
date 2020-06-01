@@ -28,6 +28,7 @@
     ft
     ft_js
     mnist_jsoo
+    snippets
     lwt_react
     ocamlgraph
   )

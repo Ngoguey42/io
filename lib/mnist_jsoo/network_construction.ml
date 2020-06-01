@@ -435,7 +435,8 @@ let construct_training_config : _ Reactjs.constructor =
         of_string "?"
         >> of_bootstrap
              ~on_click:(fun ev -> ev##preventDefault)
-             "Button" ~type_:"submit" ~class_:[ "btn-info"; "network-code-button" ]
+             "Button" ~type_:"submit"
+             ~class_:[ "btn-info"; "network-code-button" ]
         >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt;
       ]
       |> of_bootstrap "Col"

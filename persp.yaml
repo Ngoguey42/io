@@ -28,19 +28,13 @@ perspectives:
     - [ <up>,         ./.ocamlformat, ./dune-project ]
   "01":
     - [ ./index.html,      ./styles.css, ./mnist-jsoo.css ]
-    - [ ./about.html,      <up>,         <up> ]
     - [ ./mnist-jsoo.html, <up>,         <up> ]
+    - [ ./snippets.html,   <up>,         <up> ]
+    - [ ./about.html,      <up>,         <up> ]
   "02":
     - [ ./cinquante.html, ./cinquante.js, ./cinquante_bis.js ]
-  "03":
-    - [./ft.opam, ./, ./fnn.opam]
-    - [./ft_js.opam, ./, ./pshape.opam]
-    - [./ft_cnnjs.opam, ./, ./]
   "1": [[ bin/dune, bin/page_builder.ml ]]
-  "+1": [[ bin/index.ml, bin/about.ml ]]
-
-  "10":
-    - [ lib/game/shapes.ml ]
+  "2": [[ bin/index.ml, bin/about.ml ]]
 
   # mnist_jsoo
   "+4" :
@@ -52,3 +46,7 @@ perspectives:
   "+5" : [[ lib/mnist_jsoo/network_construction.ml, lib/mnist_jsoo/network_architectures.ml, lib/mnist_jsoo/training_configuration.ml ]]
   "5": [[lib/mnist_jsoo/results.ml, lib/mnist_jsoo/evaluation.ml, lib/mnist_jsoo/evaluation_tfjs.ml]]
   "6" : [[ lib/mnist_jsoo/training.ml, lib/mnist_jsoo/training_tfjs.ml ]]
+
+  # snippets
+  "21":
+    - [ lib/snippets/dune, lib/snippets/snippets.ml ]

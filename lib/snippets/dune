@@ -1,6 +1,6 @@
 (library
- (public_name mnist_jsoo)
- (name mnist_jsoo)
+ (public_name snippets)
+ (name snippets)
 
  (libraries
   js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml

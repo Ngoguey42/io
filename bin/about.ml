@@ -9,8 +9,7 @@ let url_lib = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib"
 let url_ftreact =
   "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/reactjs.ml"
 
-let url_ftww =
-  "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/webworker.ml"
+let url_ftww = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/webworker.ml"
 
 let url_entrypoint =
   "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/bin/page_builder.ml"

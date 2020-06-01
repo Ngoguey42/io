@@ -23,9 +23,13 @@ let main () =
   let jsoo_icon = [ [%html {|<img class="mnist-icon-whitebg" alt="0" src="|} zero_url {|"/>|}] ] in
   let header =
     [%html
-      "<div id='header'>" "<a href='index.html'>&#127968; Homepage</a> | "
-        "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | " "<a href='mnist-jsoo.html'>" jsoo_icon
-        "mnist-jsoo</a> | " "<a href='about.html'>&#128196; Making-of</a>" "</div>"]
+    "<div id='header'>"
+    "<a href='index.html'>&#127968; Homepage</a> | "
+    "<a href='mnist-jsoo.html'>" jsoo_icon "mnist-jsoo</a> | "
+    "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | "
+    "<a href='snippets.html'>&#x1f9f1; Snippets</a> | "
+    "<a href='about.html'>&#128196; Making-of</a>"
+    "</div>"] [@ocamlformat "disable"]
   in
   let error exn =
     Printf.eprintf "> Exception:\n%!";
@@ -52,6 +56,7 @@ let main () =
         display @@ Index.create_content ();
         Lwt.return ()
     | "mnist-jsoo" -> Mnist_jsoo.main ()
+    | "snippets" -> Snippets.main ()
     | "about" ->
         display @@ About.create_content ();
         Lwt.return ()

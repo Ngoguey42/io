@@ -56,7 +56,9 @@ let construct_snippet_code filename =
         [ of_string "failed to load code: "; of_tag ~href:gh_url "a" [ of_string gh_url ] ]
         |> of_react "Fragment"
     | `Loaded txt ->
-        txt |> of_string >> of_tag ~ref:code_ref "code" ~classes:[ "language-ocaml" ] >> of_tag "pre"
+        txt |> of_string
+        >> of_tag ~ref:code_ref "code" ~classes:[ "language-ocaml" ]
+        >> of_tag "pre"
   in
   let mount () = Lwt.catch load_code on_error |> ignore in
   let update () =

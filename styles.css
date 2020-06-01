@@ -2,8 +2,8 @@
 body { background: #FCFCFC; margin: 0; }
 code {
     border-radius: 3px;
-    /* background: #FCFCFC; */
-    padding: 1px 6px 2px 6px;
+    background: #FCFCFC;
+    /* padding: 1px 6px 2px 6px; */
     border-style: solid;
     border-width: 0;
 }
@@ -136,3 +136,11 @@ h3 {
 .hljs-built_in { color: rgb(128, 240, 127) }
 
 /* ************************************************************************** */
+.fttable {
+    width: 100%;
+}
+.fttable th {
+    border: 1px solid #dee2e6;
+    width: 50%;
+    text-align: center;
+}

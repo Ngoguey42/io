@@ -33,12 +33,7 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
     | `Both, `Css | `Both, `Js -> true
   in
   ( match entry with
-  | `Tfjs ->
-      [
-        [
-          "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js";
-        ];
-      ]
+  | `Tfjs -> [ [ "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js" ] ]
   | `Cryptojs ->
       [
         [ "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js" ];
@@ -81,9 +76,7 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
           (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/foundation.min.css"; *)
           "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js";
         ];
-        [
-          "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/languages/ocaml.min.js";
-        ];
+        [ "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/languages/ocaml.min.js" ];
       ]
   | `Plotly -> [ [ "https://cdn.plot.ly/plotly-latest.min.js" ] ] )
   |> List.map (List.filter is_url_accepted)

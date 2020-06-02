@@ -115,7 +115,11 @@ let t0 =
    component in <cite>Reactjs</cite>. Both the constructor and the render function receive the
    <cite>props</cite> because <cite>Reactjs</cite> remembers the hierarchy of the components from
    one render to another and calls the constructor only before the first render.
-   The same goes with this OCaml wrapper.
+</p>
+<p>
+   In order to ensure the proper typing of <code>props</code> and preserve <cite>Reactjs</cite>'s
+   behavior regarding components' hierarchy, some <cite>weak dicts</cite> and <cite>magic</cite> is
+   required under the hood.
 </p>
 
 <h2>Example</h2>

@@ -256,7 +256,6 @@ let construct_training (props : props) =
     in
     React.S.fold reduce `Allocating routine_events
   in
-
   let user_status, set_user_status = React.S.create `Train_to_end in
   let set_user_status : training_user_status -> unit = set_user_status in
 

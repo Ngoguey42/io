@@ -43,5 +43,4 @@ let construct_component () =
     [ value; buttons ] |> of_tag "div" ~style:[ ("textAlign", "center") ]
   in
   Reactjs.construct ~signal:value_signal render
-
 (* snip-after *)

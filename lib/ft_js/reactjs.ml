@@ -5,14 +5,6 @@ end
 
 (* Types **************************************************************************************** *)
 
-module WeakJsObjDict = Ephemeron.K1.Make (struct
-  type t = Js.Unsafe.any
-
-  let equal a b = a == b
-
-  let hash = Hashtbl.hash
-end)
-
 class type ['target] event =
   object
     method target : 'target Js.readonly_prop
@@ -20,18 +12,34 @@ class type ['target] event =
     method preventDefault : unit Js.meth
   end
 
-class type ['props] component_class = object end
-
-class type component = object end
-
 class type jsx = object end
 
+type 'props render = 'props -> jsx Js.t
+
+class type ['props] component =
+  object
+    method ftJsRender : 'props render Js.callback Js.writeonly_prop
+
+    method ftJsMount : (unit -> unit) Js.callback Js.writeonly_prop
+
+    method ftJsUpdate : (unit -> unit) Js.callback Js.writeonly_prop
+
+    method ftJsUnmount : (unit -> unit) Js.callback Js.writeonly_prop
+  end
+
+class type ['props, 'key] props_holder =
+  object
+    method data : 'props Js.readonly_prop
+
+    method key : 'key Js.Optdef.t Js.readonly_prop
+  end
+
 type 'props construction =
-  ('props -> jsx Js.t)
+  'props render
   * (unit -> unit)
   * (unit -> unit)
   * (unit -> unit)
-  * (component Js.t -> unit) list
+  * ('props component Js.t -> unit) list
 
 type 'props constructor = 'props -> 'props construction
 
@@ -39,6 +47,86 @@ class type ref_ =
   object
     method current : Dom_html.element Js.t Js.Opt.t Js.readonly_prop
   end
+
+(* Component classes **************************************************************************** *)
+class type ['props] component_class = object end
+
+external _create_component_class :
+  ('props component Js.t -> ('props, _) props_holder Js.t -> unit) Js.callback ->
+  Js.js_string Js.t ->
+  'props component_class Js.t = "ft_js_create_component_class"
+
+module Constructor_magic_weak_dict = struct
+  type top
+
+  module D = Ephemeron.K1.Make (struct
+    type t = top constructor
+
+    let equal a b = a == b
+
+    let hash = Hashtbl.hash
+  end)
+
+  let d : top component_class Js.t D.t = D.create 25
+
+  let find_fallback :
+      top constructor -> (unit -> top component_class Js.t) -> top component_class Js.t =
+   fun f fallback ->
+    match D.find_opt d f with
+    | Some cls -> cls
+    | None ->
+        let cls = fallback () in
+        D.add d f cls;
+        cls
+
+  let find_fallback :
+      'props constructor -> (unit -> 'props component_class Js.t) -> 'props component_class Js.t =
+   fun f fallback ->
+    let f : 'props constructor = f in
+    let f : top constructor = Obj.magic f in
+    let fallback : unit -> 'props component_class Js.t = fallback in
+    let fallback : unit -> top component_class Js.t = Obj.magic fallback in
+    let cls : top component_class Js.t = find_fallback f fallback in
+    let cls : 'props component_class Js.t = Obj.magic cls in
+    cls
+end
+
+module Render_magic_weak_dict = struct
+  type top
+
+  module D = Ephemeron.K1.Make (struct
+    type t = top render
+
+    let equal a b = a == b
+
+    let hash = Hashtbl.hash
+  end)
+
+  let d : top component_class Js.t D.t = D.create 25
+
+  let find_fallback : top render -> (unit -> top component_class Js.t) -> top component_class Js.t =
+   fun f fallback ->
+    match D.find_opt d f with
+    | Some cls -> cls
+    | None ->
+        let cls = fallback () in
+        D.add d f cls;
+        cls
+
+  let find_fallback :
+      'props render -> (unit -> 'props component_class Js.t) -> 'props component_class Js.t =
+   fun f fallback ->
+    let f : 'props render = f in
+    let f : top render = Obj.magic f in
+    let fallback : unit -> 'props component_class Js.t = fallback in
+    let fallback : unit -> top component_class Js.t = Obj.magic fallback in
+    let cls : top component_class Js.t = find_fallback f fallback in
+    let cls : 'props component_class Js.t = Obj.magic cls in
+    cls
+end
+
+let _name_of_function : 'a -> string option =
+ fun f -> Js.Unsafe.get f (Js.string "name") |> Js.Optdef.to_option |> Option.map Js.to_string
 
 (* Functions ************************************************************************************ *)
 
@@ -111,14 +199,6 @@ let create_ref () : ref_ Js.t =
 (** Reactjs.Jsx to be opened in render functions *)
 module Jsx = struct
   let ( >> ) : jsx Js.t -> (jsx Js.t list -> jsx Js.t) -> jsx Js.t = fun v f -> f [ v ]
-
-  external _ft_js_create_component_type :
-    (component Js.t -> < data : 'props Js.readonly_prop > Js.t -> unit) ->
-    'props component_class Js.t = "ft_js_create_component_type"
-
-  let _class_of_constructor : Js.Unsafe.any WeakJsObjDict.t = WeakJsObjDict.create 25
-
-  let _class_of_render : Js.Unsafe.any WeakJsObjDict.t = WeakJsObjDict.create 25
 
   let _create_element :
       'a ->
@@ -315,76 +395,62 @@ module Jsx = struct
        construct and read them from `render`. (Caveat: I couldn't get rid of certain re-renders).
        It also might be enough to use `of_render` instead of `of_constructor` in that case.
   *)
-  let of_constructor : ?key:'a -> 'props constructor -> 'props -> jsx Js.t =
+  let of_constructor : ?key:'a -> 'props constructor -> 'props render =
    fun ?key constructor props ->
-    let open Js.Unsafe in
-    let props =
+    let build_class () =
+      let display_name =
+        match _name_of_function constructor with
+        | None -> Js.string "ocaml_constructor"
+        | Some name -> "ocaml_" ^ name |> Js.string
+      in
+      let prime_react_component self props_holder =
+        let render, mount, update, unmount, setup_signals = constructor props_holder##.data in
+        self##.ftJsRender := Js.wrap_callback render;
+        self##.ftJsMount := Js.wrap_callback mount;
+        self##.ftJsUpdate := Js.wrap_callback update;
+        self##.ftJsUnmount := Js.wrap_callback unmount;
+        List.iter (fun fn -> fn self) setup_signals
+      in
+      _create_component_class (Js.wrap_callback prime_react_component) display_name
+    in
+    let cls : 'props component_class Js.t =
+      Constructor_magic_weak_dict.find_fallback constructor build_class
+    in
+    let props : ('props, 'key) props_holder Js.t =
       object%js
         val data = props
+
+        val key = Js.Optdef.option key
       end
     in
-    Option.iter (fun v -> set props (Js.string "key") v) key;
-
-    let cls : 'props component_class Js.t =
-      match WeakJsObjDict.find_opt _class_of_constructor (inject constructor) with
-      | Some cls -> Obj.magic cls
-      | None ->
-          let name =
-            Js.Unsafe.get constructor (Js.string "name")
-            |> Fun.flip Js.Optdef.get (fun () -> "no_name")
-            |> Js.string
-          in
-          (* Printf.printf "> Reactjs - cache miss | constructing %s's class \n%!" (Js.to_string name); *)
-          let cls =
-            let g self props =
-              let render, mount, update, unmount, setup_signals = constructor props##.data in
-              (Js.Unsafe.coerce self)##.ftJsRender := Js.wrap_callback render;
-              (Js.Unsafe.coerce self)##.ftJsMount := Js.wrap_callback mount;
-              (Js.Unsafe.coerce self)##.ftJsUpdate := Js.wrap_callback update;
-              (Js.Unsafe.coerce self)##.ftJsUnmount := Js.wrap_callback unmount;
-              List.iter (fun fn -> fn self) setup_signals
-            in
-            _ft_js_create_component_type g
-          in
-          Js.Unsafe.set cls (Js.string "displayName") name;
-          WeakJsObjDict.add _class_of_constructor (inject constructor) (inject cls);
-          Obj.magic cls
-    in
-
+    let open Js.Unsafe in
     fun_call global##._React##.createElement [| inject cls; inject props |]
 
   (** Create a Jsx object from:
       - an OCaml function returning Jsx a object
       - the props taken by that render function.
    *)
-  let of_render : ?key:'a -> ('props -> jsx Js.t) -> 'props -> jsx Js.t =
+  let of_render : ?key:'key -> 'props render -> 'props render =
    fun ?key render props ->
-    let open Js.Unsafe in
-    let props =
+    let build_class () =
+      let display_name =
+        match _name_of_function render with
+        | None -> Js.string "ocaml_render"
+        | Some name -> "ocaml_" ^ name |> Js.string
+      in
+      let prime_react_component self _ = self##.ftJsRender := Js.wrap_callback render in
+      _create_component_class (Js.wrap_callback prime_react_component) display_name
+    in
+    let cls : 'props component_class Js.t =
+      Render_magic_weak_dict.find_fallback render build_class
+    in
+    let props : ('props, 'key) props_holder Js.t =
       object%js
         val data = props
+
+        val key = Js.Optdef.option key
       end
     in
-    Option.iter (fun v -> set props (Js.string "key") v) key;
-
-    let cls : 'props component_class Js.t =
-      match WeakJsObjDict.find_opt _class_of_render (inject render) with
-      | Some cls -> Obj.magic cls
-      | None ->
-          let cls =
-            let g self _ =
-              let render, mount, update, unmount, setup_signals = construct render in
-              (Js.Unsafe.coerce self)##.ftJsRender := Js.wrap_callback render;
-              (Js.Unsafe.coerce self)##.ftJsMount := Js.wrap_callback mount;
-              (Js.Unsafe.coerce self)##.ftJsUpdate := Js.wrap_callback update;
-              (Js.Unsafe.coerce self)##.ftJsUnmount := Js.wrap_callback unmount;
-              List.iter (fun fn -> fn self) setup_signals
-            in
-            _ft_js_create_component_type g
-          in
-          WeakJsObjDict.add _class_of_render (inject render) (inject cls);
-          Obj.magic cls
-    in
-
+    let open Js.Unsafe in
     fun_call global##._React##.createElement [| inject cls; inject props |]
 end

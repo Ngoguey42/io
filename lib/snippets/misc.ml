@@ -16,7 +16,7 @@ let turn_off_value_keyword code_elt =
   let nodes = code_elt##querySelectorAll (Js.string ".hljs-keyword") in
   List.init nodes##.length (fun i -> nodes##item i |> Js.Opt.to_option |> Option.to_list)
   |> List.concat
-  |> List.filter (fun elt -> elt##.innerHTML = (Js.string "value"))
+  |> List.filter (fun elt -> elt##.innerHTML = Js.string "value")
   |> List.iter (fun elt -> elt##.classList##remove (Js.string "hljs-keyword"))
 
 let construct_snippet_code filename =
@@ -72,7 +72,7 @@ let construct_snippet_code filename =
     match code_ref##.current |> Js.Opt.to_option with
     | None -> ()
     | Some elt ->
-       Js.Unsafe.global##.hljs##highlightBlock elt |> ignore;
-       turn_off_value_keyword elt
+        Js.Unsafe.global##.hljs##highlightBlock elt |> ignore;
+        turn_off_value_keyword elt
   in
   Reactjs.construct ~signal ~mount ~update render

@@ -22,6 +22,10 @@ perspectives:
     - [ lib/fnn_tfjs/fnn_tfjs.ml, <up> ]
   "16": [[ lib/fnn_tfjs/misc.ml, lib/fnn_tfjs/bridge_train.ml, lib/fnn_tfjs/bridge_eval.ml ]]
 
+  "13":
+    - [ lib/fnn_owl/dune, lib/fnn_owl/bridge.ml ]
+    - [ lib/fnn_owl/fnn_owl.ml, <up> ]
+
   # root and bin
   "0":
     - [ ./persp.yaml, ./README.md,    ./build.sh ]
@@ -45,7 +49,7 @@ perspectives:
 
   "+5" : [[ lib/mnist_jsoo/network_construction.ml, lib/mnist_jsoo/network_architectures.ml, lib/mnist_jsoo/training_configuration.ml ]]
   "5": [[lib/mnist_jsoo/results.ml, lib/mnist_jsoo/evaluation.ml, lib/mnist_jsoo/evaluation_tfjs.ml]]
-  "6" : [[ lib/mnist_jsoo/training.ml, lib/mnist_jsoo/training_tfjs.ml ]]
+  "6" : [[ lib/mnist_jsoo/training.ml, lib/mnist_jsoo/training_tfjs.ml, lib/mnist_jsoo/training_owl_cpu.ml ]]
 
   # snippets
   "21":

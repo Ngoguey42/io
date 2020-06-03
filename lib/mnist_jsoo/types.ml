@@ -7,7 +7,7 @@ type db_train = uint8_ba * uint8_ba
 
 type db_test = uint8_ba * uint8_ba
 
-type backend = [ `Tfjs_webgl | `Tfjs_cpu | `Tfjs_wasm ]
+type backend = [ `Tfjs_webgl | `Tfjs_cpu | `Tfjs_wasm | `Owl_algodiff_cpu ]
 
 type lr = [ `Down of float * float | `Flat of float ]
 
@@ -39,7 +39,7 @@ type training_stats = {
   mean_precision_top1 : float;
   batch_count : int;
   image_count : int;
-  mean_loss : float;
+  mean_loss : float; (* TODO: Rename mean_loss_per_image. It currently is the sum *)
 }
 
 type training_user_status = [ `Train_to_end | `Early_stop | `Abort ]

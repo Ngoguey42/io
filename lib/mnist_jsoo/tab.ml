@@ -152,7 +152,15 @@ let react_main db signal set_signal fire_toast =
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
   (events, fire_event)
 
-let options = [ (`Tfjs_webgl, true); (`Tfjs_cpu, true); (`Tfjs_webgl, false); (`Tfjs_cpu, false) ]
+let options =
+  [
+    (`Tfjs_webgl, true);
+    (`Tfjs_cpu, true);
+    (`Tfjs_webgl, false);
+    (`Tfjs_cpu, false);
+    (`Owl_algodiff_cpu, true);
+    (`Owl_algodiff_cpu, false);
+  ]
 
 let option_of_idx = function
   | 0 -> (`Tfjs_webgl, true)
@@ -161,6 +169,8 @@ let option_of_idx = function
   | 3 -> (`Tfjs_webgl, false)
   | 4 -> (`Tfjs_wasm, false)
   | 5 -> (`Tfjs_cpu, false)
+  | 6 -> (`Owl_algodiff_cpu, true)
+  | 7 -> (`Owl_algodiff_cpu, false)
   | _ -> failwith "Unknown computation option"
 
 let idx_of_option = function
@@ -170,6 +180,8 @@ let idx_of_option = function
   | `Tfjs_webgl, false -> 3
   | `Tfjs_wasm, false -> 4
   | `Tfjs_cpu, false -> 5
+  | `Owl_algodiff_cpu, true -> 6
+  | `Owl_algodiff_cpu, false -> 7
 
 let name_of_option = function
   | `Tfjs_webgl, true -> "TensorFlow.js WebGL from Web Worker"
@@ -178,6 +190,8 @@ let name_of_option = function
   | `Tfjs_webgl, false -> "TensorFlow.js WebGL"
   | `Tfjs_wasm, false -> "TensorFlow.js WASM"
   | `Tfjs_cpu, false -> "TensorFlow.js cpu"
+  | `Owl_algodiff_cpu, true -> "Owl.Algodiff cpu from Web Worker"
+  | `Owl_algodiff_cpu, false -> "Owl.Algodiff cpu"
 
 let construct_backend_selection : _ Reactjs.constructor =
  fun (fire_upstream_event, tabidx, _) ->

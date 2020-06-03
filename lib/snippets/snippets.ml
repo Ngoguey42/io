@@ -18,9 +18,6 @@ let construct_snippets () =
     let open Reactjs.Jsx in
     Printf.printf "> Component - snippets | render\n%!";
     [ Reactjs.Jsx.of_constructor Reactjs_snip.construct_reactjs_snippet () ] |> of_react "Fragment"
-    (* [ Reactjs.Jsx.of_constructor construct_reactjs_snippet () ] *)
-    (* |> of_bootstrap "Col" >> of_bootstrap "Row" *)
-    (* >> of_bootstrap "Container" ~fluid:true ~classes:[ "bigbox1" ] *)
   in
   Reactjs.construct render
 

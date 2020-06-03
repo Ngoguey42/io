@@ -63,7 +63,9 @@ end
 module Batch_size = struct
   type t = Int64.t
 
-  let default = Int64.of_int 500
+  let default = Int64.of_int 1
+
+  (* let default = Int64.of_int 500 *)
 
   let string_of_dconf : derived_conf -> string = fun c -> Printf.sprintf "%d" c.batch_size
 
@@ -77,7 +79,9 @@ end
 module Batch_count = struct
   type t = Int64.t
 
-  let default = Int64.of_int 20
+  let default = Int64.of_int 1
+
+  (* let default = Int64.of_int 20 *)
 
   let string_of_dconf : derived_conf -> string = fun c -> Printf.sprintf "%d" c.batch_count
 

@@ -30,6 +30,28 @@ let repair_bigarray : 'a -> 'a =
 
 let repair_string : string -> string = fun s -> String.sub s 0 (String.length s)
 
+let repair_storable_nn : 'a -> 'a =
+ fun snn ->
+  let layer_ids, graph, layers = snn in
+  List.iter
+    (fun i ->
+      match Hashtbl.find layers i with
+      | `Parameter32 (id, dimensions, init, o, tensor_opt, optim_opt) ->
+          let tensor_opt =
+            match tensor_opt with None -> None | Some v -> Some (repair_bigarray v)
+          in
+          let optim_opt =
+            match optim_opt with
+            | Some (`Adam (a, b, c, d, t0, t1)) ->
+                Some (`Adam (a, b, c, d, repair_bigarray t0, repair_bigarray t1))
+            | v -> v
+          in
+          Hashtbl.add layers i (`Parameter32 (id, dimensions, init, o, tensor_opt, optim_opt))
+      | _ -> ())
+    layer_ids;
+
+  (layer_ids, graph, layers)
+
 let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config } fire_event
     instructions =
   let module Backend = (val Backend.create config.backend) in
@@ -90,6 +112,7 @@ let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config
 
 let routine params fire_event instructions =
   let on_error exn =
+    Printf.eprintf "Error inside routine %s!\n%!" (Printexc.to_string exn);
     fire_event (`Outcome (`Crash (Printexc.to_string exn)));
     Lwt.return ()
   in
@@ -122,6 +145,8 @@ module Webworker_routine = struct
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db; networks = encoders, decoder; config } ->
         let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
+        let decoder = repair_storable_nn decoder in
+        let encoders = List.map repair_storable_nn encoders in
         let networks = (List.map f encoders, f decoder) in
         `Prime Types.{ networks; db; config }
     | #training_user_status as msg -> msg

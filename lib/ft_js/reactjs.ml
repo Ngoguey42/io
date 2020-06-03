@@ -438,7 +438,12 @@ module Jsx = struct
         | None -> Js.string "ocaml_render"
         | Some name -> "ocaml_" ^ name |> Js.string
       in
-      let prime_react_component self _ = self##.ftJsRender := Js.wrap_callback render in
+      let prime_react_component self _ =
+        self##.ftJsRender := Js.wrap_callback render;
+        self##.ftJsMount := Js.wrap_callback (fun () -> ());
+        self##.ftJsUpdate := Js.wrap_callback (fun () -> ());
+        self##.ftJsUnmount := Js.wrap_callback (fun () -> ())
+      in
       _create_component_class (Js.wrap_callback prime_react_component) display_name
     in
     let cls : 'props component_class Js.t =

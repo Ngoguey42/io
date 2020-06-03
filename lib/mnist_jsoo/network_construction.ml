@@ -83,7 +83,9 @@ end
 module Parameters = struct
   type t = Int64.t
 
-  let default = Int64.of_int 10000
+  let default = Int64.of_int 1
+
+  (* let default = Int64.of_int 10000 *)
 
   let of_dconf : derived_conf -> t = fun c -> Int64.of_int c.parameters
 

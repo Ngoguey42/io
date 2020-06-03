@@ -1,0 +1,9 @@
+(library
+ (public_name fnn_owl)
+ (name fnn_owl)
+
+ (libraries
+  owl-base
+  ft ft_js fnn pshape
+  )
+ )

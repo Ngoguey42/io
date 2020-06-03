@@ -153,7 +153,8 @@ module Maxpool_fc : DECODER = struct
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
     |> maxpool2d ~b:`Assert_fit (w, w)
-    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
+    |> transpose ~mapping:[ (`S1, `C); (`S0, `C); (`C, `C) ]
+    (* |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ] *)
     |> dense ~o [ (`C, 10) ] ~id:(Some "classif")
     |> bias
     |> softmax `C
@@ -175,7 +176,7 @@ module Fc_decoder : DECODER = struct
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
-    |> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]
+    |> transpose ~mapping:[ (`S1, `C); (`S0, `C); (`C, `C) ]
     |> dense ~o [ (`C, 10) ] ~id:(Some "classif")
     |> bias
     |> softmax `C

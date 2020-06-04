@@ -6,14 +6,6 @@ end
 type optimization = float -> unit
 
 module OptiMap = struct
-  (* module Key = *)
-  (*   struct *)
-  (*     type t = Fnn.network *)
-
-  (*     let compare a b = compare (Oo.id a) (Oo.id b) *)
-
-  (*     let equal a b = a == b *)
-  (*   end *)
   module Key = Stdlib.String
   include Map.Make (Key)
   module StringSet = Set.Make (Key)
@@ -35,6 +27,8 @@ module OptiMap = struct
       StringSet.diff keys' keys |> StringSet.elements )
 end
 
+type optimization_map = optimization OptiMap.t
+
 let update_primal v primal =
   match v with
   | Algodiff.DR (_, adjoint, op, fanout, tag, tracker) ->
@@ -42,6 +36,11 @@ let update_primal v primal =
   | Algodiff.DF (_, tangent, tag) -> Algodiff.DF (Algodiff.pack_arr primal, tangent, tag)
   | Algodiff.Arr _ -> Algodiff.Arr primal
   | Algodiff.F _ -> failwith "in update_primal: can't update scalar"
+
+let rec tofloat v =
+  match Algodiff.primal' v with
+  | Algodiff.F _ -> Algodiff.unpack_flt v
+  | v -> v |> Algodiff.Maths.mean |> tofloat
 
 let channel_last_axes = function
   | 5 -> [ `N; `S2; `S1; `S0; `C ]
@@ -110,8 +109,8 @@ let derive_configuration_of_tensordot_layer net =
 
 let validate_output_tensor net tensor =
   let net = Fnn.downcast net in
-  Printf.eprintf "validating output of %s\n%!" net#to_string;
 
+  (* Printf.eprintf "output of %s has mean value %.17e\n%!" net#to_string (tofloat tensor); *)
   let out_shape = net#out_shape in
   let out_shape =
     if Pshape.is_symbolic out_shape then
@@ -137,14 +136,12 @@ let validate_output_tensor net tensor =
       (Pshape.to_string net#out_shape)
       (List.map Pshape.Size.to_string net_dims |> String.concat ", ")
     |> failwith;
-  Printf.eprintf "ok\n%!";
   tensor
 
 let _unpack_optimizer net var =
   match net#optimizer with
   | `Sgd ->
       let update lr =
-        Printf.eprintf "SGD update with lr=%e\n%!" lr;
         let w = !var |> Algodiff.primal' |> Algodiff.unpack_arr in
         let g = !var |> Algodiff.adjval |> Algodiff.unpack_arr in
         var :=
@@ -179,10 +176,8 @@ let _unpack_optimizer net var =
           rgrad_sq := (!rgrad_sq * beta2) + (g * g * beta2');
           var :=
             !rgrad / correction1
-            |> div (sqrt (!rgrad_sq / correction2) + epsilon)
+            |> Fun.flip div (sqrt (!rgrad_sq / correction2) + epsilon)
             |> mul lr |> neg |> add w |> update_primal !var)
       in
       let pack () = `Adam (epsilon, beta1, beta2, !step, !rgrad, !rgrad_sq) in
       (update, pack)
-
-type optimization_map = optimization OptiMap.t

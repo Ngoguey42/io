@@ -35,7 +35,6 @@ let toshp v =
 let categorical_crossentropy epsilon softmaxed_pred truth =
   (* a truth element must be 0. or 1. *)
   softmaxed_pred
-  |> Algodiff.Maths.min2 (1. -. epsilon |> Algodiff.pack_flt)
   |> Algodiff.Maths.max2 (epsilon |> Algodiff.pack_flt)
   |> Algodiff.Maths.log |> Algodiff.Maths.mul truth |> Algodiff.Maths.neg
   |> Algodiff.Maths.sum ~axis:(-1) |> Algodiff.Maths.mean
@@ -77,7 +76,6 @@ let train : Types.training_backend_routine =
   let optimizations = Fnn_owl.OptiMap.union_exn optimizations o in
 
   let train_on_batch batch_idx =
-    Printf.eprintf "Starting batch\n%!";
     let time = (new%js Js.date_now)##valueOf /. 1000. in
     let lr = get_lr batch_idx in
     let x, y = get_data batch_idx in
@@ -92,32 +90,32 @@ let train : Types.training_backend_routine =
       _1hot_of_top1 y_top1_uint8 |> Algodiff.pack_arr
       (* |> Fun.flip Algodiff.make_reverse (Oo.id net) *)
     in
-    Printf.eprintf "Inputs means: x:%f, y_1hot:%f\n%!"
-      (x |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt)
-      (y_1hot |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt);
 
+    (* Printf.eprintf "Inputs means: x:%f, y_1hot:%f\n%!" *)
+    (*   (x |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt) *)
+    (*   (y_1hot |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt); *)
     let x = Fnn.Map.singleton node0 x in
     let y' =
       List.map (fun fw -> fw x) forward_encoders
       |> Array.of_list
       |> Algodiff.Maths.concatenate ~axis:3
     in
-    Printf.eprintf "Between networks mean: %f\n%!"
-      (y' |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt);
 
+    (* Printf.eprintf "Between networks mean: %f\n%!" *)
+    (*   (y' |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt); *)
     let y' = Fnn.Map.singleton node0_decoder y' in
     let y'_1hot = forward_decoder y' in
 
-    Printf.eprintf "Result mean: %f\n%!"
-      (y'_1hot |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt);
+    (* Printf.eprintf "Result mean: %f\n%!" *)
+    (*   (y'_1hot |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt); *)
     assert (y'_1hot |> Algodiff.primal' |> Algodiff.Arr.shape = [| batch_size; 10 |]);
 
     let loss = categorical_crossentropy 1e-10 y'_1hot y_1hot in
     assert (Algodiff.is_float loss);
 
-    Printf.eprintf "loss: %f\n%!" (loss |> Algodiff.primal' |> Algodiff.unpack_flt);
+    (* Printf.eprintf "loss: %f\n%!" (loss |> Algodiff.primal' |> Algodiff.unpack_flt); *)
 
-    Printf.eprintf "backprop!\n%!";
+    (* Printf.eprintf "backprop!\n%!"; *)
     Algodiff.reverse_prop (Algodiff.pack_flt 1.) loss;
 
     Fnn_tfjs.OptiMap.iter (fun _name optimization -> optimization lr) optimizations;

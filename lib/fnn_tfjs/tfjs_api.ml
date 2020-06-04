@@ -787,11 +787,15 @@ module Layers = struct
 end
 
 (* Hard coded algorithms  *********************************************************************** *)
+(* a truth element must be 0. or 1.
+   Not clipping input to be below (1 - epsilon) because:
+   - it's hard to represent such a number if epsilon < 1e-7 with float32
+   - it's useless, it just kills gradients and prevents nothing
+ *)
 let categorical_crossentropy : float -> tensor Js.t -> tensor Js.t -> tensor Js.t =
  fun epsilon softmaxed_pred truth ->
-  (* a truth element must be 0. or 1. *)
   softmaxed_pred
-  |> Ops.clip_by_value epsilon (1. -. epsilon)
+  |> Ops.maximum (float epsilon)
   |> Ops.log |> Ops.mul truth |> Ops.neg |> Ops.sum ~axis:(-1) true |> Ops.mean ~axis:0 true
 
 let hinge : ?margin:float -> tensor Js.t -> tensor Js.t -> tensor Js.t =

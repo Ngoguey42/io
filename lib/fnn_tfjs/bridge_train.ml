@@ -222,7 +222,7 @@ let _unpack_layern1 (net : Fnn.noden1) =
   | `Prod net ->
       let forward ups =
         let rec aux = function
-          | [] -> failwith "unreachable (sum layer without upstream parents)"
+          | [] -> failwith "unreachable (prod layer without upstream parents)"
           | [ x ] -> x
           | x :: x' :: tl -> aux (Tfjs_api.Ops.mul x x' :: tl)
         in

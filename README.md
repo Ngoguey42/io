@@ -1,7 +1,5 @@
 # TODO
 - mnist-jsoo soon
-   1. Use memoisation in forwards
-   1. Improve prototype of owl backend bridge
    1. Implement evaluation with owl backend
    1. Revive wasm backend by using the Ndarray one-hot implementation
    1. Stats chart with plotly
@@ -33,6 +31,9 @@
    - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`
    - PR or issue `js_of_ocaml ErrorError##.msg -> ErrorError##.message`
    - PR or issue `owl get_slice [first; start] -> [start; stop[`
+      - (60000) [[0; 499]] -> (500)
+      - (1, 9, 9, 1) [[0;0];[1;6];[1;6];[0;0]] -> (1, 6, 6, 1) // yes, for real
+      - (1, 9, 9, 1) [[]   ;[1;6];[1;6];[]   ] -> (1, 7, 7, 1)
    - PR or issue `why not WeakMap in js_of_ocaml`
    - PR or issue `owl Algodiff.Arr.shape should use prime' (Same in Algodiff.?.Softmax, theres an unpack_arr)`
    - PR or issue `owl why is Algodiff's softmax centered??`
@@ -59,4 +60,5 @@
       - Larger and deeper networks are easier to train with adam. smaller are easier with SGD (todo: Check)
       - Different initial seeds rougly yield the same results (todo: Check)
       - Adam hates varying learning rates (todo: Check)
+      - All backends produce mostly the same results. Some differences in floating point precision errors make them diverge after several epochs
       - Hint on how to reach good performances

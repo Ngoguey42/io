@@ -7,7 +7,7 @@ module OptiMap = OptiMap
 
 type tensor = Algodiff.t
 
-type tensormap = Algodiff.t Fnn.Map.t
+type tensormap = tensor Fnn.Map.t
 
 type unpacked_network =
   | Node01 of {
@@ -19,67 +19,53 @@ type unpacked_network =
   | Node11 of {
       node : Fnn.network;
       up : unpacked_network;
-      forward : Algodiff.t -> Algodiff.t;
+      forward : tensor -> tensor;
       pack : Fnn.network -> Fnn.network;
     }
   | Node21 of {
       node : Fnn.network;
       up0 : unpacked_network;
       up1 : unpacked_network;
-      forward : Algodiff.t -> Algodiff.t -> Algodiff.t;
+      forward : tensor -> tensor -> tensor;
       pack : Fnn.network -> Fnn.network -> Fnn.network;
     }
   | Noden1 of {
       node : Fnn.network;
       ups : unpacked_network list;
-      forward : Algodiff.t list -> Algodiff.t;
+      forward : tensor list -> tensor;
       pack : Fnn.network list -> Fnn.network;
     }
-
-type accumulator = {
-  forward : Algodiff.t Fnn.Map.t -> Algodiff.t;
-  optimizations : optimization_map;
-  pack : unit -> Fnn.network;
-}
 
 let _unpack_layer01 (net : Fnn.node01) =
   match net#classify_layer with
   | `Input _ ->
       let net = (net :> Fnn.network) in
       let forward inputs =
-        Printf.eprintf "forward input\n%!";
         let tensor = Fnn.Map.find net inputs in
         validate_output_tensor net tensor
       in
       let pack () = net in
-      forward, pack, None
+      (forward, pack, None)
   | `Parameter32 net ->
       let var = ref (net#tensor |> Algodiff.pack_arr |> Fun.flip Algodiff.make_reverse 42) in
-      let forward _ =
-        Printf.eprintf "forward param\n%!";
-        !var |> validate_output_tensor net
-      in
+      let forward _ = !var |> validate_output_tensor net in
       let update, opti_pack = _unpack_optimizer net var in
       let pack () =
         let optimizer = opti_pack () in
         let w = !var |> Algodiff.primal' |> Algodiff.unpack_arr in
         (net#replicate ~id:net#id w optimizer :> Fnn.network)
       in
-      forward, pack, Some update
+      (forward, pack, Some update)
 
 let _unpack_layer11 (net : Fnn.node11) =
   match net#classify_layer with
   | `Relu _ ->
-      let forward up =
-        Printf.eprintf "forward relu\n%!";
-        validate_output_tensor net (Algodiff.Maths.relu up)
-      in
+      let forward up = validate_output_tensor net (Algodiff.Maths.relu up) in
       let pack up = (net :> Fnn.network)#copy [ up ] in
       (forward, pack)
   | `Softmax net ->
       let tensor_axis = tensor_axis_of_shape_axis net#upstream#out_shape net#axis in
       let forward up =
-        Printf.eprintf "forward softmax a\n%!";
         let max =
           up |> Algodiff.primal' |> Algodiff.unpack_arr |> Algodiff.A.max ~axis:tensor_axis
           |> Algodiff.pack_arr
@@ -94,7 +80,7 @@ let _unpack_layer11 (net : Fnn.node11) =
       (forward, pack)
   | `Astype _ -> failwith "`Astype is unsupported with Owl backend"
   | `Padding net ->
-      (* if net#is_mixed then failwith "Mixed paddings not yet implemented"; *)
+      if net#is_mixed then failwith "Mixed paddings not yet implemented";
       let value =
         match net#value with
         | `Constant v -> v
@@ -103,32 +89,28 @@ let _unpack_layer11 (net : Fnn.node11) =
       in
       let f =
         let axes = axes_of_shape net#upstream#out_shape in
-        (* TODO: does cropping work? *)
-        (* if net#is_padding then *)
-        let paddings_per_axis =
-          List.map
-            (fun ax ->
-              let bef, aft = net#paddings_of_axis ax in
-              [ bef; aft ])
-            axes
-        in
-        Algodiff.NN.pad ~v:value paddings_per_axis
-        (* else fun x -> *)
-        (*   let shape = x##.shape |> Js.to_array in *)
-        (*   let per_axis = *)
-        (*     List.mapi *)
-        (*       (fun i ax -> *)
-        (*         let bef, aft = net#paddings_of_axis ax in *)
-        (*         let size = shape.(i) in *)
-        (*         (i, abs bef, size + bef + aft)) *)
-        (*       axes *)
-        (*   in *)
-        (*   Tfjs_api.Ops.slice per_axis x *)
+        if net#is_padding then
+          let paddings_per_axis =
+            List.map
+              (fun ax ->
+                let bef, aft = net#paddings_of_axis ax in
+                [ bef; aft ])
+              axes
+          in
+          Algodiff.NN.pad ~v:value paddings_per_axis
+        else fun x ->
+          let shape = x |> Algodiff.primal' |> Algodiff.Arr.shape in
+          let per_axis =
+            List.mapi
+              (fun i ax ->
+                let bef, aft = net#paddings_of_axis ax in
+                let size = shape.(i) in
+                if bef = 0 && aft = 0 then [] else [ abs bef; size + bef + aft ])
+              axes
+          in
+          Algodiff.Maths.get_slice per_axis x
       in
-      let forward up =
-        Printf.eprintf "forward padding\n%!";
-        up |> f |> validate_output_tensor net
-      in
+      let forward up = up |> f |> validate_output_tensor net in
       let pack up = (net :> Fnn.network)#copy [ up ] in
       (forward, pack)
   | `Maxpool2d net ->
@@ -137,7 +119,7 @@ let _unpack_layer11 (net : Fnn.node11) =
         | `Same -> Owl_types.SAME
         | `Valid -> Owl_types.VALID
         | `Assert_fit -> Owl_types.VALID
-        | `Pad_fit -> failwith "not implemented"
+        | `Pad_fit -> failwith "`Pad_fit in maxpool2d not implemented"
       in
       let kernel_size =
         let ky, kx = net#kernel_size in
@@ -147,10 +129,7 @@ let _unpack_layer11 (net : Fnn.node11) =
         let sy, sx = net#stride in
         [| sy; sx |]
       in
-      let forward up =
-        Printf.eprintf "forward maxpool\n%!";
-        Algodiff.NN.max_pool2d b up kernel_size s |> validate_output_tensor net
-      in
+      let forward up = Algodiff.NN.max_pool2d b up kernel_size s |> validate_output_tensor net in
       let pack up = (net :> Fnn.network)#copy [ up ] in
       (forward, pack)
   | `Transpose net ->
@@ -162,7 +141,6 @@ let _unpack_layer11 (net : Fnn.node11) =
         transpose_axes |> List.map string_of_int |> String.concat ", " |> print_endline;
         failwith "Unsupported transpose. Awaiting next owl-base version for `transpose ~axis`" );
       let forward up =
-        Printf.eprintf "Forward transpose\n%!";
         let reshape_shape = up |> Algodiff.primal' |> Algodiff.Arr.shape |> dims1_of_dims0 in
         (* Algodiff.Maths.transpose ~axis:transpose_axes x *)
         Algodiff.Maths.reshape up reshape_shape |> validate_output_tensor net
@@ -187,11 +165,7 @@ let _unpack_layer21 (net : Fnn.node21) =
         let sy, sx = net#stride in
         [| sy; sx |]
       in
-      let forward up0 up1 =
-        Printf.eprintf "forward conv2d\n%!";
-        Algodiff.NN.conv2d ~padding:b up1 up0 s
-        |> validate_output_tensor net
-      in
+      let forward up0 up1 = Algodiff.NN.conv2d ~padding:b up1 up0 s |> validate_output_tensor net in
       let pack up0 up1 = (net :> Fnn.network)#copy [ up0; up1 ] in
       (forward, pack)
   | `Tensordot net ->
@@ -202,7 +176,6 @@ let _unpack_layer21 (net : Fnn.node21) =
           "Unsupported transpose in tensordot. Awaiting next owl-base version for `transpose ~axis`";
 
       let forward up0 up1 =
-        Printf.eprintf "forward tensordot\n%!";
         Algodiff.Maths.dot up0 up1
         (* |> Tfjs_api.Ops.transpose ~perm *)
         |> validate_output_tensor net
@@ -214,7 +187,6 @@ let _unpack_layern1 (net : Fnn.noden1) =
   match net#classify_layer with
   | `Sum net ->
       let forward ups =
-        Printf.eprintf "forward sum\n%!";
         let rec aux = function
           | [] -> failwith "unreachable (sum layer without upstream parents)"
           | [ x ] -> x
@@ -226,10 +198,9 @@ let _unpack_layern1 (net : Fnn.noden1) =
       in
       (forward, (net :> Fnn.network)#copy)
   | `Prod net ->
-      Printf.eprintf "forward prod\n%!";
       let forward ups =
         let rec aux = function
-          | [] -> failwith "unreachable (sum layer without upstream parents)"
+          | [] -> failwith "unreachable (prod layer without upstream parents)"
           | [ x ] -> x
           | x :: x' :: tl -> aux (Algodiff.Maths.mul x x' :: tl)
         in
@@ -239,9 +210,7 @@ let _unpack_layern1 (net : Fnn.noden1) =
   | `Concatenate net ->
       let axis = tensor_axis_of_shape_axis net#out_shape net#axis in
       let forward ups =
-        Printf.eprintf "forward concat\n%!";
-        ups
-        |> Array.of_list |> Algodiff.Maths.concatenate ~axis |> validate_output_tensor net
+        ups |> Array.of_list |> Algodiff.Maths.concatenate ~axis |> validate_output_tensor net
       in
       (forward, (net :> Fnn.network)#copy)
 
@@ -262,7 +231,7 @@ let _unpack_node follow (net : Fnn.network) =
   | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
 
 let unpack_for_training :
-    Fnn.network -> (Algodiff.t Fnn.Map.t -> Algodiff.t) * optimization_map * (unit -> Fnn.network) =
+    Fnn.network -> (tensormap -> tensor) * optimization_map * (unit -> Fnn.network) =
  (* Transform a `network` to everything that is needed to perform a training of that network
   * using Owl algodiff ndarray:
   * 1. A callable for the forward pass aware of the upcoming backward pass

@@ -65,6 +65,7 @@ let validate_output_tensor net tensor =
   let net = Fnn.downcast net in
   let tensor = (tensor :> Tfjs_api.tensor Js.t) in
 
+  (* Printf.eprintf "output of %s has mean value %.17e\n%!" net#to_string (Tfjs_api.Ops.mean false tensor |> Tfjs_api.to_float); *)
   let out_shape = net#out_shape in
   let out_shape =
     if Pshape.is_symbolic out_shape then

@@ -43,7 +43,8 @@ let t0 =
 </p>
 
 <p>
-   This OCaml wrapper is in-between the two native approaches. You define a constructor function
+   This OCaml wrapper is based on the <code>React.Component</code> class, but when using it
+   it feel a lot like the <cite>Reacjs Hooks</cite>. You define a constructor function
    (much like the <code>constructor</code> method of a <code>React.Component</code>) in which
    you define at least a <code>render</code> function to be returned.
    To access the other features of <cite>Reactjs</cite> you may return more than

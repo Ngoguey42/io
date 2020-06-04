@@ -6,9 +6,26 @@ open struct
   module Algodiff = Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
 end
 
-let _stats_of_cm _confusion_matrix =
-  (* TODO: Compute stats *)
-  (0., 0., 0.)
+let _stats_of_cm cm =
+  let stats_of_cat catidx =
+    let true_pos = Ndarray.get cm [| catidx; catidx |] in
+    let false_neg = Ndarray.get_slice [ [ catidx ]; [] ] cm |> Ndarray.sum in
+    let false_pos = Ndarray.get_slice [ []; [ catidx ] ] cm |> Ndarray.sum in
+
+    let false_neg = Ndarray.get false_neg [| 0 |] -. true_pos in
+    let false_pos = Ndarray.get false_pos [| 0 |] -. true_pos in
+
+    let iou = true_pos /. (true_pos +. false_neg +. false_pos) in
+    let recall = true_pos /. (true_pos +. false_neg) in
+    let precision = true_pos /. (true_pos +. false_pos) in
+    (iou, recall, precision)
+  in
+  let l = List.init 10 stats_of_cat in
+  let ious = List.map (fun (v, _, _) -> v) l in
+  let recalls = List.map (fun (_, v, _) -> v) l in
+  let precisions = List.map (fun (_, _, v) -> v) l in
+  let mean l = List.fold_left ( +. ) 0. l /. 10. in
+  (mean ious, mean recalls, mean precisions)
 
 let _1hot_of_top1 a =
   let numel =
@@ -19,6 +36,37 @@ let _1hot_of_top1 a =
     Bigarray.Genarray.set b [| i; Bigarray.Genarray.get a [| i |] |] 1.0
   done;
   b
+
+let _top1_of_1hot a =
+  let numel =
+    match Bigarray.Genarray.dims a with [| v; 10 |] -> v | _ -> failwith "_top1_of_1hot bad input"
+  in
+  let b = Ndarray.zeros [| numel |] in
+  for i = 0 to numel - 1 do
+    let row =
+      List.combine (List.init 10 (fun j -> Ndarray.get a [| i; j |])) (List.init 10 Fun.id)
+      |> List.sort (Fun.flip compare)
+    in
+    let _, nth = List.hd row in
+    Bigarray.Genarray.set b [| i |] (float_of_int nth)
+  done;
+  b
+
+let confusion_matrix truth_top1 pred_top1 =
+  let numel =
+    match Bigarray.Genarray.dims truth_top1 with
+    | [| v |] -> v
+    | _ -> failwith "confusion_matrix bad input"
+  in
+  let cm = Ndarray.zeros [| 10; 10 |] in
+  for i = 0 to numel - 1 do
+    let y = Ndarray.get truth_top1 [| i |] in
+    let y' = Ndarray.get pred_top1 [| i |] in
+    let y = int_of_float y in
+    let y' = int_of_float y' in
+    Bigarray.Genarray.set cm [| y; y' |] (Bigarray.Genarray.get cm [| y; y' |] +. 1.0)
+  done;
+  cm
 
 let rec tofloat v =
   match Algodiff.primal' v with
@@ -83,59 +131,34 @@ let train : Types.training_backend_routine =
 
     let x =
       to_float32 x |> Algodiff.pack_arr |> Fun.flip Algodiff.Arr.reshape [| batch_size; 28; 28; 1 |]
-      (* |> Fun.flip Algodiff.make_reverse (Oo.id net) *)
     in
     let y_top1_uint8 = y |> Fun.flip Bigarray.reshape [| batch_size |] in
-    let y_1hot =
-      _1hot_of_top1 y_top1_uint8 |> Algodiff.pack_arr
-      (* |> Fun.flip Algodiff.make_reverse (Oo.id net) *)
-    in
+    let y_1hot = _1hot_of_top1 y_top1_uint8 |> Algodiff.pack_arr in
 
-    (* Printf.eprintf "Inputs means: x:%f, y_1hot:%f\n%!" *)
-    (*   (x |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt) *)
-    (*   (y_1hot |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt); *)
     let x = Fnn.Map.singleton node0 x in
     let y' =
       List.map (fun fw -> fw x) forward_encoders
       |> Array.of_list
       |> Algodiff.Maths.concatenate ~axis:3
     in
-
-    (* Printf.eprintf "Between networks mean: %f\n%!" *)
-    (*   (y' |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt); *)
     let y' = Fnn.Map.singleton node0_decoder y' in
     let y'_1hot = forward_decoder y' in
-
-    (* Printf.eprintf "Result mean: %f\n%!" *)
-    (*   (y'_1hot |> Algodiff.primal' |> Algodiff.Maths.mean |> Algodiff.primal' |> Algodiff.unpack_flt); *)
     assert (y'_1hot |> Algodiff.primal' |> Algodiff.Arr.shape = [| batch_size; 10 |]);
-
     let loss = categorical_crossentropy 1e-10 y'_1hot y_1hot in
     assert (Algodiff.is_float loss);
 
-    (* Printf.eprintf "loss: %f\n%!" (loss |> Algodiff.primal' |> Algodiff.unpack_flt); *)
-
-    (* Printf.eprintf "backprop!\n%!"; *)
     Algodiff.reverse_prop (Algodiff.pack_flt 1.) loss;
-
     Fnn_tfjs.OptiMap.iter (fun _name optimization -> optimization lr) optimizations;
 
-    (* TODO: top1 *)
-    let y'_top1 = y'_1hot in
-    ignore y'_top1;
-
-    (* TODO: Confusion matrix *)
-    let confusion_matrix = Ndarray.zeros [| 10; 10 |] in
+    let y'_top1 = _top1_of_1hot (y'_1hot |> Algodiff.primal' |> Algodiff.unpack_arr) in
+    let confusion_matrix = confusion_matrix (y_top1_uint8 |> to_float32) y'_top1 in
 
     let loss = loss |> Algodiff.primal' |> Algodiff.unpack_flt in
     ( if verbose then
+      let iou, recall, _ = _stats_of_cm confusion_matrix in
       let time' = (new%js Js.date_now)##valueOf /. 1000. in
-      Printf.printf "%5d, lr:%6.1e, l:%9.6f, %.3fsec\n%!"
-        (* Printf.printf "%5d, lr:%6.1e, l:%9.6f, grad:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" *)
-        batch_idx lr loss
-        (* (Tfjs.to_float loss) classif_grad (iou *. 100.) (recall *. 100.) *)
-        (time' -. time) );
-
+      Printf.printf "%5d, lr:%6.1e, l:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" batch_idx lr loss
+        (iou *. 100.) (recall *. 100.) (time' -. time) );
     (batch_size, loss, confusion_matrix)
   in
 
@@ -145,7 +168,7 @@ let train : Types.training_backend_routine =
   let fire_stop_event batch_count =
     let encoders, decoder = (List.map (fun f -> f ()) pack_encoders, pack_decoder ()) in
     let image_count = !image_count in
-    let mean_iou_top1, mean_recall_top1, mean_precision_top1 = _stats_of_cm confusion_matrix_sum in
+    let mean_iou_top1, mean_recall_top1, mean_precision_top1 = _stats_of_cm !confusion_matrix_sum in
     let stats =
       Types.
         {

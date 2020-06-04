@@ -108,24 +108,9 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
     ignore instructions;
     if verbose then (
       let iou, recall, _ = _stats_of_cm confusion_matrix in
-      let layer =
-        match (Fnn.find_id (Some "classif") [ decoder ])#classify_layer with
-        | `Conv2d node -> node#upstream0
-        | `Tensordot node -> node#upstream1
-        | _ -> failwith "unsupported `classif` layer"
-      in
-      let classif_grad =
-        (* Classif's weights's gradient's l2norm sum *)
-        let open Tfjs.Ops in
-        let g = Tfjs.Named_tensor_map.find (Oo.id layer |> string_of_int) grads in
-        g ** Tfjs.float 2. |> sum false |> sqrt
-      in
-      assert (classif_grad##.size = 1);
-      let classif_grad = Tfjs.to_float classif_grad in
-
       let time' = (new%js Js.date_now)##valueOf /. 1000. in
-      Printf.printf "%5d, lr:%6.1e, l:%9.6f, grad:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!"
-        batch_idx lr (Tfjs.to_float loss) classif_grad (iou *. 100.) (recall *. 100.) (time' -. time);
+      Printf.printf "%5d, lr:%6.1e, l:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" batch_idx lr
+        (Tfjs.to_float loss) (iou *. 100.) (recall *. 100.) (time' -. time);
 
       () );
     Tfjs.dispose_tensor y'_1hot;

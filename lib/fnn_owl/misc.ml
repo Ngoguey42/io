@@ -1,12 +1,22 @@
 open struct
+  module Ndarray = Owl_base_algodiff_primal_ops.S
   module Algodiff = Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
 end
 
 type optimization = float -> unit
 
 module OptiMap = struct
-  include Map.Make (Stdlib.String)
-  module StringSet = Set.Make (Stdlib.String)
+  (* module Key = *)
+  (*   struct *)
+  (*     type t = Fnn.network *)
+
+  (*     let compare a b = compare (Oo.id a) (Oo.id b) *)
+
+  (*     let equal a b = a == b *)
+  (*   end *)
+  module Key = Stdlib.String
+  include Map.Make (Key)
+  module StringSet = Set.Make (Key)
 
   let union_exn : optimization t -> optimization t -> optimization t =
     union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith)
@@ -24,6 +34,14 @@ module OptiMap = struct
     ( StringSet.diff keys keys' |> StringSet.elements,
       StringSet.diff keys' keys |> StringSet.elements )
 end
+
+let update_primal v primal =
+  match v with
+  | Algodiff.DR (_, adjoint, op, fanout, tag, tracker) ->
+      Algodiff.DR (Algodiff.pack_arr primal, adjoint, op, fanout, tag, tracker)
+  | Algodiff.DF (_, tangent, tag) -> Algodiff.DF (Algodiff.pack_arr primal, tangent, tag)
+  | Algodiff.Arr _ -> Algodiff.Arr primal
+  | Algodiff.F _ -> failwith "in update_primal: can't update scalar"
 
 let channel_last_axes = function
   | 5 -> [ `N; `S2; `S1; `S0; `C ]
@@ -127,27 +145,44 @@ let _unpack_optimizer net var =
   | `Sgd ->
       let update lr =
         Printf.eprintf "SGD update with lr=%e\n%!" lr;
-        let w = !var in
-        let g = Algodiff.adjval w in
-        let w = w |> Algodiff.primal' in
-        let w =
+        let w = !var |> Algodiff.primal' |> Algodiff.unpack_arr in
+        let g = !var |> Algodiff.adjval |> Algodiff.unpack_arr in
+        var :=
           g
-          |> Algodiff.Maths.mul (Algodiff.pack_flt lr)
-          |> Algodiff.Maths.neg |> Algodiff.Maths.add w |> Fun.flip Algodiff.make_reverse 42
-        in
-        var := w;
-        ()
+          |> Ndarray.mul (Ndarray.create [||] lr)
+          |> Ndarray.neg |> Ndarray.add w |> update_primal !var
       in
       let pack () = net#optimizer in
       (update, pack)
-  | `Adam _ -> failwith "ADAM not yet implemented"
+  | `Adam (epsilon, beta1, beta2, step, rgrad, rgrad_sq) ->
+      let rgrad = ref rgrad in
+      let rgrad_sq = ref rgrad_sq in
+      let step = ref step in
+      let update lr =
+        incr step;
+        let w = !var |> Algodiff.primal' |> Algodiff.unpack_arr in
+        let g = !var |> Algodiff.adjval |> Algodiff.unpack_arr in
+        let correction1 = 1. -. (beta1 ** float_of_int !step) |> Ndarray.create [||] in
+        let correction2 = 1. -. (beta2 ** float_of_int !step) |> Ndarray.create [||] in
+        let beta1' = Ndarray.create [||] (1. -. beta1) in
+        let beta2' = Ndarray.create [||] (1. -. beta2) in
+        let beta1 = Ndarray.create [||] beta1 in
+        let beta2 = Ndarray.create [||] beta2 in
+        let epsilon = Ndarray.create [||] epsilon in
+        let lr = Ndarray.create [||] lr in
 
-(* | `Adam (epsilon, beta1, beta2, step, rgrad, rgrad_sq) -> *)
-
-(*   (\*     let updater = Tfjs_api.create_adam32_updater epsilon beta1 beta2 step rgrad rgrad_sq var in *\) *)
-(*   (\*     let pack () = *\) *)
-(*   (\*       `Adam (epsilon, beta1, beta2, updater#get_step, updater#get_rgrad, updater#get_rgrad_sq) *\) *)
-(*   (\*     in *\) *)
-(*   (\*     (updater#update, pack) *\) *)
+        Ndarray.(
+          let ( / ) = div in
+          let ( + ) = add in
+          let ( * ) = mul in
+          rgrad := (!rgrad * beta1) + (g * beta1');
+          rgrad_sq := (!rgrad_sq * beta2) + (g * g * beta2');
+          var :=
+            !rgrad / correction1
+            |> div (sqrt (!rgrad_sq / correction2) + epsilon)
+            |> mul lr |> neg |> add w |> update_primal !var)
+      in
+      let pack () = `Adam (epsilon, beta1, beta2, !step, !rgrad, !rgrad_sq) in
+      (update, pack)
 
 type optimization_map = optimization OptiMap.t

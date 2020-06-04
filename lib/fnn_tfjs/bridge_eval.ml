@@ -8,15 +8,8 @@ end
 open Misc
 
 type unpacked_network =
-  | Node01 of {
-      node : Fnn.network;
-      forward : tftensor Fnn.Map.t -> tftensor;
-    }
-  | Node11 of {
-      node : Fnn.network;
-      up : unpacked_network;
-      forward : tftensor -> tftensor;
-    }
+  | Node01 of { node : Fnn.network; forward : tftensor Fnn.Map.t -> tftensor }
+  | Node11 of { node : Fnn.network; up : unpacked_network; forward : tftensor -> tftensor }
   | Node21 of {
       node : Fnn.network;
       up0 : unpacked_network;

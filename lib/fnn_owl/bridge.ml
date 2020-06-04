@@ -5,6 +5,37 @@ end
 open Misc
 module OptiMap = OptiMap
 
+type tensor = Algodiff.t
+
+type tensormap = Algodiff.t Fnn.Map.t
+
+type unpacked_network =
+  | Node01 of {
+      node : Fnn.network;
+      forward : tensormap -> tensor;
+      update : (float -> unit) option;
+      pack : unit -> Fnn.network;
+    }
+  | Node11 of {
+      node : Fnn.network;
+      up : unpacked_network;
+      forward : Algodiff.t -> Algodiff.t;
+      pack : Fnn.network -> Fnn.network;
+    }
+  | Node21 of {
+      node : Fnn.network;
+      up0 : unpacked_network;
+      up1 : unpacked_network;
+      forward : Algodiff.t -> Algodiff.t -> Algodiff.t;
+      pack : Fnn.network -> Fnn.network -> Fnn.network;
+    }
+  | Noden1 of {
+      node : Fnn.network;
+      ups : unpacked_network list;
+      forward : Algodiff.t list -> Algodiff.t;
+      pack : Fnn.network list -> Fnn.network;
+    }
+
 type accumulator = {
   forward : Algodiff.t Fnn.Map.t -> Algodiff.t;
   optimizations : optimization_map;
@@ -253,9 +284,9 @@ let unpack_for_training :
     Fnn.network -> (Algodiff.t Fnn.Map.t -> Algodiff.t) * optimization_map * (unit -> Fnn.network) =
  (* Transform a `network` to everything that is needed to perform a training of that network
   * using Owl algodiff ndarray:
-  * 1. A callable for the forward pass aware of the upcoming backward pass
-  * 2. A map of callbacks that each update a weight tensor given its gradient
-  * 3. A thunk to be called to pack everything back to a `network` when done with training
+  * 1. A callable for the forward pass that provides closures to update the weights after the
+         backward pass
+  * 2. A thunk to be called to pack everything back to a `network` when done with training
   *)
  fun net ->
   let { forward; optimizations; pack } = Fnn.memoized_walk_obj _unpack_node net in

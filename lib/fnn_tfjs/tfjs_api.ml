@@ -1165,6 +1165,7 @@ let setup_backend : backend -> unit Lwt.t =
  fun b ->
   (* WASM backend is not mature yet (some bug and lack of implemented functions)
    * https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/
+   * https://www.jsdelivr.com/package/npm/@tensorflow/tfjs-backend-wasm
    * https://github.com/tensorflow/tfjs/tree/master/tfjs-backend-wasm *)
   let open Js.Unsafe in
   let open Lwt.Infix in

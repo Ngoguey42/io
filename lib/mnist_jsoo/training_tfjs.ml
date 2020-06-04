@@ -1,7 +1,8 @@
 open struct
   module Js = Js_of_ocaml.Js
   module Firebug = Js_of_ocaml.Firebug
-  module Ndarray = Owl_base_dense_ndarray_generic
+  module Ndarray = Owl_base_dense_ndarray.S
+  module Ndarray_g = Owl_base_dense_ndarray_generic
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
   module Typed_array = Js_of_ocaml.Typed_array
   module Tfjs = Fnn_tfjs.Tfjs
@@ -24,6 +25,26 @@ let _stats_of_cm confusion_matrix =
   let mean_precision = Tfjs.Ops.mean false precisions |> Tfjs.to_float in
 
   (mean_iou, mean_recall, mean_precision)
+
+let _1hot_of_top1 a =
+  let numel =
+    match Bigarray.Genarray.dims a with [| v |] -> v | _ -> failwith "_1hot_of_top1 bad input"
+  in
+  let b = Ndarray.zeros [| numel; 10 |] in
+  for i = 0 to numel - 1 do
+    Bigarray.Genarray.set b [| i; Bigarray.Genarray.get a [| i |] |] 1.0
+  done;
+  b
+
+let to_float32 a =
+  let dims = Bigarray.Genarray.dims a in
+  let numel = Array.fold_left ( * ) 1 dims in
+  let a = Bigarray.reshape a [| numel |] |> Bigarray.array1_of_genarray in
+  let b = Ndarray.zeros [| numel |] |> Bigarray.array1_of_genarray in
+  for i = 0 to numel - 1 do
+    b.{i} <- a.{i} |> float_of_int
+  done;
+  Bigarray.genarray_of_array1 b |> Fun.flip Bigarray.reshape dims
 
 let _train verbose yield_sleep_length fire_event instructions batch_count get_lr get_data encoders
     decoder =
@@ -66,7 +87,7 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
       Tfjs.tensor_of_ba y |> Tfjs.Ops.astype `Int32 |> Tfjs.Ops.reshape [| batch_size |]
     in
     let y_1hot =
-      Tfjs.Ops.one_hot 10 y_top1
+      y |> _1hot_of_top1 |> Tfjs.tensor_of_ba
       |> Tfjs.Ops.astype `Float32
       |> Tfjs.Ops.reshape [| batch_size; 10 |]
     in
@@ -86,6 +107,7 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
 
       y'_1hot := Tfjs.keep y';
       let loss = Tfjs.categorical_crossentropy 1e-10 y' y_1hot in
+
       (* let loss = Tfjs.hinge 1. y' (let open Tfjs.Ops in y_1hot * (Tfjs.float 2.) - (Tfjs.float 1.)) in *)
       assert (loss##.shape |> Js.to_array = [| 1; 1 |]);
       let loss = Tfjs.Ops.sum false loss in

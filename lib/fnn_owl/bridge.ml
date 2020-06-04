@@ -258,5 +258,5 @@ let unpack_for_training :
   * 3. A thunk to be called to pack everything back to a `network` when done with training
   *)
  fun net ->
-  let { forward; optimizations; pack } = Fnn.memoized_walk _unpack_node net in
+  let { forward; optimizations; pack } = Fnn.memoized_walk_obj _unpack_node net in
   (forward, optimizations, pack)

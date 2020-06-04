@@ -44,12 +44,6 @@ module Tfnode_set = Set.Make (struct
   let compare = compare
 end)
 
-type accumulator = {
-  forward : tftensor Fnn.Map.t -> tftensor;
-  optimizations : optimization_map;
-  pack : unit -> Fnn.network;
-}
-
 let channel_last_axes = function
   | 5 -> [ `N; `S2; `S1; `S0; `C ]
   | 4 -> [ `N; `S1; `S0; `C ]

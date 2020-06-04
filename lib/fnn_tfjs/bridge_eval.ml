@@ -196,4 +196,4 @@ let unpack_for_evaluation : Fnn.network -> tftensor Fnn.Map.t -> tftensor =
   * using tensorflow.js:
   * 1. A callable for the forward pass
   *)
- fun net -> (Fnn.memoized_walk _unpack_node net).forward
+ fun net -> (Fnn.memoized_walk_obj _unpack_node net).forward

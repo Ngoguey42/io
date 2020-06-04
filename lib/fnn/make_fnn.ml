@@ -509,7 +509,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       if Hashtbl.length tbl < max_size && Id.compare node#id id = 0 then Hashtbl.add tbl node true;
       if Hashtbl.length tbl < max_size then List.iter follow node#upstreams
     in
-    memoized_walk_map f network_ends |> ignore;
+    memoized_walk_obj_map f network_ends |> ignore;
     assert (Hashtbl.length tbl <= max_size);
     tbl |> Hashtbl.to_seq_keys |> List.of_seq
 
@@ -537,7 +537,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | _, _ -> () );
       if Hashtbl.length tbl < max_size then List.iter follow node#upstreams
     in
-    memoized_walk_map f network_ends |> ignore;
+    memoized_walk_obj_map f network_ends |> ignore;
     assert (Hashtbl.length tbl <= max_size);
     tbl |> Hashtbl.to_seq_keys |> List.of_seq
 
@@ -565,7 +565,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         | _, _ -> () );
       if Hashtbl.length tbl < max_size then List.iter follow node#upstreams
     in
-    memoized_walk_map f network_ends |> ignore;
+    memoized_walk_obj_map f network_ends |> ignore;
     assert (Hashtbl.length tbl <= max_size);
     tbl |> Hashtbl.to_seq_keys |> List.of_seq
 
@@ -591,7 +591,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       List.iter follow node#upstreams;
       f node
     in
-    memoized_walk_map g network_ends |> ignore
+    memoized_walk_obj_map g network_ends |> ignore
 
   let iter_bottom_up : (network -> unit) -> _ any list -> unit =
    fun f network_ends ->
@@ -599,7 +599,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       f node;
       List.iter follow node#upstreams
     in
-    memoized_walk_map g network_ends |> ignore
+    memoized_walk_obj_map g network_ends |> ignore
 
   let map :
       (network -> [ `Bound of network | `Unbound of network list -> network | `Remove | `Skip ]) ->
@@ -618,7 +618,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       | `Unbound node_of_upstreams ->
           Some (List.map follow node#upstreams |> List.filter_map (fun x -> x) |> node_of_upstreams)
     in
-    memoized_walk_map g network_ends |> List.filter_map (fun x -> x)
+    memoized_walk_obj_map g network_ends |> List.filter_map (fun x -> x)
 
   (** Create a copy of a network.
         The nodes will be computed one by one using those rules:
@@ -654,7 +654,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         - {| ~bind |} can be used to update the stateful layers (like batch_norm) after training.
         - {| ~bind |} can be used to change the configuration of a node.
         - If you need a more complex use-case you should implement your own network traversal
-          using {| memoized_walk_map |}.
+          using {| memoized_walk_obj_map |}.
 
         When a call to {| copy |} changes a dtype or a shape, it may fail if the layer doesn't
         support that change. E.g. when changing the number of channels but keeping the same weights

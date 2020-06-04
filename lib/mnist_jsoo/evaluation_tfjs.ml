@@ -27,10 +27,6 @@ let _eval verbose yield_sleep_length fire_event batch_size (eval_imgs, eval_labs
   let forward_encoder = Fnn_tfjs.unpack_for_evaluation encoder in
   let forward_decoder = Fnn_tfjs.unpack_for_evaluation decoder in
 
-  Printf.eprintf "HEEEEEEEEEEEEELO\n%!";
-  ignore batch_size;
-  let batch_size = 10000 in
-
   let batch_count = (Mnist.test_set_size + batch_size - 1) / batch_size in
   let confusion_matrix_sum =
     Tfjs.Ops.zeros [| 10; 10 |] |> Tfjs.variable ~trainable:false ~dtype:`Float32
@@ -63,10 +59,8 @@ let _eval verbose yield_sleep_length fire_event batch_size (eval_imgs, eval_labs
     in
 
     let x = Fnn.Map.singleton node0 x in
-    Printf.printf "Forward E\n%!";
     let y' = forward_encoder x in
     let y' = Fnn.Map.singleton node0_decoder y' in
-    Printf.printf "Forward D\n%!";
     let y' = forward_decoder y' in
     assert (y'##.shape |> Js.to_array = [| batch_size; 10 |]);
     let y'_1hot = y' in

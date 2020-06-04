@@ -7,7 +7,27 @@ end
 
 open Misc
 
-type accumulator = { forward : tftensor Fnn.Map.t -> tftensor }
+type unpacked_network =
+  | Node01 of {
+      node : Fnn.network;
+      forward : tftensor Fnn.Map.t -> tftensor;
+    }
+  | Node11 of {
+      node : Fnn.network;
+      up : unpacked_network;
+      forward : tftensor -> tftensor;
+    }
+  | Node21 of {
+      node : Fnn.network;
+      up0 : unpacked_network;
+      up1 : unpacked_network;
+      forward : tftensor -> tftensor -> tftensor;
+    }
+  | Noden1 of {
+      node : Fnn.network;
+      ups : unpacked_network list;
+      forward : tftensor list -> tftensor;
+    }
 
 let _unpack_normalisation_algorithm axes = function
   | `Local epsilon ->
@@ -27,7 +47,7 @@ let _unpack_normalisation_algorithm axes = function
   | `Global64 _ -> failwith "Unhandled float64 normalisation"
   | `Exp_moving64 _ -> failwith "Unhandled float64 normalisation"
 
-let _unpack_node01 (net : Fnn.node01) =
+let _unpack_layer01 (net : Fnn.node01) =
   match net#classify_layer with
   | `Input _ ->
       let net = (net :> Fnn.network) in
@@ -35,29 +55,25 @@ let _unpack_node01 (net : Fnn.node01) =
         let tensor = Fnn.Map.find net inputs in
         validate_output_tensor net tensor
       in
-      { forward }
+      forward
   | `Parameter32 net ->
       let tensor = Tfjs_api.tensor_of_ba net#tensor in
       let forward _ = validate_output_tensor net tensor in
-      { forward }
+      forward
 
-let _unpack_layer11 (net : Fnn.node11) up_forward =
+let _unpack_layer11 (net : Fnn.node11) =
   match net#classify_layer with
   | `Relu _ ->
-      let forward inputs = validate_output_tensor net (Tfjs_api.Ops.relu (up_forward inputs)) in
-      { forward }
+      let forward up = validate_output_tensor net (Tfjs_api.Ops.relu up) in
+      forward
   | `Softmax net ->
       let tensor_axis = tensor_axis_of_shape_axis net#upstream#out_shape net#axis in
-      let forward inputs =
-        validate_output_tensor net (Tfjs_api.Ops.softmax tensor_axis (up_forward inputs))
-      in
-      { forward }
+      let forward up = validate_output_tensor net (Tfjs_api.Ops.softmax tensor_axis up) in
+      forward
   | `Astype net ->
       let dtype = tfdtype_of_dtype net#dtype in
-      let forward inputs =
-        up_forward inputs |> Tfjs_api.Ops.astype dtype |> validate_output_tensor net
-      in
-      { forward }
+      let forward up = up |> Tfjs_api.Ops.astype dtype |> validate_output_tensor net in
+      forward
   | `Padding net ->
       if net#is_mixed then failwith "Mixed paddings not yet implemented";
       let value =
@@ -89,8 +105,8 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
           in
           Tfjs_api.Ops.slice per_axis x
       in
-      let forward inputs = up_forward inputs |> f |> validate_output_tensor net in
-      { forward }
+      let forward up = up |> f |> validate_output_tensor net in
+      forward
   | `Maxpool2d net ->
       let b =
         match net#boundary_mode with
@@ -101,28 +117,27 @@ let _unpack_layer11 (net : Fnn.node11) up_forward =
       in
       let kernel_size = net#kernel_size in
       let s = net#stride in
-      let forward inputs =
-        up_forward inputs |> Tfjs_api.Ops.maxpool2d ~s ~b kernel_size |> validate_output_tensor net
+      let forward up =
+        up |> Tfjs_api.Ops.maxpool2d ~s ~b kernel_size |> validate_output_tensor net
       in
-      { forward }
+      forward
   | `Transpose net ->
       let tftranspose_axes, dims1_of_dims0 = derive_configuration_of_transpose_layer net in
-      let forward inputs =
-        let x = up_forward inputs in
-        let tfreshape_shape = x##.shape |> Js.to_array |> dims1_of_dims0 in
-        Tfjs_api.Ops.transpose ~perm:tftranspose_axes x
+      let forward up =
+        let tfreshape_shape = up##.shape |> Js.to_array |> dims1_of_dims0 in
+        Tfjs_api.Ops.transpose ~perm:tftranspose_axes up
         |> Tfjs_api.Ops.reshape tfreshape_shape
         |> validate_output_tensor net
       in
-      { forward }
+      forward
   | `Normalisation net ->
       let shape = net#upstream#out_shape in
       let axes = List.map (tensor_axis_of_shape_axis shape) net#axes in
       let norm_forward = _unpack_normalisation_algorithm axes net#algorithm in
-      let forward inputs = up_forward inputs |> norm_forward |> validate_output_tensor net in
-      { forward }
+      let forward up = up |> norm_forward |> validate_output_tensor net in
+      forward
 
-let _unpack_layer21 (net : Fnn.node21) up0_forward up1_forward =
+let _unpack_layer21 (net : Fnn.node21) =
   match net#classify_layer with
   | `Conv2d net ->
       if net#is_grouped && not net#is_depthwise then
@@ -138,57 +153,58 @@ let _unpack_layer21 (net : Fnn.node21) up0_forward up1_forward =
       let d = net#dilation in
       let s = net#stride in
       let f = if net#is_depthwise then Tfjs_api.Ops.depthwise_conv2d else Tfjs_api.Ops.conv2d in
-      let forward inputs =
-        f ~b ~d ~s (up1_forward inputs) (up0_forward inputs) |> validate_output_tensor net
-      in
-      { forward }
+      let forward up0 up1 = f ~b ~d ~s up1 up0 |> validate_output_tensor net in
+      forward
   | `Tensordot net ->
       let mapping, perm = derive_configuration_of_tensordot_layer net in
-      let forward inputs =
-        Tfjs_api.Ops.tensordot mapping (up0_forward inputs) (up1_forward inputs)
+      let forward up0 up1 =
+        Tfjs_api.Ops.tensordot mapping up0 up1
         |> Tfjs_api.Ops.transpose ~perm |> validate_output_tensor net
       in
-      { forward }
+      forward
 
-let _unpack_layern1 (net : Fnn.noden1) up_forwards =
+let _unpack_layern1 (net : Fnn.noden1) =
   match net#classify_layer with
   | `Sum net ->
       (* Could also be implemented with `tf.broadcast` and `tf.addN` *)
-      let forward inputs =
+      let forward ups =
         let rec aux = function
           | [] -> failwith "unreachable (sum layer without upstream parents)"
           | [ x ] -> x
           | x :: x' :: tl -> aux (Tfjs_api.Ops.add x x' :: tl)
         in
-        List.map (fun fn -> fn inputs) up_forwards |> aux |> validate_output_tensor net
+        ups |> aux |> validate_output_tensor net
       in
-      { forward }
+      forward
   | `Prod net ->
-      let forward inputs =
+      let forward ups =
         let rec aux = function
           | [] -> failwith "unreachable (sum layer without upstream parents)"
           | [ x ] -> x
           | x :: x' :: tl -> aux (Tfjs_api.Ops.mul x x' :: tl)
         in
-        List.map (fun fn -> fn inputs) up_forwards |> aux |> validate_output_tensor net
+        ups |> aux |> validate_output_tensor net
       in
-      { forward }
+      forward
   | `Concatenate net ->
       let axis = tensor_axis_of_shape_axis net#out_shape net#axis in
-      let forward inputs =
-        List.map (fun fn -> fn inputs) up_forwards
-        |> Tfjs_api.Ops.concat axis |> validate_output_tensor net
-      in
-      { forward }
+      let forward ups = ups |> Tfjs_api.Ops.concat axis |> validate_output_tensor net in
+      forward
 
 let _unpack_node follow (net : Fnn.network) =
   match (net#classify_node, List.map follow net#upstreams) with
-  | `Node01 net, [] -> _unpack_node01 net
-  | `Node11 net, [ up_acc ] -> _unpack_layer11 net up_acc.forward
-  | `Node21 net, [ up0_acc; up1_acc ] -> _unpack_layer21 net up0_acc.forward up1_acc.forward
-  | `Noden1 net, up_accs ->
-      let up_forwards = List.map (fun acc -> acc.forward) up_accs in
-      _unpack_layern1 net up_forwards
+  | `Node01 node, [] ->
+      let forward = _unpack_layer01 node in
+      Node01 { forward; node = (node :> Fnn.network) }
+  | `Node11 node, [ up ] ->
+      let forward = _unpack_layer11 node in
+      Node11 { forward; node = (node :> Fnn.network); up }
+  | `Node21 node, [ up0; up1 ] ->
+      let forward = _unpack_layer21 node in
+      Node21 { forward; node = (node :> Fnn.network); up0; up1 }
+  | `Noden1 node, ups ->
+      let forward = _unpack_layern1 node in
+      Noden1 { forward; node = (node :> Fnn.network); ups }
   | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
 
 let unpack_for_evaluation : Fnn.network -> tftensor Fnn.Map.t -> tftensor =
@@ -196,4 +212,21 @@ let unpack_for_evaluation : Fnn.network -> tftensor Fnn.Map.t -> tftensor =
   * using tensorflow.js:
   * 1. A callable for the forward pass
   *)
- fun net -> (Fnn.memoized_walk_obj _unpack_node net).forward
+ fun net ->
+  let unet = Fnn.memoized_walk_obj _unpack_node net in
+  let id_of_unet = function
+    | Node01 v -> Oo.id v.node
+    | Node11 v -> Oo.id v.node
+    | Node21 v -> Oo.id v.node
+    | Noden1 v -> Oo.id v.node
+  in
+  let forward inputs =
+    let forward_node follow = function
+      | Node01 v -> v.forward inputs
+      | Node11 v -> v.forward (follow v.up)
+      | Node21 v -> v.forward (follow v.up0) (follow v.up1)
+      | Noden1 v -> v.forward (List.map follow v.ups)
+    in
+    Fnn.memoized_walk id_of_unet forward_node unet
+  in
+  forward

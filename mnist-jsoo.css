@@ -52,4 +52,8 @@ form { padding: 15px }
 .resource-name { text-align: right; width: 60%; }
 .resource-status { text-align: center; }
 
+form small ul {
+    padding-left: 30px;
+}
+
 /* ************************************************************************** */

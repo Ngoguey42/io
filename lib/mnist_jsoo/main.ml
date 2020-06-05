@@ -14,6 +14,20 @@ end
 
 open Types
 
+let t0 =
+  {|
+<h1><cite>MNIST</cite> training with <cite>Js_of_ocaml</cite></h1>
+<p>
+   As soon as the resources downloaded themselves you may start creating, training and comparing
+   your
+   <a href="https://en.wikipedia.org/wiki/Artificial_neural_network"><cite>
+   Artificial Neural Networks</cite></a> on the task of handwritten digits
+   <a href="https://en.wikipedia.org/wiki/Statistical_classification">classification</a> using the
+   famous <a href="https://en.wikipedia.org/wiki/MNIST_database"><cite>MNIST</cite></a> dataset. <cite>Firefox</cite> or <cite>Chrome</cite> navigator recommended. It should work on your phone too.
+</p>
+
+|}
+
 let render_toast (id, (title, body), water_toast) =
   let open Reactjs.Jsx in
   Printf.printf "> Component - toast%s | render\n%!" id;
@@ -156,7 +170,6 @@ let construct_mnist_jsoo _ =
       toast_signal |> React.S.value
       |> List.map (fun (id, data) -> of_render ~key:id render_toast (id, data, water_toast))
       |> of_tag "div" ~classes:[ "toast-holder" ]
-      (* ~style:[ ("position", "fixed"); ("top", "5px"); ("right", "5px"); ("z-index", "50") ] *)
     in
     let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
     let tabs =
@@ -178,7 +191,8 @@ let construct_mnist_jsoo _ =
     in
     [
       toasts;
-      [ res; tabs ] |> of_bootstrap "Col" >> of_bootstrap "Row"
+      [ of_tag "div" ~inner_html:t0 []; res; tabs ]
+      |> of_bootstrap "Col" >> of_bootstrap "Row"
       >> of_bootstrap "Container" ~fluid:true ~classes:[ "bigbox1" ];
     ]
     |> of_react "Fragment"
@@ -191,12 +205,11 @@ let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
 
-  let div =
-    [%html {|<div class="bigbox-title"><h1>MNIST training with Js_of_ocaml</h1></div>|}]
-    |> Tyxml_js.To_dom.of_element
-  in
-  Dom.appendChild body div;
-
+  (* let div = *)
+  (*   [%html {|<div class="bigbox-title"><h1>MNIST training with Js_of_ocaml</h1></div>|}] *)
+  (*   |> Tyxml_js.To_dom.of_element *)
+  (* in *)
+  (* Dom.appendChild body div; *)
   let div = [%html "<div></div>"] |> Tyxml_js.To_dom.of_element in
   Dom.appendChild body div;
   Ft_js.Scripts.import `Reactjs >>= fun () ->

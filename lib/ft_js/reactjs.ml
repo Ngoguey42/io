@@ -209,6 +209,7 @@ module Jsx = struct
       ?bordered:bool ->
       ?classes:string list ->
       ?colspan:string ->
+      ?custom:bool ->
       ?default_active_key:string ->
       ?default_value:string ->
       ?disabled:bool ->
@@ -253,7 +254,7 @@ module Jsx = struct
       ?xs_span:int ->
       jsx Js.t list ->
       jsx Js.t =
-   fun ctor ?active_key ?animation_bool ?animation_string ?as_ ?bordered ?classes ?colspan
+   fun ctor ?active_key ?animation_bool ?animation_string ?as_ ?bordered ?classes ?colspan ?custom
        ?default_active_key ?default_value ?disabled ?event_key ?fluid ?href ?id ?inline ?inner_html
        ?key ?label ?min ?name ?no_gutters ?on_change ?on_click ?on_close ?on_select ?overlay
        ?placeholder ?placement ?ref ?size ?src ?step ?style ?title ?title_jsx ?transition ?type_
@@ -273,6 +274,7 @@ module Jsx = struct
     set_prop bordered "bordered" Js.bool;
     set_prop classes "className" (fun l -> String.concat " " l |> Js.string);
     set_prop colspan "colSpan" Js.string;
+    set_prop custom "custom" Js.bool;
     set_prop default_active_key "defaultActiveKey" Js.string;
     set_prop default_value "defaultValue" Js.string;
     set_prop disabled "disabled" Js.bool;

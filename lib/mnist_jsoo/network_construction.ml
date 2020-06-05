@@ -83,9 +83,9 @@ end
 module Parameters = struct
   type t = Int64.t
 
-  let default = Int64.of_int 1
+  (* let default = Int64.of_int 1 *)
 
-  (* let default = Int64.of_int 10000 *)
+  let default = Int64.of_int 10000
 
   let of_dconf : derived_conf -> t = fun c -> Int64.of_int c.parameters
 
@@ -93,7 +93,12 @@ module Parameters = struct
 
   let name = "Parameters"
 
-  let description = "Number of float32 trainable parameters owned by the network."
+  let description =
+    {|
+Number of float32 trainable parameters owned by the network. Very narrow and very large
+networks are hard to train. Large networks tend to
+<a href="https://en.wikipedia.org/wiki/Overfitting">overfit</a> the training data.
+|}
 end
 
 module Encoder = struct
@@ -114,7 +119,11 @@ module Encoder = struct
 
   let name = "Encoder"
 
-  let description = "First part of the network. Takes a batch of 28x28x1 float32 images."
+  let description =
+    {|
+First part of the network. Takes a batch of 28x28 grayscale float32 images. Deep networks are hard
+to train but produce better results.
+|}
 
   let module_of_tag : t -> (module Network_architectures.ENCODER) = function
     | `Fc -> (module Network_architectures.Fc_encoder)
@@ -155,8 +164,11 @@ module Decoder = struct
   let name = "Decoder"
 
   let description =
-    "Second part of the network. Outputs a batch of 1x1x10 float32 predictions that sum to 1 for \
-     each image."
+    {|
+Second part of the network. Outputs a batch of 10 float32 predictions that sum to 1 for each
+image thanks to the final <a href='https://en.wikipedia.org/wiki/Softmax_function'>softmax</a>
+layer.
+|}
 
   let module_of_tag : t -> (module Network_architectures.DECODER) = function
     | `Fc -> (module Network_architectures.Fc_decoder)
@@ -200,7 +212,14 @@ module Optimizer = struct
 
   let name = "Optimizer"
 
-  let description = "Algorithm used to update a parameter given the gradient of that parameter."
+  let description =
+    {|
+Algorithm used to update a parameter given the gradient of that parameter.
+<a href='https://en.wikipedia.org/wiki/Stochastic_gradient_descent#Adam'><cite>ADAM</cite></a>
+is known to perform better, but
+<a href='https://en.wikipedia.org/wiki/Stochastic_gradient_descent'><cite>SGD</cite></a> is enough
+for the task of handwritten digits classification.
+|}
 
   let optimizer_of_tag = function `Adam0 -> `Adam (0.9, 0.999, 1e-8) | `Sgd -> `Sgd
 
@@ -364,7 +383,7 @@ let construct_int_input :
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%Ld)" M.name v |> of_string ];
         of_bootstrap "Form.Control" ~placeholder:(Int64.to_string M.default) ~disabled:(not enabled)
           ~size:"sm" ~type_:"number" ~on_change [];
-        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ];
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] ~inner_html:M.description [];
       ]
   in
   Reactjs.construct ~signal render
@@ -388,7 +407,7 @@ let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool)
       [
         of_bootstrap "Form.Label" [ of_string M.name ];
         control;
-        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ];
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] ~inner_html:M.description [];
       ]
   in
   Reactjs.construct render

@@ -63,9 +63,9 @@ end
 module Batch_size = struct
   type t = Int64.t
 
-  let default = Int64.of_int 1
+  (* let default = Int64.of_int 1 *)
 
-  (* let default = Int64.of_int 500 *)
+  let default = Int64.of_int 500
 
   let string_of_dconf : derived_conf -> string = fun c -> Printf.sprintf "%d" c.batch_size
 
@@ -73,15 +73,25 @@ module Batch_size = struct
 
   let name = "Batch Size"
 
-  let description = "Number of images inside a training batch."
+  let description =
+    {|
+Number of images inside a training batch. Use:
+<ul>
+<li><code>1</code> for <cite>Stochastic Gradient Descent</cite>,</li>
+<li><code>60000</code> (the size of the dataset) for <cite>Gradient Descent</cite>,</li>
+<li>any value in-between for <cite>Mini-Batch Gradient Descent</cite>.</li>
+</ul>
+
+
+|}
 end
 
 module Batch_count = struct
   type t = Int64.t
 
-  let default = Int64.of_int 1
+  (* let default = Int64.of_int 1 *)
 
-  (* let default = Int64.of_int 20 *)
+  let default = Int64.of_int 20
 
   let string_of_dconf : derived_conf -> string = fun c -> Printf.sprintf "%d" c.batch_count
 
@@ -89,7 +99,7 @@ module Batch_count = struct
 
   let name = "Batch Count"
 
-  let description = "Number of training batches."
+  let description = "Number of successive training batches."
 end
 
 module Lr_begin = struct
@@ -97,13 +107,13 @@ module Lr_begin = struct
 
   let default = 1e-3
 
-  let string_of_dconf : derived_conf -> string = fun _ -> "unused"
+  let string_of_dconf : derived_conf -> string = fun _ -> ""
 
   let update_rconf : t -> raw_conf -> raw_conf = fun lr_begin rconf -> { rconf with lr_begin }
 
   let name = "Beginning"
 
-  let description = "unused"
+  let description = ""
 end
 
 module Lr_end = struct
@@ -111,13 +121,13 @@ module Lr_end = struct
 
   let default = 0.
 
-  let string_of_dconf : derived_conf -> string = fun _ -> "unused"
+  let string_of_dconf : derived_conf -> string = fun _ -> ""
 
   let update_rconf : t -> raw_conf -> raw_conf = fun lr_end rconf -> { rconf with lr_end }
 
   let name = "End"
 
-  let description = "unused"
+  let description = ""
 end
 
 module Lr = struct
@@ -142,7 +152,13 @@ module Lr = struct
 
   let name = "Learning Rate"
 
-  let description = "Scaling factor of the parameter updates performed by the optimizer."
+  let description =
+    {|
+<a href="https://en.wikipedia.org/wiki/Learning_rate"><cite>Learning rate</cite><a> is the name
+given to the scaling factor of the parameter updates performed by the optimizer.
+Performing several trainings using the <cite>Down</cite> learning rate will get you a
+<cite>cyclical learning rate</cite>, a famous technique that gives good results.
+|}
 
   let name_of_tag : t -> string = function `Flat -> "Flat" | `Down -> "Down"
 
@@ -187,7 +203,7 @@ let construct_int_input :
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%s)" M.name s |> of_string ];
         of_bootstrap "Form.Control" ~placeholder:(Int64.to_string M.default) ~disabled:(not enabled)
           ~size:"sm" ~type_:"number" ~on_change [];
-        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ];
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] ~inner_html:M.description [];
       ]
   in
   Reactjs.construct ~signal render
@@ -220,7 +236,7 @@ let construct_float_input :
         of_bootstrap "Form.Label" [ Printf.sprintf "%s (%s)" M.name s |> of_string ];
         of_bootstrap "Form.Control" ~placeholder:(string_of_float M.default) ~disabled:(not enabled)
           ~size:"sm" ~type_:"number" ~on_change [];
-        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ];
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] ~inner_html:M.description [];
       ]
       |> of_bootstrap "Form.Group"
   in
@@ -264,7 +280,7 @@ let construct_select :
     ]
     @ submodules
     @ [
-        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] [ of_string M.description ]
+        of_bootstrap "Form.Text" ~classes:[ "text-muted" ] ~inner_html:M.description []
         >> of_bootstrap "Col" ~md_span:12;
       ]
     |> of_bootstrap "Row" ~no_gutters:true

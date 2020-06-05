@@ -134,9 +134,9 @@ module Webworker_routine = struct
 
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db; networks = encoders, decoder; config } ->
-        let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
-        let decoder = repair_storable_nn decoder in
-        let encoders = List.map repair_storable_nn encoders in
+        let f nn =
+          nn |> repair_storable_nn |> Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER)
+        in
         let networks = (List.map f encoders, f decoder) in
         `Prime Types.{ networks; db; config }
     | #training_user_status as msg -> msg
@@ -157,7 +157,9 @@ module Webworker_routine = struct
     | `Outcome (`Crash msg) -> `Outcome (`Crash (repair_string msg))
     | `Outcome `Abort as ev -> (ev :> Types.training_routine_event)
     | `Outcome (`End (encoders, decoder, stats)) ->
-        let f = Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER) in
+        let f nn =
+          nn |> repair_storable_nn |> Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER)
+        in
         `Outcome (`End (List.map f encoders, f decoder, stats))
 
   module rec Ww : (Webworker.S with type in_msg = _in_msg and type out_msg = _out_msg) =
@@ -259,15 +261,17 @@ let construct_training (props : props) =
   in
   let routine_status =
     let reduce s ev =
-      match (s, ev) with
-      | `Allocating, `Batch_end _ -> `Running
-      | `Running, `Outcome (`End _) -> `Ended
-      | `Running, `Outcome `Abort -> `Aborted
-      | `Running, `Outcome (`Crash _) -> `Crashed
-      | _, `Outcome _ ->
+      match (s, ev, params.config.backend) with
+      | `Allocating, `Batch_begin 0, `Tfjs_webgl -> `Allocating
+      | `Allocating, `Batch_begin 0, _ -> `Running
+      | `Allocating, `Batch_end _, _ -> `Running
+      | `Running, `Outcome (`End _), _ -> `Ended
+      | `Running, `Outcome `Abort, _ -> `Aborted
+      | `Running, `Outcome (`Crash _), _ -> `Crashed
+      | _, `Outcome _, _ ->
           Firebug.console##warn (Js.string "Two outcomes for 1 training");
           s
-      | _, _ -> s
+      | _, _, _ -> s
     in
     React.S.fold reduce `Allocating routine_events
   in

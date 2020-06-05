@@ -1,7 +1,6 @@
 # TODO
 - mnist-jsoo soon
    1. Implement evaluation with owl backend
-   1. Some explainations on each page
    1. Stats chart with plotly
       - Live update
          - Debounce chart update given idleness of window
@@ -27,6 +26,11 @@
    1. Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
 
 
+- mnist-jsoo display maybe
+   - Show time left on training
+   - Replicate `Nav` at bottom of the page
+
+
 - mnist-jsoo maybe
    - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`
    - PR or issue `js_of_ocaml ErrorError##.msg -> ErrorError##.message`
@@ -42,23 +46,3 @@
    - Ensure no mem leaks with Reactml? Why warning in console from Reactjs about leak
    - Find out why cpu+ww is sometime slow on chrome
    - Use js's WeakMap instead of OCaml's one
-
-
-- mnist-jsoo display maybe
-   - Show time left on training
-   - Foldable panels
-   - Auto scroll at bottom of page
-   - Replicate `Nav` at bottom of the page
-   - Some tips at the very bottom (and theoritical results to reproduce)
-      - Markdown with render engine
-      - Cyclical LR yields good results (todo: Check)
-      - Batch-size changes the result
-         - BS=60000 yields poor results (GD vs SGD)
-         - BS=1 yields poor results
-         - What about the BS/2 BC*2 iterated strategy
-      - Maxpool decoder yields less overfitted results, but requires a larger and deeper network. (todo: Check)
-      - Larger and deeper networks are easier to train with adam. smaller are easier with SGD (todo: Check)
-      - Different initial seeds rougly yield the same results (todo: Check)
-      - Adam hates varying learning rates (todo: Check)
-      - All backends produce mostly the same results. Some differences in floating point precision errors make them diverge after several epochs
-      - Hint on how to reach good performances

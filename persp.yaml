@@ -47,10 +47,10 @@ perspectives:
     - [ lib/mnist_jsoo/backend.ml, <up>, <up> ]
   "4" : [[ lib/mnist_jsoo/main.ml, lib/mnist_jsoo/tab.ml, lib/mnist_jsoo/types.ml ]]
 
-  "+5" : [[ lib/mnist_jsoo/network_construction.ml, lib/mnist_jsoo/network_architectures.ml, lib/mnist_jsoo/training_configuration.ml ]]
+  "+5" : [[ lib/mnist_jsoo/network_architectures.ml, lib/mnist_jsoo/network_construction.ml, lib/mnist_jsoo/training_configuration.ml ]]
   "5" : [[ lib/mnist_jsoo/training.ml, lib/mnist_jsoo/training_tfjs.ml, lib/mnist_jsoo/training_owl_cpu.ml ]]
   "6": [[lib/mnist_jsoo/evaluation.ml, lib/mnist_jsoo/evaluation_tfjs.ml, lib/mnist_jsoo/evaluation_owl_cpu.ml]]
-  "+6": [[ lib/mnist_jsoo/results.ml, lib/mnist_jsoo/owl_snippets.ml]]
+  "+6": [[ lib/mnist_jsoo/backend_selection.ml, lib/mnist_jsoo/results.ml, lib/mnist_jsoo/owl_snippets.ml]]
 
   # snippets
   "21":

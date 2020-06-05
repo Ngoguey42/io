@@ -104,7 +104,7 @@ h3 {
 .bigbox0 {
     width: 825px;
     margin: 0 auto;
-    margin-top: 25px;
+    margin-top: 15px;
     background: #F7F7F7;
     padding: 10px 20px 30px 20px;
     line-height: 1.4;
@@ -116,6 +116,7 @@ h3 {
 .bigbox1 {
     max-width: 768px;
     margin: 0 auto;
+    margin-top: 15px;
     background: #F7F7F7;
     padding: 0px 20px 30px 20px;
     line-height: 1.1;

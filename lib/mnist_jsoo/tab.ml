@@ -152,76 +152,6 @@ let react_main db signal set_signal fire_toast =
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
   (events, fire_event)
 
-let options =
-  [
-    (`Tfjs_webgl, true);
-    (`Tfjs_cpu, true);
-    (`Tfjs_webgl, false);
-    (`Tfjs_cpu, false);
-    (`Owl_algodiff_cpu, true);
-    (`Owl_algodiff_cpu, false);
-  ]
-
-let option_of_idx = function
-  | 0 -> (`Tfjs_webgl, true)
-  | 1 -> (`Tfjs_wasm, true)
-  | 2 -> (`Tfjs_cpu, true)
-  | 3 -> (`Tfjs_webgl, false)
-  | 4 -> (`Tfjs_wasm, false)
-  | 5 -> (`Tfjs_cpu, false)
-  | 6 -> (`Owl_algodiff_cpu, true)
-  | 7 -> (`Owl_algodiff_cpu, false)
-  | _ -> failwith "Unknown computation option"
-
-let idx_of_option = function
-  | `Tfjs_webgl, true -> 0
-  | `Tfjs_wasm, true -> 1
-  | `Tfjs_cpu, true -> 2
-  | `Tfjs_webgl, false -> 3
-  | `Tfjs_wasm, false -> 4
-  | `Tfjs_cpu, false -> 5
-  | `Owl_algodiff_cpu, true -> 6
-  | `Owl_algodiff_cpu, false -> 7
-
-let name_of_option = function
-  | `Tfjs_webgl, true -> "TensorFlow.js WebGL from Web Worker"
-  | `Tfjs_wasm, true -> "TensorFlow.js WASM from Web Worker"
-  | `Tfjs_cpu, true -> "TensorFlow.js cpu from Web Worker"
-  | `Tfjs_webgl, false -> "TensorFlow.js WebGL"
-  | `Tfjs_wasm, false -> "TensorFlow.js WASM"
-  | `Tfjs_cpu, false -> "TensorFlow.js cpu"
-  | `Owl_algodiff_cpu, true -> "Owl.Algodiff cpu from Web Worker"
-  | `Owl_algodiff_cpu, false -> "Owl.Algodiff cpu"
-
-let construct_backend_selection : _ Reactjs.constructor =
- fun (fire_upstream_event, tabidx, _) ->
-  Printf.printf "> Component - backend_selection | construct\n%!";
-
-  let on_change ev =
-    ev##.target##.value |> Js.to_string |> int_of_string |> option_of_idx |> fire_upstream_event
-  in
-  let render (_, _, enabled) =
-    Printf.printf "> Component - backend_selection | render\n%!";
-    let open Reactjs.Jsx in
-    let tbody =
-      options
-      |> List.map (fun option ->
-             let n = name_of_option option in
-             of_bootstrap "Form.Check" ~label:n ~type_:"radio" (* ~id:("radio-" ^ n) *)
-               ~id:(Printf.sprintf "selecting-backend-tab%d-radio%s" tabidx n)
-               ~name:(Printf.sprintf "selecting-backend-tab%d" tabidx)
-               ~value:(idx_of_option option |> string_of_int)
-               ~on_change ~inline:true ~disabled:(not enabled) []
-             >> of_bootstrap "Col" ~md_span:6)
-      |> of_bootstrap "Row" ~no_gutters:true
-      >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
-    in
-    let thead = of_string "Backend Selection" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
-    of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
-  in
-
-  Reactjs.construct render
-
 let construct_tab (db, tabidx, signal, set_signal, fire_toast) =
   Printf.printf "> Component - tab%d | construct\n%!" tabidx;
   let traini, trainl, testi, testl = db in
@@ -242,7 +172,8 @@ let construct_tab (db, tabidx, signal, set_signal, fire_toast) =
       of_constructor Network_construction.construct_training_config (fire_network_made, enabled)
     in
     let backend enabled =
-      of_constructor construct_backend_selection (fire_backend_selected, tabidx, enabled)
+      of_constructor Backend_selection.construct_backend_selection
+        (fire_backend_selected, tabidx, enabled)
     in
     let results () = of_constructor Results.construct_results ((testi, testl), signal, events) in
     let train enabled =

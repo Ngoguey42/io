@@ -9,16 +9,6 @@ end
 
 open Types
 
-let shuffle rng x =
-  (* Copied from owl-base, added rng *)
-  let y = Array.copy x in
-  let n = Array.length x in
-  for i = n - 1 downto 1 do
-    let j = i + 1 |> float_of_int |> ( *. ) (Random.State.float rng 1.) |> int_of_float in
-    Owl_utils_array.swap y i j
-  done;
-  y
-
 let repair_bigarray : 'a -> 'a =
  fun a ->
   let f : _ -> _ -> _ -> _ -> 'a = Ft_js.caml_ba_create_unsafe in
@@ -82,7 +72,7 @@ let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config
     | Some idxs -> idxs
     | None ->
         let rng = Random.State.make [| config.seed + epoch_idx |] in
-        let idxs = Array.init Mnist.train_set_size Fun.id |> shuffle rng in
+        let idxs = Array.init Mnist.train_set_size Fun.id |> Owl_snippets.shuffle rng in
         Hashtbl.add shuffled_indices epoch_idx idxs;
         idxs
   in

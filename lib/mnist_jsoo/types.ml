@@ -39,7 +39,7 @@ type training_stats = {
   mean_precision_top1 : float;
   batch_count : int;
   image_count : int;
-  mean_loss : float; (* TODO: Rename mean_loss_per_image. It currently is the sum *)
+  mean_loss_per_image : float;
 }
 
 type training_user_status = [ `Train_to_end | `Early_stop | `Abort ]

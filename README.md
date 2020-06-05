@@ -1,6 +1,7 @@
 # TODO
 - mnist-jsoo soon
    1. Implement evaluation with owl backend
+   1. Some explainations on each page
    1. Stats chart with plotly
       - Live update
          - Debounce chart update given idleness of window

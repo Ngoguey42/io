@@ -26,5 +26,5 @@ let[@ocamlformat "disable"] create : backend -> (module BACKEND) = function
   | `Owl_algodiff_cpu ->
      (module struct
         include Training_owl_cpu
-        include Evaluation_tfjs.Make_backend (struct let v = `Cpu end) (* TODO: USE OWL!! *)
+        include Evaluation_tfjs.Make_backend (struct let v = `Webgl end) (* TODO: USE OWL!! *)
       end)

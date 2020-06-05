@@ -2,53 +2,14 @@ open struct
   module Js = Js_of_ocaml.Js
   module Firebug = Js_of_ocaml.Firebug
   module Ndarray = Owl_base_dense_ndarray.S
-  module Ndarray_g = Owl_base_dense_ndarray_generic
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
-  module Typed_array = Js_of_ocaml.Typed_array
   module Tfjs = Fnn_tfjs.Tfjs
 end
-
-type uint8_ba = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
-
-type uint8_ta = (int, [ `Uint8 ]) Typed_array.typedArray
-
-type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray
-
-let _stats_of_cm confusion_matrix =
-  let stats = Tfjs.iou_recall_precision_of_cm confusion_matrix in
-  let ious = Tfjs.Ops.slice [ (1, 0, 1) ] stats in
-  let recalls = Tfjs.Ops.slice [ (1, 1, 1) ] stats in
-  let precisions = Tfjs.Ops.slice [ (1, 2, 1) ] stats in
-
-  let mean_iou = Tfjs.Ops.mean false ious |> Tfjs.to_float in
-  let mean_recall = Tfjs.Ops.mean false recalls |> Tfjs.to_float in
-  let mean_precision = Tfjs.Ops.mean false precisions |> Tfjs.to_float in
-
-  (mean_iou, mean_recall, mean_precision)
-
-let _1hot_of_top1 a =
-  let numel =
-    match Bigarray.Genarray.dims a with [| v |] -> v | _ -> failwith "_1hot_of_top1 bad input"
-  in
-  let b = Ndarray.zeros [| numel; 10 |] in
-  for i = 0 to numel - 1 do
-    Bigarray.Genarray.set b [| i; Bigarray.Genarray.get a [| i |] |] 1.0
-  done;
-  b
-
-let to_float32 a =
-  let dims = Bigarray.Genarray.dims a in
-  let numel = Array.fold_left ( * ) 1 dims in
-  let a = Bigarray.reshape a [| numel |] |> Bigarray.array1_of_genarray in
-  let b = Ndarray.zeros [| numel |] |> Bigarray.array1_of_genarray in
-  for i = 0 to numel - 1 do
-    b.{i} <- a.{i} |> float_of_int
-  done;
-  Bigarray.genarray_of_array1 b |> Fun.flip Bigarray.reshape dims
 
 let _train verbose yield_sleep_length fire_event instructions batch_count get_lr get_data encoders
     decoder =
   let open Lwt.Infix in
+  (* Step 1 - Unpack the Fnn networks using the dedicated module ******************************** *)
   let node0 =
     let open Pshape.Size in
     Fnn.Builder.input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
@@ -62,40 +23,35 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
       encoders
   in
   let node0_decoder = Fnn.inputs [ decoder ] |> List.hd |> Fnn.downcast in
-
   let forward_encoders, o, pack_encoders =
     List.map Fnn_tfjs.unpack_for_training encoders |> Ft.List.split3
   in
   let optimizations = Fnn_tfjs.OptiMap.union_list_exn o in
-
   let forward_decoder, o, pack_decoder = Fnn_tfjs.unpack_for_training decoder in
   let optimizations = Fnn_tfjs.OptiMap.union_exn optimizations o in
 
   let train_on_batch batch_idx =
+    (* Step 5 - Fetch and transform batch inputs ************************************************ *)
     let time = (new%js Js.date_now)##valueOf /. 1000. in
-
     let lr = get_lr batch_idx in
     let x, y = get_data batch_idx in
     let batch_size = (Bigarray.Genarray.dims x).(0) in
-
     let x =
       Tfjs.tensor_of_ba x
       |> Tfjs.Ops.astype `Float32
       |> Tfjs.Ops.reshape [| batch_size; 28; 28; 1 |]
     in
-    let y_top1 =
-      Tfjs.tensor_of_ba y |> Tfjs.Ops.astype `Int32 |> Tfjs.Ops.reshape [| batch_size |]
-    in
     let y_1hot =
-      y |> _1hot_of_top1 |> Tfjs.tensor_of_ba
+      y |> Owl_snippets._1hot_of_top1 |> Tfjs.tensor_of_ba
       |> Tfjs.Ops.astype `Float32
       |> Tfjs.Ops.reshape [| batch_size; 10 |]
     in
 
-    ignore (verbose, x, y_1hot, lr, forward_decoder, forward_encoders, optimizations);
+    (* Step 6 - Forward and backward ************************************************************ *)
+    (* Need to prolongate the life of `y'_1hot` to compute the stats at the end.
+       ref is initialized with garbage *)
     let y'_1hot = ref y_1hot in
-
-    let f () =
+    let forward () =
       (* The tfjs models use `execute` both inside `predict` and `train` functions,
        * with a `training: bool` parameter. Using `predict` for training seems ok.
        *)
@@ -104,57 +60,59 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
       let y' = Fnn.Map.singleton node0_decoder y' in
       let y' = forward_decoder y' in
       assert (y'##.shape |> Js.to_array = [| batch_size; 10 |]);
-
       y'_1hot := Tfjs.keep y';
       let loss = Tfjs.categorical_crossentropy 1e-10 y' y_1hot in
-
-      (* let loss = Tfjs.hinge 1. y' (let open Tfjs.Ops in y_1hot * (Tfjs.float 2.) - (Tfjs.float 1.)) in *)
       assert (loss##.shape |> Js.to_array = [| 1; 1 |]);
       let loss = Tfjs.Ops.sum false loss in
       assert (loss##.shape |> Js.to_array = [||]);
       loss
     in
-    let loss, grads = Tfjs.variable_grads f in
+    let loss, grads = Tfjs.variable_grads forward in
     let y'_1hot = !y'_1hot in
+
+    (* Step 7 - Use gradients to update networks' weights *************************************** *)
     ( match Fnn_tfjs.OptiMap.key_disjunction optimizations grads with
     | [], [] -> ()
     | name :: _, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
     | _, name :: _ -> Printf.sprintf "Missing at least the <%s> optimizer" name |> failwith );
-
     Fnn_tfjs.OptiMap.iter
       (fun name optimization -> optimization lr (Tfjs.Named_tensor_map.find name grads))
       optimizations;
 
-    let y'_top1 = Tfjs.Ops.topk 1 y'_1hot |> snd |> Tfjs.Ops.reshape [| batch_size |] in
-    let confusion_matrix = Tfjs.Ops.confusion_matrix 10 y_top1 y'_top1 in
-    ignore instructions;
-    if verbose then (
-      let iou, recall, _ = _stats_of_cm confusion_matrix in
-      let time' = (new%js Js.date_now)##valueOf /. 1000. in
-      Printf.printf "%5d, lr:%6.1e, l:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" batch_idx lr
-        (Tfjs.to_float loss) (iou *. 100.) (recall *. 100.) (time' -. time);
-
-      () );
+    (* Step 8 - Compute / print stats *********************************************************** *)
+    let loss = Tfjs.to_float loss in
+    let y'_top1 =
+      Owl_snippets._top1_of_1hot
+        (y'_1hot |> Tfjs.Ops.astype `Float32 |> Tfjs.ba_of_tensor Bigarray.Float32)
+    in
     Tfjs.dispose_tensor y'_1hot;
+    let confusion_matrix = Owl_snippets.confusion_matrix (y |> Owl_snippets.to_float32) y'_top1 in
+    ( if verbose then
+      let iou, recall, _ = Owl_snippets.stats_of_cm confusion_matrix in
+      let time' = (new%js Js.date_now)##valueOf /. 1000. in
+      Printf.printf "%5d, lr:%6.1e, l:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" batch_idx lr loss
+        (iou *. 100.) (recall *. 100.) (time' -. time) );
     (batch_size, loss, confusion_matrix)
   in
 
-  let loss_sum = Tfjs.Ops.zeros [||] |> Tfjs.variable ~trainable:false ~dtype:`Float32 in
-  let confusion_matrix_sum =
-    Tfjs.Ops.zeros [| 10; 10 |] |> Tfjs.variable ~trainable:false ~dtype:`Float32
-  in
+  (* Step 2 - Prime the accumulated infos that needs to be returned at the end of training ****** *)
+  let loss_sum = ref 0. in
+  let confusion_matrix_sum = ref (Ndarray.zeros [| 10; 10 |]) in
   let image_count = ref 0 in
+
+  (* Step 3 - Loop one batch at a time until end or user changes his mind *********************** *)
   let fire_stop_event batch_count =
+    (* Step 11 - Transform accumulated stats and fire the final event *************************** *)
     let encoders, decoder = (List.map (fun f -> f ()) pack_encoders, pack_decoder ()) in
-    let image_count = !image_count in
-    let mean_loss = Tfjs.to_float loss_sum in
-    let mean_iou_top1, mean_recall_top1, mean_precision_top1 = _stats_of_cm confusion_matrix_sum in
+    let mean_iou_top1, mean_recall_top1, mean_precision_top1 =
+      Owl_snippets.stats_of_cm !confusion_matrix_sum
+    in
     let stats =
       Types.
         {
-          image_count;
+          image_count = !image_count;
           batch_count;
-          mean_loss;
+          mean_loss_per_image = !loss_sum /. float_of_int !image_count;
           mean_iou_top1;
           mean_recall_top1;
           mean_precision_top1;
@@ -174,38 +132,39 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
         fire_stop_event i;
         Lwt.return ()
     | `Train_to_end ->
+        (* Step 4 - Start a new batch ************************************************************ *)
         fire_event (`Batch_begin i);
         Tfjs.tidy (fun () ->
             let batch_size, loss, confusion_matrix = train_on_batch i in
-            loss_sum##assign (Tfjs.Ops.add loss_sum loss);
-            confusion_matrix_sum##assign (Tfjs.Ops.add confusion_matrix_sum confusion_matrix);
+            (* Step 9 - Accumulate stats and fire intermediate event **************************** *)
+            loss_sum := !loss_sum +. (loss *. float_of_int batch_size);
+            confusion_matrix_sum := Ndarray.add !confusion_matrix_sum confusion_matrix;
             image_count := !image_count + batch_size;
             let mean_iou_top1, mean_recall_top1, mean_precision_top1 =
-              _stats_of_cm confusion_matrix
+              Owl_snippets.stats_of_cm confusion_matrix
             in
-            let mean_loss = Tfjs.to_float loss in
-            let batch_count = 1 in
             let stats =
               Types.
                 {
                   image_count = batch_size;
-                  batch_count;
-                  mean_loss;
+                  batch_count = 1;
+                  mean_loss_per_image = loss;
                   mean_iou_top1;
                   mean_recall_top1;
                   mean_precision_top1;
                 }
             in
             fire_event (`Batch_end (i, stats)));
+        (* Step 10 - Yield to give a chance to user events to reach us.
+           Sleep to give a change to the DOM to refresh (if not web worker)
+        *)
         if yield_sleep_length = 0. then Lwt_js.yield () >>= fun () -> aux (i + 1)
         else Lwt_js.sleep yield_sleep_length >>= fun () -> aux (i + 1)
   in
-
   let time0 = (new%js Js.date_now)##valueOf /. 1000. in
   aux 0 >>= fun _ ->
   let time1 = (new%js Js.date_now)##valueOf /. 1000. in
   Printf.printf "> Took %fsec\n%!" (time1 -. time0);
-
   Lwt.return ()
 
 module Make_backend (Backend : sig

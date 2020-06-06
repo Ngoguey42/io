@@ -45,12 +45,8 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
   | `Pako -> [ [ "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" ] ]
   | `Reactjs ->
       [
-        [
-          "https://unpkg.com/react@16/umd/react.development.js";
-        ];
-        [
-          "https://unpkg.com/react-dom@16/umd/react-dom.development.js";
-        ];
+        [ "https://unpkg.com/react@16/umd/react.development.js" ];
+        [ "https://unpkg.com/react-dom@16/umd/react-dom.development.js" ];
       ]
   | `Reactjsbootstrap ->
       [

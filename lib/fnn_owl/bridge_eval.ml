@@ -9,26 +9,15 @@ type tensor = Algodiff.t
 type tensormap = tensor Fnn.Map.t
 
 type unpacked_network =
-  | Node01 of {
-      node : Fnn.network;
-      forward : tensormap -> tensor;
-    }
-  | Node11 of {
-      node : Fnn.network;
-      up : unpacked_network;
-      forward : tensor -> tensor;
-    }
+  | Node01 of { node : Fnn.network; forward : tensormap -> tensor }
+  | Node11 of { node : Fnn.network; up : unpacked_network; forward : tensor -> tensor }
   | Node21 of {
       node : Fnn.network;
       up0 : unpacked_network;
       up1 : unpacked_network;
       forward : tensor -> tensor -> tensor;
     }
-  | Noden1 of {
-      node : Fnn.network;
-      ups : unpacked_network list;
-      forward : tensor list -> tensor;
-    }
+  | Noden1 of { node : Fnn.network; ups : unpacked_network list; forward : tensor list -> tensor }
 
 let _unpack_layer01 (net : Fnn.node01) =
   match net#classify_layer with
@@ -40,15 +29,15 @@ let _unpack_layer01 (net : Fnn.node01) =
       in
       forward
   | `Parameter32 net ->
-     let t = net#tensor |> Algodiff.pack_arr in
-     let forward _ = t |> validate_output_tensor net in
-     forward
+      let t = net#tensor |> Algodiff.pack_arr in
+      let forward _ = t |> validate_output_tensor net in
+      forward
 
 let _unpack_layer11 (net : Fnn.node11) =
   match net#classify_layer with
   | `Relu _ ->
-     let forward up = validate_output_tensor net (Algodiff.Maths.relu up) in
-     forward
+      let forward up = validate_output_tensor net (Algodiff.Maths.relu up) in
+      forward
   | `Softmax net ->
       let tensor_axis = tensor_axis_of_shape_axis net#upstream#out_shape net#axis in
       let forward up =
@@ -62,7 +51,7 @@ let _unpack_layer11 (net : Fnn.node11) =
         let x = Algodiff.Maths.div x deno in
         validate_output_tensor net x
       in
-     forward
+      forward
   | `Astype _ -> failwith "`Astype is unsupported with Owl backend"
   | `Padding net ->
       if net#is_mixed then failwith "Mixed paddings not yet implemented";
@@ -114,7 +103,7 @@ let _unpack_layer11 (net : Fnn.node11) =
         [| sy; sx |]
       in
       let forward up = Algodiff.NN.max_pool2d b up kernel_size s |> validate_output_tensor net in
-     forward
+      forward
   | `Transpose net ->
       let transpose_axes, dims1_of_dims0 = derive_configuration_of_transpose_layer net in
       if transpose_axes <> [ 0; 1; 2; 3 ] && transpose_axes <> [ 0 ] then (
@@ -128,7 +117,7 @@ let _unpack_layer11 (net : Fnn.node11) =
         (* Algodiff.Maths.transpose ~axis:transpose_axes x *)
         Algodiff.Maths.reshape up reshape_shape |> validate_output_tensor net
       in
-     forward
+      forward
   | `Normalisation _ -> failwith "Not yet implemented"
 
 let _unpack_layer21 (net : Fnn.node21) =
@@ -148,7 +137,7 @@ let _unpack_layer21 (net : Fnn.node21) =
         [| sy; sx |]
       in
       let forward up0 up1 = Algodiff.NN.conv2d ~padding:b up1 up0 s |> validate_output_tensor net in
-     forward
+      forward
   | `Tensordot net ->
       let mapping, perm = derive_configuration_of_tensordot_layer net in
       if mapping <> [ (1, 0) ] then failwith "Tensordot only supported as dot";
@@ -161,7 +150,7 @@ let _unpack_layer21 (net : Fnn.node21) =
         (* |> Tfjs_api.Ops.transpose ~perm *)
         |> validate_output_tensor net
       in
-     forward
+      forward
 
 let _unpack_layern1 (net : Fnn.noden1) =
   match net#classify_layer with
@@ -176,7 +165,7 @@ let _unpack_layern1 (net : Fnn.noden1) =
         in
         ups |> aux |> validate_output_tensor net
       in
-     forward
+      forward
   | `Prod net ->
       let forward ups =
         let rec aux = function
@@ -186,13 +175,13 @@ let _unpack_layern1 (net : Fnn.noden1) =
         in
         ups |> aux |> validate_output_tensor net
       in
-     forward
+      forward
   | `Concatenate net ->
       let axis = tensor_axis_of_shape_axis net#out_shape net#axis in
       let forward ups =
         ups |> Array.of_list |> Algodiff.Maths.concatenate ~axis |> validate_output_tensor net
       in
-     forward
+      forward
 
 let _unpack_node follow (net : Fnn.network) =
   match (net#classify_node, List.map follow net#upstreams) with
@@ -210,8 +199,7 @@ let _unpack_node follow (net : Fnn.network) =
       Noden1 { forward; node = (node :> Fnn.network); ups }
   | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
 
-let unpack_for_evaluation :
-    Fnn.network -> (tensormap -> tensor) =
+let unpack_for_evaluation : Fnn.network -> tensormap -> tensor =
  (* Transform a `network` to everything that is needed to perform an evaluation with that network
   * using Owl Algodiff:
   * 1. A callable for the forward pass

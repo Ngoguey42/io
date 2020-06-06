@@ -8,7 +8,8 @@ open struct
 end
 
 let eval : Types.evaluation_backend_routine =
-   fun ?(verbose = false) ~yield_sleep_length ~fire_event ~batch_size ~db:((eval_imgs, eval_labs)) ~encoder ~decoder ->
+ fun ?(verbose = false) ~yield_sleep_length ~fire_event ~batch_size ~db:(eval_imgs, eval_labs)
+     ~encoder ~decoder ->
   let open Lwt.Infix in
   (* Step 1 - Unpack the Fnn networks using the dedicated module ******************************** *)
   let node0 = Fnn.inputs [ encoder ] |> List.hd |> Fnn.downcast in
@@ -38,9 +39,9 @@ let eval : Types.evaluation_backend_routine =
       else assert (v = Mnist.test_set_size - (batch_size * (batch_count - 1)));
       v
     in
-    let x = Owl_snippets.to_float32 x
-            |> Algodiff.pack_arr
-            |> Fun.flip Algodiff.Arr.reshape [|batch_size; 28; 28; 1|]
+    let x =
+      Owl_snippets.to_float32 x |> Algodiff.pack_arr
+      |> Fun.flip Algodiff.Arr.reshape [| batch_size; 28; 28; 1 |]
     in
 
     (* Step 6 - Forward ************************************************************************* *)
@@ -65,7 +66,7 @@ let eval : Types.evaluation_backend_routine =
       (fun (digit, idx_in_db) ->
         let idx_in_batch = idx_in_db - i0 in
         if idx_in_batch >= 0 && idx_in_batch < batch_size then (
-          let pred = Ndarray.get_slice [[idx_in_batch]; []] (Algodiff.unpack_arr y'_1hot) in
+          let pred = Ndarray.get_slice [ [ idx_in_batch ]; [] ] (Algodiff.unpack_arr y'_1hot) in
           assert (Ndarray_g.shape pred = [| 1; 10 |]);
           let pred = Ndarray_g.squeeze ~axis:[| 0 |] pred in
           assert (Ndarray_g.shape pred = [| 10 |]);

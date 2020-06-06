@@ -1,5 +1,6 @@
 # TODO
 - mnist-jsoo soon
+  1. bind network tabs with keyboard shortcuts (and mension it somewhere)
    1. Stats chart with plotly
       - Live update
          - Debounce chart update given idleness of window

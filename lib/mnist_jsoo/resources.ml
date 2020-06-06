@@ -179,6 +179,13 @@ let create_download_procedure fire_upstream_event =
         let ongoing = Vset.remove entry ongoing in
         let g = G.remove_vertex g entry in
         let g, ongoing = launch_some_tasks g ongoing in
+        if List.length mnist_tensors = 4 && Vset.cardinal ongoing = 0 then
+          fire_upstream_event
+            ( List.assq `Train_imgs mnist_tensors,
+              List.assq `Train_labs mnist_tensors,
+              List.assq `Test_imgs mnist_tensors,
+              List.assq `Test_labs mnist_tensors );
+
         (g, ongoing, mnist_tensors)
     | `Mnist_tensor_ready tensor ->
         let ongoing = Vset.remove entry ongoing in
@@ -188,7 +195,7 @@ let create_download_procedure fire_upstream_event =
         assert (List.mem_assoc entry mnist_tensors = false);
         let mnist_tensors = (entry, tensor) :: mnist_tensors in
 
-        if List.length mnist_tensors = 4 then
+        if List.length mnist_tensors = 4 && Vset.cardinal ongoing = 0 then
           fire_upstream_event
             ( List.assq `Train_imgs mnist_tensors,
               List.assq `Train_labs mnist_tensors,

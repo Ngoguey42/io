@@ -8,51 +8,45 @@ end
 
 open Types
 
-(* asd
-   Plotly events:
-   - plotly_afterplot
-     - To be used to avoid spamming redraw when no CPU time available
-   - plotly_legendclick, plotly_legenddoubleclick
-     - Save this config globally (watch out for infinite loops)
-   - plotly_relayout, plotly_autosize
-     - emits only the xaxis and yaxis ranges which were directly changed by the triggering event
-     - Save this config globally (watch out for infinite loops)
-   - plotly_webglcontextlost
-     - TODO: Try to trigger error with large batch size
-     - When crashed, put a button to reload chart
-
-   Plotly.newPlot(graphDiv, data, layout, config)
-
-   Plotly.relayout(graphDiv, update)
-
-   Plotly.makeTemplate(figure)
-     - layout = {template:template}
-
-   Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
-
- *)
-
 let create_evaluating_signal tabsignal tabevents =
-  let latest_batch_end_idx =
-    React.S.sample
-      (fun ev s ->
-        match (s, ev) with
-        | Evaluating _, Evaluation_event (`Batch_end i) -> Some i
-        | Evaluating _, _ -> None
-        | _, _ -> Some 0)
-      tabevents tabsignal
-    |> React.E.fmap Fun.id |> React.S.hold 0
-  in
-  let evaluating =
+  let evaluating_signal =
     React.S.map
       (function
-        | Evaluating s -> `On ((Mnist.test_set_size + s.config.batch_size - 1) / s.config.batch_size)
+        | Evaluating s ->
+            let batch_count =
+              (Mnist.test_set_size + s.config.batch_size - 1) / s.config.batch_size
+            in
+            `On (batch_count, s.config.backend)
         | _ -> `Off)
       tabsignal
   in
-  React.S.l2
-    (fun a b -> match (a, b) with `Off, _ -> `Off | `On bs, i -> `On (i, bs))
-    evaluating latest_batch_end_idx
+  let batch_begin_signal =
+    tabevents
+    |> React.E.fmap (function
+         | Evaluation_event (`Batch_begin i) -> Some (Some i)
+         | Evaluation_event (`Outcome _) -> Some None
+         | _ -> None)
+    |> React.S.hold None
+  in
+  let batch_end_signal =
+    tabevents
+    |> React.E.fmap (function
+         | Evaluation_event (`Batch_end i) -> Some (Some i)
+         | Evaluation_event (`Outcome _) -> Some None
+         | _ -> None)
+    |> React.S.hold None
+  in
+  React.S.l3
+    (fun ev bbeg bend ->
+      match (ev, bbeg, bend) with
+      | `Off, _, _ -> `Off
+      | `On (_, _), None, None | `On (_, `Tfjs_webgl), Some 0, None -> `Allocating
+      | `On (_, _), Some 0, None -> `On 0.0
+      | `On (batch_count, _), Some _, Some i ->
+          `On ((float_of_int i +. 1.) /. float_of_int batch_count)
+      | `On _, None, Some _ -> failwith "results.create_evaluating_signal@unreachable 0"
+      | `On _, Some _, None -> failwith "results.create_evaluating_signal@unreachable 1")
+    evaluating_signal batch_begin_signal batch_end_signal
 
 let jsx_of_test_set_sample test_set_sample_urls probas =
   let open Reactjs.Jsx in
@@ -81,59 +75,53 @@ let jsx_of_test_set_sample test_set_sample_urls probas =
 
 let construct_results ((test_imgs, _), tabsignal, tabevents) =
   Printf.printf "> Component - results | construct\n%!";
-  let signal_evaluating = create_evaluating_signal tabsignal tabevents in
 
+  let signal_evaluating = create_evaluating_signal tabsignal tabevents in
   let test_set_sample_urls =
     List.map (fun (_, idx) -> Ndarray.get_slice [ [ idx ]; []; [] ] test_imgs) Mnist.test_set_sample
     |> List.map Mnist.b64_url_of_digit
   in
-  let test_stats_events =
+  let stats_events =
     React.E.fmap
-      (function Evaluation_event (`Outcome (`End stats)) -> Some stats | _ -> None)
+      (function
+        | Evaluation_event (`Outcome (`End stats)) -> Some (`Test stats)
+        | Training_event (`Batch_end (_, stats)) -> Some (`Train_batch stats)
+        | _ -> None)
       tabevents
   in
-
   let test_set_sample_signal =
-    test_stats_events
-    |> React.E.map (fun stats -> Some stats.test_set_sample_probas)
+    stats_events
+    |> React.E.fmap (function `Test stats -> Some (Some stats.test_set_sample_probas) | _ -> None)
     |> React.S.hold ~eq:( == ) None
   in
 
   let render _ =
     Printf.printf "> Results | render\n%!";
     let open Reactjs.Jsx in
+    let chart = of_constructor Charts.construct_chart stats_events in
     let digits =
       match React.S.value test_set_sample_signal with
       | None -> of_string ""
       | Some probas -> jsx_of_test_set_sample test_set_sample_urls probas
     in
     let tbody =
-      [
-        of_string "Statistics"
-        >> of_bootstrap "Col" ~classes:[ "mnist-pred" ] ~md_span:12 ~as_:"h5"
-             ~style:[ ("display", "flex"); ("justifyContent", "center") ]
-        >> of_bootstrap "Row";
-        digits;
-      ]
-      |> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
+      [ chart; digits ] |> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in
     let badges =
       match React.S.value signal_evaluating with
       | `Off -> []
-      | `On (0, _) ->
+      | `Allocating ->
           [
             "Evaluating" |> of_string
             >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
             "Allocating" |> of_string
             >> of_bootstrap "Badge" ~variant:"warning" ~style:[ ("marginLeft", "6px") ];
           ]
-      | `On (i, bs) ->
-          let i = float_of_int i in
-          let bs = float_of_int bs in
+      | `On prog ->
           [
             "Evaluating" |> of_string
             >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
-            Printf.sprintf "%.0f%%" ((i +. 1.) /. bs *. 100.)
+            Printf.sprintf "%.0f%%" (prog *. 100.)
             |> of_string
             >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
           ]

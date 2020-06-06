@@ -56,4 +56,8 @@ form small ul {
     padding-left: 30px;
 }
 
+.js-plotly-plot svg {
+    background: inherit !important;
+}
+
 /* ************************************************************************** */

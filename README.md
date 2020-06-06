@@ -15,7 +15,6 @@
 
 
 - mnist-jsoo soon (bugs)
-   1. Fix the `Uncaught TypeError: Cannot read property '__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED' of undefined` `TypeError: Js_of_ocaml_Js[50][1].ReactDOM.render is not a function` error
    1. Handle the case of corrupted cache/indexeddb.
 
 

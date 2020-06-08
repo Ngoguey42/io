@@ -73,7 +73,7 @@ let jsx_of_test_set_sample test_set_sample_urls probas =
   ]
   |> of_bootstrap "Container"
 
-let construct_results ((test_imgs, _), tabsignal, tabevents) =
+let construct_results ((test_imgs, _), tabshownsignal, tabsignal, tabevents) =
   Printf.printf "> Component - results | construct\n%!";
 
   let signal_evaluating = create_evaluating_signal tabsignal tabevents in
@@ -81,24 +81,27 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
     List.map (fun (_, idx) -> Ndarray.get_slice [ [ idx ]; []; [] ] test_imgs) Mnist.test_set_sample
     |> List.map Mnist.b64_url_of_digit
   in
-  let stats_events =
-    React.E.fmap
-      (function
-        | Evaluation_event (`Outcome (`End stats)) -> Some (`Test stats)
-        | Training_event (`Batch_end (_, stats)) -> Some (`Train_batch stats)
-        | _ -> None)
-      tabevents
-  in
   let test_set_sample_signal =
-    stats_events
-    |> React.E.fmap (function `Test stats -> Some (Some stats.test_set_sample_probas) | _ -> None)
+    tabevents
+    |> React.E.fmap (function
+         | Evaluation_event (`Outcome (`End stats)) -> Some (Some stats.test_set_sample_probas)
+         | _ -> None)
     |> React.S.hold ~eq:( == ) None
   in
+  let plotly_ref = Reactjs.create_ref () in
 
   let render _ =
     Printf.printf "> Results | render\n%!";
     let open Reactjs.Jsx in
-    let chart = of_constructor Charts.construct_chart stats_events in
+    let chart =
+      let title = of_string "Statistics" >> of_tag "h5" in
+      let chart =
+        of_tag "div" ~ref:plotly_ref ~id:"my-div"
+          ~style:[ ("width", "686px"); ("height", "350px") ]
+          []
+      in
+      of_tag "div" ~style:[ ("textAlign", "center") ] [ title; chart ]
+    in
     let digits =
       match React.S.value test_set_sample_signal with
       | None -> of_string ""
@@ -129,5 +132,10 @@ let construct_results ((test_imgs, _), tabsignal, tabevents) =
     let thead = [ of_string "Results" ] @ badges |> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
+  let mount () =
+    match plotly_ref##.current |> Js.Opt.to_option with
+    | None -> failwith "unreachable. React.ref failed"
+    | Some elt -> Chart.routine elt tabshownsignal tabsignal tabevents
+  in
 
-  Reactjs.construct ~signal:signal_evaluating ~signal:test_set_sample_signal render
+  Reactjs.construct ~signal:signal_evaluating ~signal:test_set_sample_signal ~mount render

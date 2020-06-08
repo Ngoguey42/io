@@ -74,6 +74,11 @@ let jsx_of_tab db gsignal set_gsignal fire_toast i state =
         ]
   in
 
+  let tabshownsignal =
+    React.S.fmap (function Loaded (_, j, _) -> Some j | _ -> None) 0 gsignal
+    |> React.S.map (fun j -> j = i)
+  in
+
   let signal, set_signal = React.S.create state in
   React.S.map
     (fun s ->
@@ -91,7 +96,7 @@ let jsx_of_tab db gsignal set_gsignal fire_toast i state =
         set_gsignal (Loaded (db, focusidx, tabstates))
   in
   let title_jsx = of_react "Fragment" (of_string k :: spinner) in
-  of_constructor Tab.construct_tab (db, i, signal, set_signal, fire_toast)
+  of_constructor Tab.construct_tab (db, tabshownsignal, i, signal, set_signal, fire_toast)
   >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
 
 let tab_states_equal a b =
@@ -205,11 +210,6 @@ let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
 
-  (* let div = *)
-  (*   [%html {|<div class="bigbox-title"><h1>MNIST training with Js_of_ocaml</h1></div>|}] *)
-  (*   |> Tyxml_js.To_dom.of_element *)
-  (* in *)
-  (* Dom.appendChild body div; *)
   let div = [%html "<div></div>"] |> Tyxml_js.To_dom.of_element in
   Dom.appendChild body div;
   Ft_js.Scripts.import `Reactjs >>= fun () ->

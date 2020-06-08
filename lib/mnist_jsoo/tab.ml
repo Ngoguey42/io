@@ -152,7 +152,7 @@ let react_main db signal set_signal fire_toast =
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
   (events, fire_event)
 
-let construct_tab (db, tabidx, signal, set_signal, fire_toast) =
+let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
   Printf.printf "> Component - tab%d | construct\n%!" tabidx;
   let traini, trainl, testi, testl = db in
   let events, fire_event = react_main db signal set_signal fire_toast in
@@ -175,7 +175,9 @@ let construct_tab (db, tabidx, signal, set_signal, fire_toast) =
       of_constructor Backend_selection.construct_backend_selection
         (fire_backend_selected, tabidx, enabled)
     in
-    let results () = of_constructor Results.construct_results ((testi, testl), signal, events) in
+    let results () =
+      of_constructor Results.construct_results ((testi, testl), tabshownsignal, signal, events)
+    in
     let train enabled =
       of_constructor Training_configuration.construct_training_config (fire_training_conf, enabled)
     in

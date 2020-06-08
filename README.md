@@ -1,18 +1,8 @@
 # TODO
 - mnist-jsoo soon
   1. bind network tabs with keyboard shortcuts (and mension it somewhere)
-   1. Stats chart with plotly
-      - Live update
-         - Debounce chart update given idleness of window
-         - Store stats in `Js.js_array` directly for good complexity
-      - Share the plot axes and traces visibility between tabs
-         - Choose between X=images-seen / X=batch-idx
-      - Stats
-         - IOU Recall Precision (train/test)
-         - Loss (train)
-         - LR
-         - Gradient Norm Sum in decoder? (what about bias, what about LR?, only use loss?)
-
+  1. fix plotly version
+  1. Stats chart with plotly (seed todo in dedicated file)
 
 - mnist-jsoo soon (bugs)
    1. Handle the case of corrupted cache/indexeddb.

@@ -129,7 +129,7 @@ let construct_results ((test_imgs, _), tabshownsignal, tabsignal, tabevents) =
             >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ];
           ]
     in
-    let thead = [ of_string "Results" ] @ badges |> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
+    let thead = [ of_string "Results board" ] @ badges |> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
   let mount () =

@@ -35,17 +35,25 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 # TODO
 - Understand when exactly is afterplot called. Seems too often
-- Show a marker when len of line == 1
-- Refresh x range when a point is being rendered outside (is it aggressive?)
-- Include loss, how to twiny?
+
 - Include recall
-- Better legend placement
-- Fix legend names
-- Share axes between tabs
-- Share traces visibility between tabs
-- Don't let user pan out of (y in [0;1])
-- Don't let user pan out of (x in [0;ceil(tabwise_max_images_seen / 60000) * 60000])
+- Include learning rate
 - Clean code / Improve separation of concerns
+- improve color of legend
+- make it less complex to point the green crosses
+- X1 range:
+  - Refresh x range when a point is being rendered outside (is it aggressive?)
+- X2 range:
+  - Clip between [0; mean + std * 2]
+- Can i make graph responsive ?
+- Cross tab
+  - Share axes range
+  - Share traces visibility
+- wontfix
+  - Don't let user pan out of (y in [0;1])
+  - Don't let user pan out of (x in [0;ceil(tabwise_max_images_seen / 60000) * 60000])
+  - Show epoch count / image count in x-axis hover
+  - hide y2 lines ?
 
  *)
 
@@ -67,6 +75,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   (* Step 1 - Allocate arrays with ~constant append complexity *)
   let train_xs = new%js Js.array_empty in
   let train_ious = new%js Js.array_empty in
+  let train_losses = new%js Js.array_empty in
   let test_xs = new%js Js.array_empty in
   let test_ious = new%js Js.array_empty in
 
@@ -92,6 +101,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
          (fun (new_stats : training_stats) images_seen ->
            train_xs##push images_seen |> ignore;
            train_ious##push new_stats.mean_iou_top1 |> ignore;
+           train_losses##push new_stats.mean_loss_per_image |> ignore;
            train_xs##.length)
          images_seen_signal
     |> React.S.hold 0
@@ -189,46 +199,148 @@ let routine elt tab_shown_signal _tabsignal tabevents =
       object%js
         val x = new%js Js.array_empty
         val y = new%js Js.array_empty
-        val mode = Js.string "lines"
-        val name = "train iou"
-        val line =
+        val _type = Js.string "scatter"
+        val mode = Js.string "markers"
+        val name = Js.string "train iou"
+        (* val textinfo = Js.string "percent" *)
+        (* val line = *)
+        (*   object%js *)
+        (*     val color = Js.string "red" *)
+        (*   end *)
+        val marker =
           object%js
             val color = Js.string "red"
+            val size = 3
+            (* val symbol = Js.string "x" *)
           end
-      end [@ocamlformat "disable"];
+      end [@ocamlformat "disable"] |> Js.Unsafe.inject;
       object%js
         val x = new%js Js.array_empty
         val y = new%js Js.array_empty
-        val mode = Js.string "lines"
-        val name = "test iou"
+        val _type = Js.string "scatter"
+        val yaxis = Js.string "y2"
+        val mode = Js.string "markers"
+        val name = Js.string "loss"
+        val line =
+          object%js
+            val color = Js.string "orange"
+          end
+        val marker =
+          object%js
+            val color = Js.string "orange"
+            val size = 3
+            (* val symbol = Js.string "x" *)
+          end
+      end [@ocamlformat "disable"] |> Js.Unsafe.inject;
+      object%js
+        val x = new%js Js.array_empty
+        val y = new%js Js.array_empty
+        val _type = Js.string "scatter"
+        val mode = Js.string "lines+markers"
+        val name = Js.string "test iou"
+        (* val textinfo = Js.string "percent" *)
         val line =
           object%js
             val color = Js.string "green"
           end
-      end [@ocamlformat "disable"];
+        val marker =
+          object%js
+            val color = Js.string "green"
+            val size = 10
+            val symbol = Js.string "x"
+          end
+      end [@ocamlformat "disable"] |> Js.Unsafe.inject;
     |]
     |> Js.array
   in
+  Firebug.console##log data;
   let layout =
     object%js
       val width = 686
       val height = 350
       val showlegend = true
+      val clickmode = Js.string "none"
+      val dragmode = false
+
+      (* val grid = *)
+      (*   object%js *)
+      (*     val domain = *)
+      (*       object%js *)
+      (*         val x = [| 0.; 1. |] |> Js.array *)
+      (*         val y = [| 0.; 1. |] |> Js.array *)
+      (*       end *)
+      (*   end *)
+
+      (* val autoscale = true *)
+      val legend =
+        object%js
+            (* val bgcolor = "#f7f7f780" *)
+            val x = 0.84
+            val y = 0.5
+            (* val xanchor = Js.string "right" *)
+            (* val yanchor = Js.string "middle" *)
+        end
       val xaxis =
         object%js
-          val title = "Image Seen" |> Js.string
+          val title = "image seen" |> Js.string
+          val gridcolor = Js.string "black"
+          val rangemode = Js.string "nonnegative"
           val range = Js.array [| 0.; 60000. |]
+          val autorange = true
+          val zerolinewidth = 1.5
+          val tickfont =
+            object%js
+              val size = 8
+            end
         end
       val yaxis =
         object%js
+          (* val title = Js.string "accuracies" *)
           val range = Js.array [| 0.; 1. |]
+          val zerolinewidth = 1.5
           val fixedrange = true
+          val tickformat = Js.string ",.0%"
+          val hoverformat = Js.string ",.2%"
+          val rangemode = Js.string "nonnegative"
+          val gridcolor = Js.string "black"
+          (* val ticks = Js.string "inside" *)
+          val tickfont =
+            object%js
+              val size = 8
+            end
+        end
+        (* Sets the domain of this axis (in plot fraction). *)
+      val yaxis2 =
+        object%js
+          val visible = false
+          (* val title = Js.string "loss" *)
+          val range = Js.array [| 0.; 20. |]
+          val showgrid = false
+          val gridcolor = Js.string "F7F7F7"
+          val zeroline = false
+          val zerolinewidth = 0.01
+          val linewidth = 0.01
+          val showticklabels = false
+          (* val ticks = Js.string "" *)
+          val rangemode = Js.string "nonnegative"
+          val titlefont =
+            object%js
+                val color = Js.string "orange"
+            end
+          val side = Js.string "right"
+          val tickfont =
+            object%js
+              val color = Js.string "#FcFcFc"
+              (* val color = Js.string "#F7F7F7" *)
+              val size = 1
+            end
+          val overlaying = Js.string "y"
         end
       val margin =
         object%js
-          val l = 35
-          val r = 15
-          val b = 35
+          val l = 30
+          val r = 10
+          val b = 25
           val t = 10
           val pad = 0
         end
@@ -263,15 +375,17 @@ let routine elt tab_shown_signal _tabsignal tabevents =
           object%js
             val x = [|
                 train_xs##slice traini trainj;
+                train_xs##slice traini trainj;
                 test_xs##slice testi testj;
               |] |> Js.array
             val y = [|
                 train_ious##slice traini trainj;
+                train_losses##slice traini trainj;
                 test_ious##slice testi testj
               |] |> Js.array
           end [@ocamlformat "disable"]
         in
-        let trace_list = [| 0; 1 |] |> Js.array in
+        let trace_list = [| 0; 1; 2 |] |> Js.array in
         let () = Js.Unsafe.global ##. Plotly##extendTraces elt data trace_list in
         Lwt.return ())
   in

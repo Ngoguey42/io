@@ -1,8 +1,18 @@
 # TODO
 - mnist-jsoo soon
-  1. bind network tabs with keyboard shortcuts (and mension it somewhere)
+  1. Improve smallboxes layout
+     - bind network tabs with keyboard shortcuts (and mension it somewhere)
+     - Or find a way better way of arranging the smallboxes, it's a mess
+     - we need to see training advancement from results
+     - put more things in the `results boards` ?
+     - Reverse the current order ?
+     - Collapse ?
   1. fix plotly version
   1. Stats chart with plotly (seed todo in dedicated file)
+  1. Description of individual stats meaning below chart
+  1. in training configuration show
+     - how many images and epochs it corresponds to
+     - how many images and epochs we will reach
 
 - mnist-jsoo soon (bugs)
    1. Handle the case of corrupted cache/indexeddb.

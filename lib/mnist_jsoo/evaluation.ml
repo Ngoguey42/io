@@ -8,6 +8,39 @@ end
 
 open Types
 
+let repair_string : string -> string = fun s -> String.sub s 0 (String.length s)
+
+let repair_bigarray : 'a -> 'a =
+ fun a ->
+  let f : _ -> _ -> _ -> _ -> 'a = Ft_js.caml_ba_create_unsafe in
+  f
+    (Js.Unsafe.get a (Js.string "kind"))
+    (Js.Unsafe.get a (Js.string "layout"))
+    (Js.Unsafe.get a (Js.string "dims"))
+    (Js.Unsafe.get a (Js.string "data"))
+
+let repair_storable_nn : 'a -> 'a =
+ fun snn ->
+  let layer_ids, graph, layers = snn in
+  List.iter
+    (fun i ->
+      match Hashtbl.find layers i with
+      | `Parameter32 (id, dimensions, init, o, tensor_opt, optim_opt) ->
+          let tensor_opt =
+            match tensor_opt with None -> None | Some v -> Some (repair_bigarray v)
+          in
+          let optim_opt =
+            match optim_opt with
+            | Some (`Adam (a, b, c, d, t0, t1)) ->
+                Some (`Adam (a, b, c, d, repair_bigarray t0, repair_bigarray t1))
+            | v -> v
+          in
+          Hashtbl.add layers i (`Parameter32 (id, dimensions, init, o, tensor_opt, optim_opt))
+      | _ -> ())
+    layer_ids;
+
+  (layer_ids, graph, layers)
+
 let _routine { db; encoder; decoder; config = { verbose; batch_size; backend; _ } } fire_event =
   let main () =
     let module Backend = (val Backend.create backend) in
@@ -19,17 +52,6 @@ let _routine { db; encoder; decoder; config = { verbose; batch_size; backend; _ 
     Lwt.return ()
   in
   Lwt.catch main on_error
-
-let repair_string : string -> string = fun s -> String.sub s 0 (String.length s)
-
-let repair_bigarray : 'a -> 'a =
- fun a ->
-  let f : _ -> _ -> _ -> _ -> 'a = Ft_js.caml_ba_create_unsafe in
-  f
-    (Js.Unsafe.get a (Js.string "kind"))
-    (Js.Unsafe.get a (Js.string "layout"))
-    (Js.Unsafe.get a (Js.string "dims"))
-    (Js.Unsafe.get a (Js.string "data"))
 
 module Webworker_routine = struct
   type parameters = {
@@ -56,8 +78,8 @@ module Webworker_routine = struct
 
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db = imgs, labs; encoder; decoder; config } ->
-        let f : Fnn.storable_nn -> Fnn.network =
-          Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER)
+        let f : Fnn.storable_nn -> Fnn.network = fun nn ->
+          nn |> repair_storable_nn |> Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER)
         in
         let encoder = f encoder in
         let decoder = f decoder in

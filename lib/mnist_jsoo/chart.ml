@@ -202,7 +202,7 @@ let new_plot elt =
       val showlegend = true
       val clickmode = Js.string "none"
       val dragmode = false
-    
+
       (* val grid = *)
       (*   object%js *)
       (*     val domain = *)
@@ -211,11 +211,11 @@ let new_plot elt =
       (*         val y = [| 0.; 1. |] |> Js.array *)
       (*       end *)
       (*   end *)
-    
+
       val legend =
         object%js
             (* val bgcolor = "#f7f7f780" *)
-            val x = 0.82
+            val x = 0.8
             val y = 0.5
         end
       val xaxis =

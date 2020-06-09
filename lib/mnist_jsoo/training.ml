@@ -9,6 +9,8 @@ end
 
 open Types
 
+let repair_string : string -> string = fun s -> String.sub s 0 (String.length s)
+
 let repair_bigarray : 'a -> 'a =
  fun a ->
   let f : _ -> _ -> _ -> _ -> 'a = Ft_js.caml_ba_create_unsafe in
@@ -17,8 +19,6 @@ let repair_bigarray : 'a -> 'a =
     (Js.Unsafe.get a (Js.string "layout"))
     (Js.Unsafe.get a (Js.string "dims"))
     (Js.Unsafe.get a (Js.string "data"))
-
-let repair_string : string -> string = fun s -> String.sub s 0 (String.length s)
 
 let repair_storable_nn : 'a -> 'a =
  fun snn ->
@@ -133,12 +133,14 @@ module Webworker_routine = struct
     | #training_user_status as msg -> msg
 
   let postprocess_in_msg : _in_msg -> _ = function
-    | `Prime { db; networks = encoders, decoder; config } ->
+    | `Prime { db = imgs, labs; networks = encoders, decoder; config } ->
         let f nn =
           nn |> repair_storable_nn |> Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER)
         in
         let networks = (List.map f encoders, f decoder) in
-        `Prime Types.{ networks; db; config }
+        let imgs = repair_bigarray imgs in
+        let labs = repair_bigarray labs in
+        `Prime Types.{ networks; db = imgs, labs; config }
     | #training_user_status as msg -> msg
 
   let preprocess_out_msg : Types.training_routine_event -> routine_event = function

@@ -449,17 +449,21 @@ let construct_training_config : _ Reactjs.constructor =
         (jsx_of_code (code_of_dconf dconf))
       >> of_bootstrap "Tooltip" ~id:"network-code-tooltip"
     in
-    let button xs_order md_order =
-      [
-        of_string "Create"
-        >> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit" ~size:"lg";
+    let buttons xs_order md_order =
+      let create =
+        if enabled then
+          of_string "Create" >> of_bootstrap ~on_click "Button" ~type_:"submit" ~size:"lg"
+        else of_string ""
+      in
+      let code =
         of_string "?"
         >> of_bootstrap
              ~on_click:(fun ev -> ev##preventDefault)
              "Button" ~type_:"submit"
              ~classes:[ "btn-info"; "network-code-button" ]
-        >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt;
-      ]
+        >> of_bootstrap "OverlayTrigger" ~placement:"right" ~overlay:tt
+      in
+      [ create; code ]
       |> of_bootstrap "Col"
            ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
            ~xs_span:12 ~xs_order ~md_span:6 ~md_order
@@ -478,12 +482,15 @@ let construct_training_config : _ Reactjs.constructor =
         select (module Decoder) 1 1;
         input (module Parameters) 2 2;
         input (module Seed) 3 3;
-        button 5 4;
+        buttons 5 4;
         select (module Optimizer) 4 5;
       ]
       |> of_bootstrap "Row" >> of_bootstrap "Form" >> of_tag "th" >> of_tag "tr" >> of_tag "tbody"
     in
-    let thead = of_string "Network Creation" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
+    let thead =
+      (if enabled then of_string "Network Creation" else of_string "Network Definition")
+      >> of_tag "th" >> of_tag "tr" >> of_tag "thead"
+    in
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 

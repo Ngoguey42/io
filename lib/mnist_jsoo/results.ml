@@ -104,7 +104,8 @@ let construct_results ((test_imgs, _), tabshownsignal, tabsignal, tabevents) =
     in
     let digits =
       match React.S.value test_set_sample_signal with
-      | None -> of_string ""
+      | None ->
+          jsx_of_test_set_sample test_set_sample_urls (Ndarray.zeros Bigarray.Float32 [| 10; 10 |])
       | Some probas -> jsx_of_test_set_sample test_set_sample_urls probas
     in
     let tbody =
@@ -130,7 +131,7 @@ let construct_results ((test_imgs, _), tabshownsignal, tabsignal, tabevents) =
           ]
     in
     let thead =
-      [ of_string "Results board" ] @ badges |> of_tag "th" >> of_tag "tr" >> of_tag "thead"
+      [ of_string "Dashboard" ] @ badges |> of_tag "th" >> of_tag "tr" >> of_tag "thead"
     in
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in

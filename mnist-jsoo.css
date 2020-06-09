@@ -59,5 +59,9 @@ form small ul {
 .js-plotly-plot svg {
     background: inherit !important;
 }
+.nav-item {
+    line-height: 1.4
+}
+
 
 /* ************************************************************************** */

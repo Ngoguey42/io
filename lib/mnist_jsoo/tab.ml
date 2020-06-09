@@ -169,33 +169,35 @@ let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
     Printf.printf "> Component - tab%d | render\n%!" tabidx;
     let open Reactjs.Jsx in
     let net enabled =
-      of_constructor Network_construction.construct_training_config (fire_network_made, enabled)
+      of_constructor ~key:"net" Network_construction.construct_training_config
+        (fire_network_made, enabled)
     in
     let backend enabled =
-      of_constructor Backend_selection.construct_backend_selection
+      of_constructor ~key:"back" Backend_selection.construct_backend_selection
         (fire_backend_selected, tabidx, enabled)
     in
     let results () =
-      of_constructor Results.construct_results ((testi, testl), tabshownsignal, signal, events)
+      of_constructor ~key:"res" Results.construct_results
+        ((testi, testl), tabshownsignal, signal, events)
     in
     let train enabled =
-      of_constructor Training_configuration.construct_training_config (fire_training_conf, enabled)
+      of_constructor ~key:"train" Training_configuration.construct_training_config
+        (fire_training_conf, enabled)
     in
     let training params =
-      of_constructor Training.construct_training (params, fire_training_event)
+      of_constructor ~key:"training" Training.construct_training (params, fire_training_event)
     in
+
     match React.S.value signal with
-    | Creating_network -> net true >> of_react "Fragment"
+    | Creating_network -> [ net true; backend false ] |> of_react "Fragment"
     | Selecting_backend _ -> [ net false; backend true ] |> of_react "Fragment"
-    | Evaluating s when s.images_seen = 0 ->
-        [ net false; backend false; results () ] |> of_react "Fragment"
+    | Evaluating _ -> [ results (); train false; backend false; net false ] |> of_react "Fragment"
     | Creating_training _ ->
-        [ net false; backend true; results (); train true ] |> of_react "Fragment"
+        [ results (); train true; backend true; net false ] |> of_react "Fragment"
     | Training s ->
         let networks = ([ s.encoder ], s.decoder) in
         let params = Types.{ db = (traini, trainl); networks; config = s.config } in
-        [ net false; backend false; results (); train false; training params ]
+        [ results (); training params; train false; backend false; net false ]
         |> of_react "Fragment"
-    | Evaluating _ -> [ net false; backend false; results (); train false ] |> of_react "Fragment"
   in
   Reactjs.construct ~signal render

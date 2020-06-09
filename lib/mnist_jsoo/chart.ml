@@ -34,16 +34,21 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 
 # TODO
+- Move buttons and legend below chart
+  - Horizontal legend??
+- shrink statistics height
 - Rollback traces on crash/abort
 - Clean code / Improve separation of concerns
 - Cross tab
   - Share axes range
   - Share traces visibility
+- Catch and deal with webgl context lost? (necessary?)
 - face
   - improve color of legend
   - make it less complex to point the green crosses
   - X1 range:
     - Refresh x range when a point is being rendered outside (is it aggressive?)
+    - Is there an "autoscale" callback? I could make autoscale the default
   - X2 range:
     - Clip between [0; mean + std * 2]
   - Can i make graph responsive ?
@@ -188,9 +193,7 @@ let new_plot elt =
   (* ignore lr; *)
   let data =
     let i = Js.Unsafe.inject in
-    [| i train_iou; i train_recall; i loss;
-       i lr;
-       i test_iou; i test_recall |] |> Js.array
+    [| i train_iou; i train_recall; i loss; i lr; i test_iou; i test_recall |] |> Js.array
   in
   let layout =
     object%js
@@ -199,7 +202,7 @@ let new_plot elt =
       val showlegend = true
       val clickmode = Js.string "none"
       val dragmode = false
-
+    
       (* val grid = *)
       (*   object%js *)
       (*     val domain = *)
@@ -208,7 +211,7 @@ let new_plot elt =
       (*         val y = [| 0.; 1. |] |> Js.array *)
       (*       end *)
       (*   end *)
-
+    
       val legend =
         object%js
             (* val bgcolor = "#f7f7f780" *)
@@ -487,10 +490,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
               |> Js.array
           end
         in
-        let trace_list = [| 0; 1; 2
-                            ; 3; 4; 5
-
-                         |] |> Js.array in
+        let trace_list = [| 0; 1; 2; 3; 4; 5 |] |> Js.array in
         let () = Js.Unsafe.global ##. Plotly##extendTraces elt data trace_list in
         Lwt.return ())
   in

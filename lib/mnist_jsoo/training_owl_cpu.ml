@@ -88,11 +88,12 @@ let train : Types.training_backend_routine =
       let time' = (new%js Js.date_now)##valueOf /. 1000. in
       Printf.printf "%5d, lr:%6.1e, l:%9.6f, iou:%5.1f%%, r:%5.1f%%, %.3fsec\n%!" batch_idx lr loss
         (iou *. 100.) (recall *. 100.) (time' -. time) );
-    (batch_size, loss, confusion_matrix)
+    (batch_size, loss, lr, confusion_matrix)
   in
 
   (* Step 2 - Prime the accumulated infos that needs to be returned at the end of training ****** *)
   let loss_sum = ref 0. in
+  let lr_sum = ref 0. in
   let confusion_matrix_sum = ref (Ndarray.zeros [| 10; 10 |]) in
   let image_count = ref 0 in
 
@@ -109,6 +110,7 @@ let train : Types.training_backend_routine =
           image_count = !image_count;
           batch_count;
           mean_loss_per_image = !loss_sum /. float_of_int !image_count;
+          mean_learning_rate = !lr_sum /. float_of_int batch_count;
           mean_iou_top1;
           mean_recall_top1;
           mean_precision_top1;
@@ -130,9 +132,10 @@ let train : Types.training_backend_routine =
     | `Train_to_end ->
         (* Step 4 - Start a new batch ************************************************************ *)
         fire_event (`Batch_begin i);
-        let batch_size, loss, confusion_matrix = train_on_batch i in
+        let batch_size, loss, lr, confusion_matrix = train_on_batch i in
         (* Step 9 - Accumulate stats and fire intermediate event ******************************** *)
         loss_sum := !loss_sum +. (loss *. float_of_int batch_size);
+        lr_sum := !lr_sum +. lr;
         confusion_matrix_sum := Ndarray.add !confusion_matrix_sum confusion_matrix;
         image_count := !image_count + batch_size;
         let mean_iou_top1, mean_recall_top1, mean_precision_top1 =
@@ -144,6 +147,7 @@ let train : Types.training_backend_routine =
               image_count = batch_size;
               batch_count = 1;
               mean_loss_per_image = loss;
+              mean_learning_rate = lr;
               mean_iou_top1;
               mean_recall_top1;
               mean_precision_top1;

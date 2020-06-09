@@ -35,19 +35,18 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 # TODO
 - Rollback traces on crash/abort
-- Include recall
-- Include learning rate
 - Clean code / Improve separation of concerns
-- improve color of legend
-- make it less complex to point the green crosses
-- X1 range:
-  - Refresh x range when a point is being rendered outside (is it aggressive?)
-- X2 range:
-  - Clip between [0; mean + std * 2]
-- Can i make graph responsive ?
 - Cross tab
   - Share axes range
   - Share traces visibility
+- face
+  - improve color of legend
+  - make it less complex to point the green crosses
+  - X1 range:
+    - Refresh x range when a point is being rendered outside (is it aggressive?)
+  - X2 range:
+    - Clip between [0; mean + std * 2]
+  - Can i make graph responsive ?
 - wontfix
   - Don't let user pan out of (y in [0;1])
   - Don't let user pan out of (x in [0;ceil(tabwise_max_images_seen / 60000) * 60000])
@@ -87,6 +86,27 @@ let new_plot elt =
         end
     end [@ocamlformat "disable"]
   in
+  let train_recall =
+    object%js
+      val x = new%js Js.array_empty
+      val y = new%js Js.array_empty
+      val _type = Js.string "scatter"
+      val mode = Js.string "markers"
+      val name = Js.string "train recall"
+      val visible = Js.string "legendonly"
+      (* val textinfo = Js.string "percent" *)
+      (* val line = *)
+      (*   object%js *)
+      (*     val color = Js.string "red" *)
+      (*   end *)
+      val marker =
+        object%js
+          val color = Js.string "red"
+          val size = 3
+                       (* val symbol = Js.string "x" *)
+        end
+    end [@ocamlformat "disable"]
+  in
   let loss =
     object%js
       val x = new%js Js.array_empty
@@ -104,6 +124,22 @@ let new_plot elt =
           val color = Js.string "orange"
           val size = 3
                        (* val symbol = Js.string "x" *)
+        end
+    end [@ocamlformat "disable"]
+  in
+  let lr =
+    object%js
+      val x = new%js Js.array_empty
+      val y = new%js Js.array_empty
+      val _type = Js.string "scatter"
+      val yaxis = Js.string "y3"
+      val mode = Js.string "lines"
+      val name = Js.string "learning rate"
+      val visible = Js.string "legendonly"
+      val line =
+        object%js
+          val color = Js.string "red"
+          val width = 1
         end
     end [@ocamlformat "disable"]
   in
@@ -127,8 +163,35 @@ let new_plot elt =
         end
     end [@ocamlformat "disable"]
   in
+  let test_recall =
+    object%js
+      val x = new%js Js.array_empty
+      val y = new%js Js.array_empty
+      val _type = Js.string "scatter"
+      val mode = Js.string "lines+markers"
+      val name = Js.string "test recall"
+      val visible = Js.string "legendonly"
+      (* val textinfo = Js.string "percent" *)
+      val line =
+        object%js
+          val color = Js.string "green"
+        end
+      val marker =
+        object%js
+          val color = Js.string "green"
+          val size = 10
+          val symbol = Js.string "x"
+        end
+    end [@ocamlformat "disable"]
+  in
 
-  let data = Js.Unsafe.[| train_iou |> inject; loss |> inject; test_iou |> inject |] |> Js.array in
+  (* ignore lr; *)
+  let data =
+    let i = Js.Unsafe.inject in
+    [| i train_iou; i train_recall; i loss;
+       i lr;
+       i test_iou; i test_recall |] |> Js.array
+  in
   let layout =
     object%js
       val width = 686
@@ -136,7 +199,7 @@ let new_plot elt =
       val showlegend = true
       val clickmode = Js.string "none"
       val dragmode = false
-    
+
       (* val grid = *)
       (*   object%js *)
       (*     val domain = *)
@@ -145,15 +208,12 @@ let new_plot elt =
       (*         val y = [| 0.; 1. |] |> Js.array *)
       (*       end *)
       (*   end *)
-    
-      (* val autoscale = true *)
+
       val legend =
         object%js
             (* val bgcolor = "#f7f7f780" *)
-            val x = 0.84
+            val x = 0.82
             val y = 0.5
-            (* val xanchor = Js.string "right" *)
-            (* val yanchor = Js.string "middle" *)
         end
       val xaxis =
         object%js
@@ -193,6 +253,33 @@ let new_plot elt =
           val showgrid = false
           val gridcolor = Js.string "F7F7F7"
           val zeroline = false
+          val zerolinewidth = 0.01
+          val linewidth = 0.01
+          val showticklabels = false
+          (* val ticks = Js.string "" *)
+          val rangemode = Js.string "nonnegative"
+          val titlefont =
+            object%js
+                val color = Js.string "orange"
+            end
+          val side = Js.string "right"
+          val tickfont =
+            object%js
+              val color = Js.string "#FcFcFc"
+              (* val color = Js.string "#F7F7F7" *)
+              val size = 1
+            end
+          val overlaying = Js.string "y"
+        end
+      val yaxis3 =
+        object%js
+          val visible = false
+          (* val title = Js.string "loss" *)
+          val range = Js.array [| 0.; 2e-3 |]
+          val showgrid = false
+          val gridcolor = Js.string "F7F7F7"
+          val zeroline = false
+          val hoverformat = Js.string ",.2e"
           val zerolinewidth = 0.01
           val linewidth = 0.01
           val showticklabels = false
@@ -257,9 +344,12 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   (* Step 1 - Allocate arrays with ~constant append complexity *)
   let train_xs = new%js Js.array_empty in
   let train_ious = new%js Js.array_empty in
+  let train_recalls = new%js Js.array_empty in
   let train_losses = new%js Js.array_empty in
+  let train_lrs = new%js Js.array_empty in
   let test_xs = new%js Js.array_empty in
   let test_ious = new%js Js.array_empty in
+  let test_recalls = new%js Js.array_empty in
 
   (* Step 2 - Create signals reflecting the status of the above arrays *)
   let stats_events : [ `Test of evaluation_stats | `Train_batch of training_stats ] React.event =
@@ -283,7 +373,9 @@ let routine elt tab_shown_signal _tabsignal tabevents =
          (fun (new_stats : training_stats) images_seen ->
            train_xs##push images_seen |> ignore;
            train_ious##push new_stats.mean_iou_top1 |> ignore;
+           train_recalls##push new_stats.mean_recall_top1 |> ignore;
            train_losses##push new_stats.mean_loss_per_image |> ignore;
+           train_lrs##push new_stats.mean_learning_rate |> ignore;
            train_xs##.length)
          images_seen_signal
     |> React.S.hold 0
@@ -296,6 +388,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
          (fun new_stats images_seen ->
            test_xs##push images_seen |> ignore;
            test_ious##push new_stats.mean_iou_top1 |> ignore;
+           test_recalls##push new_stats.mean_recall_top1 |> ignore;
            test_xs##.length)
          images_seen_signal
     |> React.S.hold 0
@@ -337,8 +430,8 @@ let routine elt tab_shown_signal _tabsignal tabevents =
     (* Fold all events and the previous states into the new states *)
     let recursive_signal' =
       let fold ((rid, status) as s) ev =
-        Printf.eprintf "> Fold | rid:%s | status:%s | ev:%s\n%!" (string_of_rid rid)
-          (string_of_status status) (string_of_ev ev);
+        (* Printf.eprintf "> Fold | rid:%s | status:%s | ev:%s\n%!" (string_of_rid rid) *)
+        (*   (string_of_status status) (string_of_ev ev); *)
         match (status, ev) with
         | `Plotly_cool, `Start_render (_, new_rid) -> (new_rid, `Plotly_hot)
         | `Plotly_hot, `Plotly_cooled_down -> (rid, `Plotly_cool)
@@ -375,6 +468,9 @@ let routine elt tab_shown_signal _tabsignal tabevents =
               [|
                 train_xs##slice traini trainj;
                 train_xs##slice traini trainj;
+                train_xs##slice traini trainj;
+                train_xs##slice traini trainj;
+                test_xs##slice testi testj;
                 test_xs##slice testi testj;
               |]
               |> Js.array
@@ -382,13 +478,19 @@ let routine elt tab_shown_signal _tabsignal tabevents =
             val y =
               [|
                 train_ious##slice traini trainj;
+                train_recalls##slice traini trainj;
                 train_losses##slice traini trainj;
+                train_lrs##slice traini trainj;
                 test_ious##slice testi testj;
+                test_recalls##slice testi testj;
               |]
               |> Js.array
           end
         in
-        let trace_list = [| 0; 1; 2 |] |> Js.array in
+        let trace_list = [| 0; 1; 2
+                            ; 3; 4; 5
+
+                         |] |> Js.array in
         let () = Js.Unsafe.global ##. Plotly##extendTraces elt data trace_list in
         Lwt.return ())
   in

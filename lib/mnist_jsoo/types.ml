@@ -40,6 +40,7 @@ type training_stats = {
   batch_count : int;
   image_count : int;
   mean_loss_per_image : float;
+  mean_learning_rate : float;
 }
 
 type training_user_status = [ `Train_to_end | `Early_stop | `Abort ]

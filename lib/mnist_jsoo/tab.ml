@@ -94,7 +94,7 @@ let react_main db signal set_signal fire_toast =
                 batch_count = ev.batch_count;
                 seed = s.seed;
                 images_seen = s.images_seen;
-                verbose = true;
+                verbose = false;
               };
             backend = s.backend;
             from_webworker = s.from_webworker;

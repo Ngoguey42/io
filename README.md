@@ -7,6 +7,7 @@
      - put more things in the `results boards` ?
      - Reverse the current order ?
      - Collapse ?
+     - two columns on wide?
   1. fix plotly version
   1. Stats chart with plotly (seed todo in dedicated file)
   1. Description of individual stats meaning below chart

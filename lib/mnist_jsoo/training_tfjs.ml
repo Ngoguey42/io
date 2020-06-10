@@ -167,8 +167,9 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
   in
   let time0 = (new%js Js.date_now)##valueOf /. 1000. in
   aux 0 >>= fun _ ->
-  let time1 = (new%js Js.date_now)##valueOf /. 1000. in
-  Printf.printf "> Took %fsec\n%!" (time1 -. time0);
+  ( if verbose then
+    let time1 = (new%js Js.date_now)##valueOf /. 1000. in
+    Printf.printf "> Took %fsec\n%!" (time1 -. time0) );
   Lwt.return ()
 
 module Make_backend (Backend : sig

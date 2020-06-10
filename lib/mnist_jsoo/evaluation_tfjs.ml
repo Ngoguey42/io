@@ -101,8 +101,9 @@ let _eval verbose yield_sleep_length fire_event batch_size (eval_imgs, eval_labs
   let mean_iou_top1, mean_recall_top1, mean_precision_top1 =
     Owl_snippets.stats_of_cm !confusion_matrix_sum
   in
-  Printf.printf "> Took %fsec - iou:%7.3f%%, r:%7.3f%%, p:%7.3f%%\n%!" (time1 -. time0)
-    (mean_iou_top1 *. 100.) (mean_recall_top1 *. 100.) (mean_precision_top1 *. 100.);
+  if verbose then
+    Printf.printf "> Took %fsec - iou:%7.3f%%, r:%7.3f%%, p:%7.3f%%\n%!" (time1 -. time0)
+      (mean_iou_top1 *. 100.) (mean_recall_top1 *. 100.) (mean_precision_top1 *. 100.);
   let stats =
     Types.{ test_set_sample_probas; mean_iou_top1; mean_recall_top1; mean_precision_top1 }
   in

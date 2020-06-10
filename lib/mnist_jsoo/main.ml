@@ -28,16 +28,6 @@ let t0 =
 
 |}
 
-let render_toast (id, (title, body), water_toast) =
-  let open Reactjs.Jsx in
-  Printf.printf "> Component - toast%s | render\n%!" id;
-  let on_close () = water_toast id in
-  let header =
-    of_string title >> of_tag "strong" ~classes:[ "mr-auto" ] >> of_bootstrap "Toast.Header"
-  in
-  let body = of_string body >> of_bootstrap "Toast.Body" in
-  of_bootstrap "Toast" ~on_close ~animation_bool:false [ header; body ]
-
 let favicon_routine signal =
   let link =
     [%html {|<link rel="icon" type="image/png" href="images/ocaml.png" />|}]
@@ -57,48 +47,6 @@ let favicon_routine signal =
        | false -> link##.href := Js.string "images/ocaml.png"
        | true -> link##.href := Js.string "images/ocaml-blue.png")
   |> ignore
-
-let jsx_of_tab db gsignal set_gsignal fire_toast i state =
-  (* TODO: can this be turned to a constructor to avoid rebinding on each render? *)
-  let open Reactjs.Jsx in
-  let k = string_of_int i in
-  let spinner =
-    let open Types in
-    match state with
-    | Creating_network -> []
-    | Creating_training _ -> []
-    | Selecting_backend _ -> []
-    | Evaluating _ | Training _ ->
-        [
-          of_string "\u{a0}";
-          of_bootstrap "Spinner" ~animation_string:"border" ~variant:"primary" ~size:"sm" [];
-        ]
-  in
-
-  let tabshownsignal =
-    React.S.fmap (function Loaded (_, j, _) -> Some j | _ -> None) 0 gsignal
-    |> React.S.map (fun j -> j = i)
-  in
-
-  let signal, set_signal = React.S.create state in
-  React.S.map
-    (fun s ->
-      match s with
-      | Loading -> failwith "unreachable"
-      | Loaded (_, _, tabstates) -> set_signal tabstates.(i))
-    gsignal
-  |> ignore;
-  let set_signal s =
-    match React.S.value gsignal with
-    | Loading -> failwith "unreachable"
-    | Loaded (db, focusidx, tabstates) ->
-        let tabstates = Array.copy tabstates in
-        tabstates.(i) <- s;
-        set_gsignal (Loaded (db, focusidx, tabstates))
-  in
-  let title_jsx = of_react "Fragment" (of_string k :: spinner) in
-  of_constructor Tab.construct_tab (db, tabshownsignal, i, signal, set_signal, fire_toast)
-  >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
 
 let tab_states_equal a b =
   let open Types in
@@ -125,36 +73,62 @@ let states_equal a b =
       if Array.length tabstates <> Array.length tabstates' then false
       else List.for_all2 tab_states_equal (Array.to_list tabstates) (Array.to_list tabstates')
 
-let create_toast_frp_primitives () =
-  (* TODO: move toasts out *)
-  let add_toast_events, fire_toast = React.E.create () in
-  let rm_toast_events, water_toast = React.E.create () in
-  let water_toast : string -> unit = water_toast in
-  let toast_count = ref 0 in
-
-  let add_toast_events =
-    React.E.map
-      (fun data ->
-        let id = string_of_int !toast_count in
-        incr toast_count;
-        `Add (id, data))
-      add_toast_events
+let construct_tab (db, gsignal, set_gsignal, fire_toast, i) =
+  Printf.printf "> Component - main/tab%d | construct\n%!" i;
+  let tabshownsignal =
+    gsignal
+    |> React.S.fmap (function Loaded (_, j, _) -> Some j | _ -> None) 0
+    |> React.S.map (fun j -> j = i)
   in
-  let rm_toast_events = React.E.map (fun id -> `Rm id) rm_toast_events in
-
-  let toast_signal =
-    React.E.select [ add_toast_events; rm_toast_events ]
-    |> React.S.fold
-         (fun s ev ->
-           match ev with `Add (id, data) -> (id, data) :: s | `Rm id -> List.remove_assoc id s)
-         []
+  let signal =
+    gsignal
+    |> React.S.map (function
+         | Loading -> failwith "Unreachable. A tab constructed before loading"
+         | Loaded (_, _, tabstates) -> tabstates.(i))
+    |> React.S.changes |> React.S.hold Creating_network
   in
-  (toast_signal, fire_toast, water_toast)
+  let set_signal s =
+    match React.S.value gsignal with
+    | Loading -> failwith "unreachable"
+    | Loaded (db, focusidx, tabstates) ->
+        let tabstates = Array.copy tabstates in
+        tabstates.(i) <- s;
+        set_gsignal (Loaded (db, focusidx, tabstates))
+  in
+  let render _ =
+    let open Reactjs.Jsx in
+    Printf.printf "> Component - main/tab%d | render\n%!" i;
+    of_constructor Tab.construct_tab (db, tabshownsignal, i, signal, set_signal, fire_toast)
+  in
+  Reactjs.construct render
+
+let jsx_of_tab ((_, gsignal, _, _, i) as props) =
+  let open Reactjs.Jsx in
+  let k = string_of_int i in
+  let is_spinning =
+    match React.S.value gsignal with
+    | Loading -> false
+    | Loaded (_, _, tabstates) -> (
+        match tabstates.(i) with Evaluating _ | Training _ -> true | _ -> false )
+  in
+  let spinner =
+    if is_spinning then
+      [
+        of_string "\u{a0}";
+        of_bootstrap "Spinner" ~animation_string:"border" ~variant:"primary" ~size:"sm" [];
+      ]
+    else []
+  in
+  let title_jsx = of_react "Fragment" (of_string k :: spinner) in
+  of_constructor construct_tab props >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
 
 let construct_mnist_jsoo _ =
   Printf.printf "> Component - mnist_jsoo | construct\n%!";
   let signal, set_signal = React.S.create ~eq:states_equal Loading in
-  let toast_signal, fire_toast, water_toast = create_toast_frp_primitives () in
+  let set_signal : state -> unit = set_signal in
+  let toast_signal, fire_toast, water_toast = Toasts.create_frp_primitives () in
+  let fire_toast : string * string -> unit = fire_toast in
+
   let fire_resources db = set_signal (Loaded (db, 0, [| Types.Creating_network |])) in
   let on_select k _ =
     match React.S.value signal with
@@ -173,15 +147,11 @@ let construct_mnist_jsoo _ =
   let render _ =
     Printf.printf "> Component - mnist_jsoo | render\n%!";
     let open Reactjs.Jsx in
-    let toasts =
-      toast_signal |> React.S.value
-      |> List.map (fun (id, data) -> of_render ~key:id render_toast (id, data, water_toast))
-      |> of_tag "div" ~classes:[ "toast-holder" ]
-    in
+    let toasts = of_constructor ~key:"toasts" Toasts.construct_toasts (toast_signal, water_toast) in
     let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
     let tabs =
       (* The `Tab` elements must be direct children of `Tabs`. It won't work if anything is
-         in-between (like a constructor)
+         in-between (like a constructor). Hence the `jsx_of_tab` before the `construct_tab`.
       *)
       match React.S.value signal with
       | Loading -> of_string ""
@@ -191,7 +161,8 @@ let construct_mnist_jsoo _ =
             of_bootstrap "Tab" ~title_jsx:(of_string "Networks") ~event_key:"head" ~disabled:true []
           in
           let tabs =
-            Array.mapi (jsx_of_tab db signal set_signal fire_toast) tabstates |> Array.to_list
+            List.init (Array.length tabstates) (fun i ->
+                jsx_of_tab (db, signal, set_signal, fire_toast, i))
           in
           let plus =
             of_bootstrap "Tab" ~title_jsx:(of_string "+" >> of_tag "b") ~event_key:"+" []
@@ -209,7 +180,7 @@ let construct_mnist_jsoo _ =
   in
 
   let mount () = favicon_routine signal in
-  Reactjs.construct ~signal ~signal:toast_signal ~mount render
+  Reactjs.construct ~signal ~mount render
 
 let main () =
   let open Lwt.Infix in

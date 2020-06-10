@@ -43,6 +43,8 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
   - Share axes range
   - Share traces visibility
 - Catch and deal with webgl context lost? (necessary? i'm using scatter and not glscatter)
+- don't show all points, rendering gets really long
+- don't render when window out of focus ? possible ?
 - face
   - improve color of legend
   - make it less complex to point the green crosses
@@ -59,6 +61,16 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
   - hide y2/y3 lines ?
 
  *)
+type raw_data = {
+  train_xs : int Js.js_array Js.t;
+  train_ious : float Js.js_array Js.t;
+  train_recalls : float Js.js_array Js.t;
+  train_losses : float Js.js_array Js.t;
+  train_lrs : float Js.js_array Js.t;
+  test_xs : int Js.js_array Js.t;
+  test_ious : float Js.js_array Js.t;
+  test_recalls : float Js.js_array Js.t;
+}
 
 (* DEBUG, will be removed *)
 let string_of_rid (a, b) = Printf.sprintf "(%d, %d)" a b
@@ -70,11 +82,11 @@ let string_of_ev = function
 
 let string_of_status = function `Plotly_hot -> "`Plotly_hot" | `Plotly_cool -> "`Plotly_cool"
 
-let new_plot elt =
+let wrap_raw_data raw_data =
   let train_iou =
     object%js
-      val x = new%js Js.array_empty
-      val y = new%js Js.array_empty
+      val x = raw_data.train_xs
+      val y = raw_data.train_ious
       val _type = Js.string "scatter"
       val mode = Js.string "markers"
       val name = Js.string "train iou"
@@ -93,8 +105,8 @@ let new_plot elt =
   in
   let train_recall =
     object%js
-      val x = new%js Js.array_empty
-      val y = new%js Js.array_empty
+      val x = raw_data.train_xs
+      val y = raw_data.train_recalls
       val _type = Js.string "scatter"
       val mode = Js.string "markers"
       val name = Js.string "train recall"
@@ -114,8 +126,8 @@ let new_plot elt =
   in
   let loss =
     object%js
-      val x = new%js Js.array_empty
-      val y = new%js Js.array_empty
+      val x = raw_data.train_xs
+      val y = raw_data.train_losses
       val _type = Js.string "scatter"
       val yaxis = Js.string "y2"
       val mode = Js.string "markers"
@@ -134,8 +146,8 @@ let new_plot elt =
   in
   let lr =
     object%js
-      val x = new%js Js.array_empty
-      val y = new%js Js.array_empty
+      val x = raw_data.train_xs
+      val y = raw_data.train_lrs
       val _type = Js.string "scatter"
       val yaxis = Js.string "y3"
       val mode = Js.string "lines"
@@ -150,8 +162,8 @@ let new_plot elt =
   in
   let test_iou =
     object%js
-      val x = new%js Js.array_empty
-      val y = new%js Js.array_empty
+      val x = raw_data.test_xs
+      val y = raw_data.test_ious
       val _type = Js.string "scatter"
       val mode = Js.string "lines+markers"
       val name = Js.string "test iou"
@@ -170,8 +182,8 @@ let new_plot elt =
   in
   let test_recall =
     object%js
-      val x = new%js Js.array_empty
-      val y = new%js Js.array_empty
+      val x = raw_data.test_xs
+      val y = raw_data.test_recalls
       val _type = Js.string "scatter"
       val mode = Js.string "lines+markers"
       val name = Js.string "test recall"
@@ -190,128 +202,124 @@ let new_plot elt =
     end [@ocamlformat "disable"]
   in
 
-  (* ignore lr; *)
-  let data =
-    let i = Js.Unsafe.inject in
-    [| i train_iou; i train_recall; i loss; i lr; i test_iou; i test_recall |] |> Js.array
-  in
-  let layout =
-    object%js
-      val width = 686
-      val height = 350
-      val showlegend = true
-      val clickmode = Js.string "none"
-      val dragmode = false
-    
-      (* val grid = *)
-      (*   object%js *)
-      (*     val domain = *)
-      (*       object%js *)
-      (*         val x = [| 0.; 1. |] |> Js.array *)
-      (*         val y = [| 0.; 1. |] |> Js.array *)
-      (*       end *)
-      (*   end *)
-    
-      val legend =
-        object%js
-            (* val bgcolor = "#f7f7f780" *)
-            val x = 0.8
-            val y = 0.5
-        end
-      val xaxis =
-        object%js
-          val title = "image seen" |> Js.string
-          val gridcolor = Js.string "black"
-          val rangemode = Js.string "nonnegative"
-          val range = Js.array [| 0.; 60000. |]
-          val autorange = true
-          val zerolinewidth = 1.5
-          val tickfont =
-            object%js
-              val size = 8
-            end
-        end
-      val yaxis =
-        object%js
-          (* val title = Js.string "accuracies" *)
-          val range = Js.array [| 0.; 1. |]
-          val zerolinewidth = 1.5
-          val fixedrange = true
-          val tickformat = Js.string ",.0%"
-          val hoverformat = Js.string ",.2%"
-          val rangemode = Js.string "nonnegative"
-          val gridcolor = Js.string "black"
-          (* val ticks = Js.string "inside" *)
-          val tickfont =
-            object%js
-              val size = 8
-            end
-        end
-        (* Sets the domain of this axis (in plot fraction). *)
-      val yaxis2 =
-        object%js
-          val visible = false
-          (* val title = Js.string "loss" *)
-          val range = Js.array [| 0.; 20. |]
-          val showgrid = false
-          val gridcolor = Js.string "F7F7F7"
-          val zeroline = false
-          val zerolinewidth = 0.01
-          val linewidth = 0.01
-          val showticklabels = false
-          (* val ticks = Js.string "" *)
-          val rangemode = Js.string "nonnegative"
-          val titlefont =
-            object%js
-                val color = Js.string "orange"
-            end
-          val side = Js.string "right"
-          val tickfont =
-            object%js
-              val color = Js.string "#FcFcFc"
-              (* val color = Js.string "#F7F7F7" *)
-              val size = 1
-            end
-          val overlaying = Js.string "y"
-        end
-      val yaxis3 =
-        object%js
-          val visible = false
-          (* val title = Js.string "loss" *)
-          val range = Js.array [| 0.; 2e-3 |]
-          val showgrid = false
-          val gridcolor = Js.string "F7F7F7"
-          val zeroline = false
-          val hoverformat = Js.string ",.2e"
-          val zerolinewidth = 0.01
-          val linewidth = 0.01
-          val showticklabels = false
-          (* val ticks = Js.string "" *)
-          val rangemode = Js.string "nonnegative"
-          val titlefont =
-            object%js
-                val color = Js.string "orange"
-            end
-          val side = Js.string "right"
-          val tickfont =
-            object%js
-              val color = Js.string "#FcFcFc"
-              (* val color = Js.string "#F7F7F7" *)
-              val size = 1
-            end
-          val overlaying = Js.string "y"
-        end
-      val margin =
-        object%js
-          val l = 30
-          val r = 10
-          val b = 25
-          val t = 10
-          val pad = 0
-        end
-    end [@ocamlformat "disable"]
-  in
-  Js.Unsafe.global ##. Plotly##newPlot elt data layout |> ignore
+  let i = Js.Unsafe.inject in
+  [| i train_iou; i train_recall; i loss; i lr; i test_iou; i test_recall |] |> Js.array
+
+let create_layout () =
+  object%js
+    val width = 686
+    val height = 350
+    val showlegend = true
+    val clickmode = Js.string "none"
+    val dragmode = false
+  
+    (* val grid = *)
+    (*   object%js *)
+    (*     val domain = *)
+    (*       object%js *)
+    (*         val x = [| 0.; 1. |] |> Js.array *)
+    (*         val y = [| 0.; 1. |] |> Js.array *)
+    (*       end *)
+    (*   end *)
+  
+    val legend =
+      object%js
+        (* val bgcolor = "#f7f7f780" *)
+        val x = 0.8
+        val y = 0.5
+      end
+    val xaxis =
+      object%js
+        val title = "image seen" |> Js.string
+        val gridcolor = Js.string "black"
+        val rangemode = Js.string "nonnegative"
+        val range = Js.array [| 0.; 60000. |]
+        val autorange = true
+        val zerolinewidth = 1.5
+        val tickfont =
+          object%js
+            val size = 8
+          end
+      end
+    val yaxis =
+      object%js
+        (* val title = Js.string "accuracies" *)
+        val range = Js.array [| 0.; 1. |]
+        val zerolinewidth = 1.5
+        val fixedrange = true
+        val tickformat = Js.string ",.0%"
+        val hoverformat = Js.string ",.2%"
+        val rangemode = Js.string "nonnegative"
+        val gridcolor = Js.string "black"
+        (* val ticks = Js.string "inside" *)
+        val tickfont =
+          object%js
+            val size = 8
+          end
+      end
+    (* Sets the domain of this axis (in plot fraction). *)
+    val yaxis2 =
+      object%js
+        val visible = false
+        (* val title = Js.string "loss" *)
+        val range = Js.array [| 0.; 20. |]
+        val showgrid = false
+        val gridcolor = Js.string "F7F7F7"
+        val zeroline = false
+        val zerolinewidth = 0.01
+        val linewidth = 0.01
+        val showticklabels = false
+        (* val ticks = Js.string "" *)
+        val rangemode = Js.string "nonnegative"
+        val titlefont =
+          object%js
+            val color = Js.string "orange"
+          end
+        val side = Js.string "right"
+        val tickfont =
+          object%js
+            val color = Js.string "#FcFcFc"
+            (* val color = Js.string "#F7F7F7" *)
+            val size = 1
+          end
+        val overlaying = Js.string "y"
+      end
+    val yaxis3 =
+      object%js
+        val visible = false
+        (* val title = Js.string "loss" *)
+        val range = Js.array [| 0.; 2e-3 |]
+        val showgrid = false
+        val gridcolor = Js.string "F7F7F7"
+        val zeroline = false
+        val hoverformat = Js.string ",.2e"
+        val zerolinewidth = 0.01
+        val linewidth = 0.01
+        val showticklabels = false
+        (* val ticks = Js.string "" *)
+        val rangemode = Js.string "nonnegative"
+        val titlefont =
+          object%js
+            val color = Js.string "orange"
+          end
+        val side = Js.string "right"
+        val tickfont =
+          object%js
+            val color = Js.string "#FcFcFc"
+            (* val color = Js.string "#F7F7F7" *)
+            val size = 1
+          end
+        val overlaying = Js.string "y"
+      end
+    val margin =
+      object%js
+        val l = 30
+        val r = 10
+        val b = 25
+        val t = 10
+        val pad = 0
+      end
+  end [@ocamlformat "disable"]
 
 let listen_afterplot_event elt fire_render_cooled_down =
   let afterplot_cooldown_length = 2. in
@@ -345,14 +353,18 @@ let listen_afterplot_event elt fire_render_cooled_down =
 
 let routine elt tab_shown_signal _tabsignal tabevents =
   (* Step 1 - Allocate arrays with ~constant append complexity *)
-  let train_xs = new%js Js.array_empty in
-  let train_ious = new%js Js.array_empty in
-  let train_recalls = new%js Js.array_empty in
-  let train_losses = new%js Js.array_empty in
-  let train_lrs = new%js Js.array_empty in
-  let test_xs = new%js Js.array_empty in
-  let test_ious = new%js Js.array_empty in
-  let test_recalls = new%js Js.array_empty in
+  let raw_data =
+    {
+      train_xs = new%js Js.array_empty;
+      train_ious = new%js Js.array_empty;
+      train_recalls = new%js Js.array_empty;
+      train_losses = new%js Js.array_empty;
+      train_lrs = new%js Js.array_empty;
+      test_xs = new%js Js.array_empty;
+      test_ious = new%js Js.array_empty;
+      test_recalls = new%js Js.array_empty;
+    }
+  in
 
   (* Step 2 - Create signals reflecting the status of the above arrays *)
   let stats_events : [ `Test of evaluation_stats | `Train_batch of training_stats ] React.event =
@@ -374,12 +386,12 @@ let routine elt tab_shown_signal _tabsignal tabevents =
     |> React.E.fmap (function `Test _ -> None | `Train_batch stats -> Some stats)
     |> sample
          (fun (new_stats : training_stats) images_seen ->
-           train_xs##push images_seen |> ignore;
-           train_ious##push new_stats.mean_iou_top1 |> ignore;
-           train_recalls##push new_stats.mean_recall_top1 |> ignore;
-           train_losses##push new_stats.mean_loss_per_image |> ignore;
-           train_lrs##push new_stats.mean_learning_rate |> ignore;
-           train_xs##.length)
+           raw_data.train_xs##push images_seen |> ignore;
+           raw_data.train_ious##push new_stats.mean_iou_top1 |> ignore;
+           raw_data.train_recalls##push new_stats.mean_recall_top1 |> ignore;
+           raw_data.train_losses##push new_stats.mean_loss_per_image |> ignore;
+           raw_data.train_lrs##push new_stats.mean_learning_rate |> ignore;
+           raw_data.train_xs##.length)
          images_seen_signal
     |> React.S.hold 0
   in
@@ -389,10 +401,10 @@ let routine elt tab_shown_signal _tabsignal tabevents =
     |> React.E.fmap (function `Test stats -> Some stats | `Train_batch _ -> None)
     |> sample
          (fun new_stats images_seen ->
-           test_xs##push images_seen |> ignore;
-           test_ious##push new_stats.mean_iou_top1 |> ignore;
-           test_recalls##push new_stats.mean_recall_top1 |> ignore;
-           test_xs##.length)
+           raw_data.test_xs##push images_seen |> ignore;
+           raw_data.test_ious##push new_stats.mean_iou_top1 |> ignore;
+           raw_data.test_recalls##push new_stats.mean_recall_top1 |> ignore;
+           raw_data.test_xs##.length)
          images_seen_signal
     |> React.S.hold 0
   in
@@ -455,7 +467,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   let start_render_event = React.S.fix states0 define in
 
   (* Step 4 - Prime Plotly with the div element *)
-  new_plot elt;
+  Js.Unsafe.global ##. Plotly##newPlot elt (wrap_raw_data raw_data) (create_layout ()) |> ignore;
 
   (* Step 5 - Listen to the afterplot events to avoid to debounce rendering
      https://plotly.com/javascript/plotlyjs-events/#afterplot-event
@@ -469,23 +481,23 @@ let routine elt tab_shown_signal _tabsignal tabevents =
           object%js
             val x =
               [|
-                train_xs##slice traini trainj;
-                train_xs##slice traini trainj;
-                train_xs##slice traini trainj;
-                train_xs##slice traini trainj;
-                test_xs##slice testi testj;
-                test_xs##slice testi testj;
+                raw_data.train_xs##slice traini trainj;
+                raw_data.train_xs##slice traini trainj;
+                raw_data.train_xs##slice traini trainj;
+                raw_data.train_xs##slice traini trainj;
+                raw_data.test_xs##slice testi testj;
+                raw_data.test_xs##slice testi testj;
               |]
               |> Js.array
 
             val y =
               [|
-                train_ious##slice traini trainj;
-                train_recalls##slice traini trainj;
-                train_losses##slice traini trainj;
-                train_lrs##slice traini trainj;
-                test_ious##slice testi testj;
-                test_recalls##slice testi testj;
+                raw_data.train_ious##slice traini trainj;
+                raw_data.train_recalls##slice traini trainj;
+                raw_data.train_losses##slice traini trainj;
+                raw_data.train_lrs##slice traini trainj;
+                raw_data.test_ious##slice testi testj;
+                raw_data.test_recalls##slice testi testj;
               |]
               |> Js.array
           end

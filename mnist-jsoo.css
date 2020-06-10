@@ -62,6 +62,19 @@ form small ul {
 .nav-item {
     line-height: 1.4
 }
+.dashboard-status-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 31px;
+}
+.dashboard-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    margin-top: 5px;
+}
 
 
 /* ************************************************************************** */

@@ -140,7 +140,7 @@ module Webworker_routine = struct
         let networks = (List.map f encoders, f decoder) in
         let imgs = repair_bigarray imgs in
         let labs = repair_bigarray labs in
-        `Prime Types.{ networks; db = imgs, labs; config }
+        `Prime Types.{ networks; db = (imgs, labs); config }
     | #training_user_status as msg -> msg
 
   let preprocess_out_msg : Types.training_routine_event -> routine_event = function
@@ -191,212 +191,61 @@ module Webworker_routine = struct
   include Ww
 end
 
-let construct_instructions (_, _, set_user_status) =
-  Printf.printf "> Component - training control instructions | construct\n%!";
-  let render (user_status, routine_status, _) =
-    Printf.printf "> Component - training control instructions | render\n%!";
-    let open Reactjs.Jsx in
-    let button txt t =
-      match (t, routine_status) with
-      | `On event, `Allocating | `On event, `Running ->
-          let on_click ev =
-            set_user_status event;
-            ev##preventDefault
-          in
-          of_bootstrap "Button" ~style:[ ("width", "95px") ] ~size:"sm" ~variant:"primary" ~on_click
-            [ of_string txt ]
-      | `On _, _ ->
-          of_bootstrap "Button" ~as_:"div"
-            ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
-            ~size:"sm" ~variant:"dark" [ of_string txt ]
-      | `Target, _ ->
-          of_bootstrap "Button" ~as_:"div"
-            ~style:[ ("width", "95px"); ("pointerEvents", "none") ]
-            ~size:"sm" ~classes:[ "active"; "focus" ] ~variant:"success" [ of_string txt ]
-    in
-    match user_status with
-    | `Train_to_end ->
-        [
-          button "Train to end" `Target;
-          of_string " | ";
-          button "Early stop" (`On `Early_stop);
-          of_string " | ";
-          button "Abort" (`On `Abort);
-        ]
-        |> of_tag "div"
-    | `Early_stop ->
-        [
-          button "Train to end" (`On `Train_to_end);
-          of_string " | ";
-          button "Early stop" `Target;
-          of_string " | ";
-          button "Abort" (`On `Abort);
-        ]
-        |> of_tag "div"
-    | `Abort ->
-        [
-          button "Train to end" (`On `Train_to_end);
-          of_string " | ";
-          button "Early stop" (`On `Early_stop);
-          of_string " | ";
-          button "Abort" `Target;
-        ]
-        |> of_tag "div"
-  in
-  Reactjs.construct render
-
-type props = training_parameters * (training_routine_event -> unit)
-
-let construct_training (props : props) =
-  Printf.printf "> Component - training control | construct\n%!";
-  let params, fire_upstream_event = props in
-
-  let routine_events, fire_routine_event = React.E.create () in
-  let string_of_batch_idx i =
-    (i + 1 |> float_of_int) /. (params.config.batch_count |> float_of_int) *. 100.
-    |> Printf.sprintf "%.0f%%"
-  in
-  let routine_progress =
-    React.S.fold
-      (fun s a -> match a with `Batch_end (i, _) -> string_of_batch_idx i | _ -> s)
-      "0%" routine_events
-  in
-  let routine_status =
-    let reduce s ev =
-      match (s, ev, params.config.backend) with
-      | `Allocating, `Batch_begin 0, `Tfjs_webgl -> `Allocating
-      | `Allocating, `Batch_begin 0, _ -> `Running
-      | `Allocating, `Batch_end _, _ -> `Running
-      | `Running, `Outcome (`End _), _ -> `Ended
-      | `Running, `Outcome `Abort, _ -> `Aborted
-      | `Running, `Outcome (`Crash _), _ -> `Crashed
-      | _, `Outcome _, _ ->
-          Firebug.console##warn (Js.string "Two outcomes for 1 training");
-          s
-      | _, _, _ -> s
-    in
-    React.S.fold reduce `Allocating routine_events
-  in
-  let user_status, set_user_status = React.S.create `Train_to_end in
-  let set_user_status : training_user_status -> unit = set_user_status in
-
-  let render _ =
-    Printf.printf "> Component - training control | render\n%!";
-    let open Reactjs.Jsx in
-    let routine_status = React.S.value routine_status in
-    let prog = React.S.value routine_progress in
-    let user_status = React.S.value user_status in
-    let badge0 =
-      match routine_status with
-      | `Allocating ->
-          "Allocating" |> of_string
-          >> of_bootstrap "Badge" ~variant:"warning" ~style:[ ("marginLeft", "6px") ]
-      | `Running ->
-          "Running" |> of_string
-          >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ]
-      | `Ended ->
-          "Ended" |> of_string
-          >> of_bootstrap "Badge" ~variant:"success" ~style:[ ("marginLeft", "6px") ]
-      | `Aborted ->
-          "Aborted" |> of_string
-          >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ]
-      | `Crashed ->
-          "Crashed" |> of_string
-          >> of_bootstrap "Badge" ~variant:"danger" ~style:[ ("marginLeft", "6px") ]
-    in
-    let badge1 =
-      prog |> of_string >> of_bootstrap "Badge" ~variant:"info" ~style:[ ("marginLeft", "6px") ]
-    in
-    let style =
-      [
-        ("display", "flex");
-        ("alignItems", "center");
-        ("justifyContent", "center");
-        ("marginTop", "4px");
-        ("marginBottom", "4px");
-      ]
-    in
-    let tbody =
-      [
-        of_constructor construct_instructions ~key:"buttons"
-          (user_status, routine_status, set_user_status)
-        >> of_bootstrap "Col" ~md_span:6 ~style;
-        [ of_string "Routine |"; badge0 ] |> of_bootstrap "Col" ~md_span:3 ~style;
-        [ of_string "Progress |"; badge1 ] |> of_bootstrap "Col" ~md_span:3 ~style;
-      ]
-      |> of_bootstrap "Row" >> of_bootstrap "Container" >> of_tag "th" >> of_tag "tr"
-      >> of_tag "tbody"
-    in
-    let thead = of_string "Training Control" >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
-    of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
-  in
-
-  let mount () =
-    if params.config.from_webworker then (
-      (* 1. Create worker
+let routine (params : training_parameters) fire_upstream_event user_status =
+  if not params.config.from_webworker then routine params fire_upstream_event user_status
+  else
+    (* 1. Create worker
          2. Setup events and signals processing
          3. Setup user_state in worker
          4. Prime worker
-      *)
-      let on_out_msg _ ev =
-        match React.S.value user_status with
-        | `Abort ->
-            Firebug.console##warn
-              (Js.string "Filtering out a message comming from training routine")
-        | _ -> ev |> Webworker_routine.postprocess_out_msg |> fire_routine_event
+    *)
+    let on_out_msg ww ev =
+      match React.S.value user_status with
+      | `Abort ->
+          Firebug.console##warn (Js.string "Filtering out a message comming from training routine")
+      | _ ->
+          let ev = Webworker_routine.postprocess_out_msg ev in
+          ( match ev with
+          | `Init | `Batch_begin _ | `Batch_end _ -> ()
+          | `Outcome _ -> Webworker_routine.terminate ww );
+          fire_upstream_event ev
+    in
+    let on_out_error_msg ev =
+      let msg =
+        match
+          ( (Js.Unsafe.coerce ev)##.msg |> Js.Optdef.to_option,
+            (Js.Unsafe.coerce ev)##.message |> Js.Optdef.to_option )
+        with
+        | None, None -> "unknown"
+        | Some s, _ -> Js.to_string s
+        | _, Some s -> Js.to_string s
       in
-      let on_out_error_msg ev =
-        let msg =
-          match
-            ( (Js.Unsafe.coerce ev)##.msg |> Js.Optdef.to_option,
-              (Js.Unsafe.coerce ev)##.message |> Js.Optdef.to_option )
-          with
-          | None, None -> "unknown"
-          | Some s, _ -> Js.to_string s
-          | _, Some s -> Js.to_string s
-        in
-        match React.S.value user_status with
-        | `Abort ->
-            let msg =
-              Printf.sprintf "Filtering out an error comming from training routine (%s)" msg
-            in
-            Firebug.console##warn (Js.string msg)
-        | _ -> `Outcome (`Crash msg) |> fire_upstream_event
-      in
-      let on_new_user_status ww = function
-        | `Abort ->
-            fire_routine_event (`Outcome `Abort);
-            Webworker_routine.terminate ww
-        | s -> Webworker_routine.post_in_message ww s
-      in
-      let on_new_routine_status ww = function
-        | `Allocating | `Running -> ()
-        | `Ended | `Aborted | `Crashed ->
-            (* Killing Webworker to free GPU memory *)
-            Webworker_routine.terminate ww
-      in
+      match React.S.value user_status with
+      | `Abort ->
+          let msg =
+            Printf.sprintf "Filtering out an error comming from training routine (%s)" msg
+          in
+          Firebug.console##warn (Js.string msg)
+      | _ -> `Outcome (`Crash msg) |> fire_upstream_event
+    in
+    let on_new_user_status ww = function
+      | `Abort ->
+          fire_upstream_event (`Outcome `Abort);
+          Webworker_routine.terminate ww
+      | s -> Webworker_routine.post_in_message ww s
+    in
 
-      let ww = Webworker_routine.create on_out_msg on_out_error_msg in
+    let ww = Webworker_routine.create on_out_msg on_out_error_msg in
 
-      routine_events |> React.E.map (fun ev -> fire_upstream_event ev) |> ignore;
+    user_status
+    |> React.S.map Webworker_routine.preprocess_in_msg
+    |> React.S.changes
+    |> React.E.map (on_new_user_status ww)
+    |> ignore;
 
-      user_status
-      |> React.S.map Webworker_routine.preprocess_in_msg
-      |> React.S.changes
-      |> React.E.map (on_new_user_status ww)
-      |> ignore;
+    user_status |> React.S.value |> Webworker_routine.preprocess_in_msg
+    |> Webworker_routine.post_in_message ww;
 
-      routine_status |> React.S.changes |> React.E.map (on_new_routine_status ww) |> ignore;
+    `Prime params |> Webworker_routine.preprocess_in_msg |> Webworker_routine.post_in_message ww;
 
-      user_status |> React.S.value |> Webworker_routine.preprocess_in_msg
-      |> Webworker_routine.post_in_message ww;
-
-      `Prime params |> Webworker_routine.preprocess_in_msg |> Webworker_routine.post_in_message ww )
-    else (
-      routine_events |> React.E.map (fun ev -> fire_upstream_event ev) |> ignore;
-      let routine () = routine params fire_routine_event user_status in
-      Js_of_ocaml_lwt.Lwt_js_events.async routine )
-  in
-
-  Reactjs.construct ~mount ~signal:routine_progress ~signal:user_status ~signal:routine_status
-    render
+    Lwt.return ()

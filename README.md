@@ -1,34 +1,27 @@
 # TODO
 - mnist-jsoo soon
-  1. Improve smallboxes layout
-     - bind network tabs with keyboard shortcuts (and mension it somewhere)
-     - Or find a way better way of arranging the smallboxes, it's a mess
-     - we need to see training advancement from results
-     - put more things in the `results boards` ?
-     - Reverse the current order ?
-     - Collapse ?
-     - two columns on wide?
+  1. Chart with plotly (seed TODO in dedicated file)
   1. fix plotly version
-  1. Stats chart with plotly (seed todo in dedicated file)
   1. Description of individual stats meaning below chart
   1. in training configuration show
      - how many images and epochs it corresponds to
      - how many images and epochs we will reach
 
+
 - mnist-jsoo soon (bugs)
    1. Handle the case of corrupted cache/indexeddb.
+   1. Aborting training still produce extraneous events (and silent exceptions)
 
 
 - mnist-jsoo soon (repo)
    1. Split the repo. Keep only the Github Pages resources inside this one (through copy and dune build). Move the source code to another one where the build directory has been removed from all commits.
-   1. Update libraries and constraint dependencies (with >=)
+   1. Update libraries and constrain dependencies (with >=)
       - Update js_of_ocaml for new bigarray conversions
    1. Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
 
 
 - mnist-jsoo display maybe
-   - Show time left on training
-   - Replicate `Nav` at bottom of the page
+   - Show time left on training/testing
 
 
 - mnist-jsoo maybe
@@ -43,6 +36,6 @@
    - PR or issue `owl why is Algodiff's softmax centered??`
    - PR or issue `owl need an unpack_flt'`
    - Ensure good propagation of exceptions throughout reactml/reactjs/webworker/lwt
-   - Ensure no mem leaks with Reactml? Why warning in console from Reactjs about leak
+   - Ensure no mem leaks with Reactml? Why warning in console from Reactjs about a leak
    - Find out why cpu+ww is sometime slow on chrome
    - Use js's WeakMap instead of OCaml's one

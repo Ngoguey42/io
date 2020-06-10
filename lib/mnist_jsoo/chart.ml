@@ -34,29 +34,29 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 
 # TODO
+- Rollback traces on crash/abort
 - Move buttons and legend below chart
   - Horizontal legend??
-- shrink statistics height
-- Rollback traces on crash/abort
+- shrink plot height
 - Clean code / Improve separation of concerns
 - Cross tab
   - Share axes range
   - Share traces visibility
-- Catch and deal with webgl context lost? (necessary?)
+- Catch and deal with webgl context lost? (necessary? i'm using scatter and not glscatter)
 - face
   - improve color of legend
   - make it less complex to point the green crosses
   - X1 range:
     - Refresh x range when a point is being rendered outside (is it aggressive?)
-    - Is there an "autoscale" callback? I could make autoscale the default
+    - Is there an "autoscale" callback? I could make autoscale the default and fix many problems at once
   - X2 range:
     - Clip between [0; mean + std * 2]
-  - Can i make graph responsive ?
+  - Responsive graph ?
 - wontfix
   - Don't let user pan out of (y in [0;1])
   - Don't let user pan out of (x in [0;ceil(tabwise_max_images_seen / 60000) * 60000])
-  - Show epoch count / image count in x-axis hover
-  - hide y2 lines ?
+  - Show both epoch count and image count in x-axis hover
+  - hide y2/y3 lines ?
 
  *)
 
@@ -202,7 +202,7 @@ let new_plot elt =
       val showlegend = true
       val clickmode = Js.string "none"
       val dragmode = false
-
+    
       (* val grid = *)
       (*   object%js *)
       (*     val domain = *)
@@ -211,7 +211,7 @@ let new_plot elt =
       (*         val y = [| 0.; 1. |] |> Js.array *)
       (*       end *)
       (*   end *)
-
+    
       val legend =
         object%js
             (* val bgcolor = "#f7f7f780" *)

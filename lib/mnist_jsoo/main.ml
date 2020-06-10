@@ -59,6 +59,7 @@ let favicon_routine signal =
   |> ignore
 
 let jsx_of_tab db gsignal set_gsignal fire_toast i state =
+  (* TODO: can this be turned to a constructor to avoid rebinding on each render? *)
   let open Reactjs.Jsx in
   let k = string_of_int i in
   let spinner =
@@ -125,6 +126,7 @@ let states_equal a b =
       else List.for_all2 tab_states_equal (Array.to_list tabstates) (Array.to_list tabstates')
 
 let create_toast_frp_primitives () =
+  (* TODO: move toasts out *)
   let add_toast_events, fire_toast = React.E.create () in
   let rm_toast_events, water_toast = React.E.create () in
   let water_toast : string -> unit = water_toast in
@@ -178,6 +180,9 @@ let construct_mnist_jsoo _ =
     in
     let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
     let tabs =
+      (* The `Tab` elements must be direct children of `Tabs`. It won't work if anything is
+         in-between (like a constructor)
+      *)
       match React.S.value signal with
       | Loading -> of_string ""
       | Loaded (db, focusidx, tabstates) ->
@@ -209,7 +214,6 @@ let construct_mnist_jsoo _ =
 let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
-
   let div = [%html "<div></div>"] |> Tyxml_js.To_dom.of_element in
   Dom.appendChild body div;
   Ft_js.Scripts.import `Reactjs >>= fun () ->

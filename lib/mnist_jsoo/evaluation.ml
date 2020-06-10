@@ -78,8 +78,8 @@ module Webworker_routine = struct
 
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db = imgs, labs; encoder; decoder; config } ->
-        let f : Fnn.storable_nn -> Fnn.network = fun nn ->
-          nn |> repair_storable_nn |> Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER)
+        let f : Fnn.storable_nn -> Fnn.network =
+         fun nn -> nn |> repair_storable_nn |> Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER)
         in
         let encoder = f encoder in
         let decoder = f decoder in

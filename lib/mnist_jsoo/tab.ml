@@ -14,10 +14,8 @@ end
 
 open Types
 
-let react_main db signal set_signal fire_toast =
-  let _traini, _trainl, testi, testl = db in
+let tab_states_reducer signal set_signal fire_toast =
   let (events : tab_event React.event), fire_event = React.E.create () in
-  let fire_evaluation_event ev = Evaluation_event ev |> fire_event in
 
   let reduce : tab_event -> tab_state -> tab_state =
    fun ev s ->
@@ -28,8 +26,6 @@ let react_main db signal set_signal fire_toast =
     | Selecting_backend s, Backend_selected (backend, from_webworker) ->
         (* Selected backend for the first time, can select it again later *)
         let config = { backend; from_webworker; verbose = false; batch_size = 500 } in
-        let params = { db = (testi, testl); encoder = s.encoder; decoder = s.decoder; config } in
-        Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluation_event);
         Evaluating
           {
             old_encoder = None;
@@ -119,8 +115,6 @@ let react_main db signal set_signal fire_toast =
             batch_size = 500;
           }
         in
-        let params = { db = (testi, testl); encoder; decoder; config } in
-        Lwt_js_events.async (fun () -> Evaluation.routine params fire_evaluation_event);
         Evaluating
           {
             old_encoder = Some s.encoder;
@@ -143,23 +137,26 @@ let react_main db signal set_signal fire_toast =
         (* Training crashed *)
         fire_toast ("Training crashed", msg);
         Creating_training { encoder; decoder; seed; images_seen; backend; from_webworker }
-    | Creating_network, _ -> failwith "react_main@reduce@Creating_network : unexpected event"
-    | Selecting_backend _, _ -> failwith "react_main@reduce@Selecting_backend : unexpected event"
-    | Evaluating _, _ -> failwith "react_main@reduce@Evaluating : unexpected event"
-    | Creating_training _, _ -> failwith "react_main@reduce@Creating_training : unexpected event"
-    | Training _, _ -> failwith "react_main@reduce@Training : unexpected event"
+    | Creating_network, _ ->
+        failwith "tab_states_reducer@reduce@Creating_network : unexpected event"
+    | Selecting_backend _, _ ->
+        failwith "tab_states_reducer@reduce@Selecting_backend : unexpected event"
+    | Evaluating _, _ -> failwith "tab_states_reducer@reduce@Evaluating : unexpected event"
+    | Creating_training _, _ ->
+        failwith "tab_states_reducer@reduce@Creating_training : unexpected event"
+    | Training _, _ -> failwith "tab_states_reducer@reduce@Training : unexpected event"
   in
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
   (events, fire_event)
 
 let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
   Printf.printf "> Component - tab%d | construct\n%!" tabidx;
-  let traini, trainl, testi, testl = db in
-  let events, fire_event = react_main db signal set_signal fire_toast in
+  let events, fire_event = tab_states_reducer signal set_signal fire_toast in
   let fire_network_made (encoder, decoder, seed) =
     Network_made { encoder; decoder; seed } |> fire_event
   in
   let fire_training_event ev = Training_event ev |> fire_event in
+  let fire_evaluation_event ev = Evaluation_event ev |> fire_event in
   let fire_backend_selected backend = Backend_selected backend |> fire_event in
   let fire_training_conf (lr, batch_size, batch_count) =
     Training_conf { lr; batch_size; batch_count } |> fire_event
@@ -176,28 +173,21 @@ let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
       of_constructor ~key:"back" Backend_selection.construct_backend_selection
         (fire_backend_selected, tabidx, enabled)
     in
-    let results () =
-      of_constructor ~key:"res" Results.construct_results
-        ((testi, testl), tabshownsignal, signal, events)
+    let dashboard () =
+      of_constructor ~key:"res" Dashboard.construct_dashboard
+        (db, fire_training_event, fire_evaluation_event, tabshownsignal, signal, events)
     in
     let train enabled =
       of_constructor ~key:"train" Training_configuration.construct_training_config
         (fire_training_conf, enabled)
     in
-    let training params =
-      of_constructor ~key:"training" Training.construct_training (params, fire_training_event)
-    in
 
     match React.S.value signal with
     | Creating_network -> [ net true; backend false ] |> of_react "Fragment"
     | Selecting_backend _ -> [ net false; backend true ] |> of_react "Fragment"
-    | Evaluating _ -> [ results (); train false; backend false; net false ] |> of_react "Fragment"
+    | Evaluating _ -> [ dashboard (); train false; backend false; net false ] |> of_react "Fragment"
     | Creating_training _ ->
-        [ results (); train true; backend true; net false ] |> of_react "Fragment"
-    | Training s ->
-        let networks = ([ s.encoder ], s.decoder) in
-        let params = Types.{ db = (traini, trainl); networks; config = s.config } in
-        [ results (); training params; train false; backend false; net false ]
-        |> of_react "Fragment"
+        [ dashboard (); train true; backend true; net false ] |> of_react "Fragment"
+    | Training _ -> [ dashboard (); train false; backend false; net false ] |> of_react "Fragment"
   in
   Reactjs.construct ~signal render

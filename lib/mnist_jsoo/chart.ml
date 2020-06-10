@@ -205,13 +205,16 @@ let wrap_raw_data raw_data =
   let i = Js.Unsafe.inject in
   [| i train_iou; i train_recall; i loss; i lr; i test_iou; i test_recall |] |> Js.array
 
-let create_layout () =
+let create_layout ?rev () =
+  let rev = Js.Opt.option rev in
+
   object%js
     val width = 686
     val height = 350
     val showlegend = true
     val clickmode = Js.string "none"
     val dragmode = false
+    val datarevision = rev
   
     (* val grid = *)
     (*   object%js *)
@@ -324,6 +327,7 @@ let create_layout () =
 let listen_afterplot_event elt fire_render_cooled_down =
   let afterplot_cooldown_length = 2. in
   let event, fire_event = React.E.create () in
+
   React.S.fold
     (fun afterplot_cd_count ev ->
       match (afterplot_cd_count, ev) with
@@ -477,33 +481,9 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   (* Step 6 - Schedule `extendTraces` calls *)
   let on_start_render ((traini, testi), (trainj, testj)) =
     Lwt_js_events.async (fun () ->
-        let data =
-          object%js
-            val x =
-              [|
-                raw_data.train_xs##slice traini trainj;
-                raw_data.train_xs##slice traini trainj;
-                raw_data.train_xs##slice traini trainj;
-                raw_data.train_xs##slice traini trainj;
-                raw_data.test_xs##slice testi testj;
-                raw_data.test_xs##slice testi testj;
-              |]
-              |> Js.array
-
-            val y =
-              [|
-                raw_data.train_ious##slice traini trainj;
-                raw_data.train_recalls##slice traini trainj;
-                raw_data.train_losses##slice traini trainj;
-                raw_data.train_lrs##slice traini trainj;
-                raw_data.test_ious##slice testi testj;
-                raw_data.test_recalls##slice testi testj;
-              |]
-              |> Js.array
-          end
-        in
-        let trace_list = [| 0; 1; 2; 3; 4; 5 |] |> Js.array in
-        let () = Js.Unsafe.global ##. Plotly##extendTraces elt data trace_list in
+        let rev = Printf.sprintf "%d-%d-%d-%d" traini testi trainj testj in
+        Js.Unsafe.global ##. Plotly##react elt (wrap_raw_data raw_data) (create_layout ~rev ())
+        |> ignore;
         Lwt.return ())
   in
   start_render_event |> React.E.map on_start_render |> ignore;

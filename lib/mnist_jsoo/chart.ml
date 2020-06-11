@@ -43,28 +43,14 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 - shrink plot height
 - Clean code / Improve separation of concerns
 - Range improvements
+  - Index subsampling on the actual xs, and not the indices in the array because subsampling
+    currently behaves poorly when using varying batch sizes.
   - Disable possibility for user to affect axes ranges
     - Remove the necessary buttons
     - Disable all mouse interactions that move
     - Keep hover on data !!
-  - Set range on each render
   - What about axes sharing between tabs ? (OSEF I think)
-  - x range
-    - None: [0, 60000]
-    - Some: [0, 60000 * ceil (max / 60000)]
-  - y range (accuracies)
-    - Always: [0, 1]
-  - y1 range (loss)
-    - None: OSEF
-    - Only one. [0, val * 2]
-    - Many:  [0; mean + std * 2]
-  - y2 range (lr)
-    - None: OSEF
-    - All same: [0, val * 2]
-    - Not all same: [0, maxval * 1.1]
-- face
-  - make it less complex to point the green crosses
-  - Responsive graph
+- Responsive graph
 - Cross tab
   - Share axes range (discard?)
   - Share traces visibility (wont do?)
@@ -178,7 +164,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
 
   (* Create the React primitives that will be triggered from JS *)
   let render_cooled_down_event, fire_render_cooled_down = React.E.create () in
-  let max_sampling_signal, set_max_sampling = React.S.create 100 in
+  let max_sampling_signal, set_max_sampling = React.S.create 128 in
   let smoothing_signal, set_smoothing = React.S.create `S2 in
   ignore (set_smoothing, set_max_sampling);
 
@@ -209,7 +195,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
     (* Fold all events and the previous states into the new states *)
     let recursive_signal' =
       let fold ((rid, status, max_sampling, smoothing) as s) ev =
-        Printf.eprintf "> Fold | old-state:%s | ev:%s\n%!" (string_of_state s) (string_of_ev ev);
+        (* Printf.eprintf "> Fold | old-state:%s | ev:%s\n%!" (string_of_state s) (string_of_ev ev); *)
         match (status, ev) with
         | `Plotly_cool, `Start_render (new_rid, _, _) ->
             (new_rid, `Plotly_hot, max_sampling, smoothing)
@@ -239,10 +225,11 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   (* Step 4 - Prime Plotly with the div element *)
   let smoothing = React.S.value smoothing_signal in
   let max_training_data_points = React.S.value max_sampling_signal in
+  let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_training_data_points in
   Js.Unsafe.global ##. Plotly##newPlot
     elt
-    (Chart_data.plotly_data_of_raw_data raw_data smoothing max_training_data_points)
-    (Chart_data.create_layout ())
+    (Chart_data.plotly_data_of_raw_data raw_data subsampled_raw_data)
+    (Chart_data.create_layout raw_data subsampled_raw_data)
   |> ignore;
 
   (* Step 5 - Listen to the afterplot events to avoid to debounce rendering
@@ -254,10 +241,12 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   let on_start_render (_, max_sampling, smoothing) =
     Lwt_js_events.async (fun () ->
         let rev = Random.int ((2 lsl 29) - 1) |> string_of_int in
+        let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_sampling in
+        (* Plotly.react has the same runtime as Plotly.extentTraces *)
         Js.Unsafe.global ##. Plotly##react
           elt
-          (Chart_data.plotly_data_of_raw_data raw_data smoothing max_sampling)
-          (Chart_data.create_layout ~rev ())
+          (Chart_data.plotly_data_of_raw_data raw_data subsampled_raw_data)
+          (Chart_data.create_layout ~rev raw_data subsampled_raw_data)
         |> ignore;
         Lwt.return ())
   in

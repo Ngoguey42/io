@@ -2,18 +2,18 @@
 - mnist-jsoo soon
   1. Chart with plotly (seed TODO in dedicated file)
   1. fix plotly version
-  1. Description of individual stats meaning below chart
+  1. Show time left on training/testing
   1. in training configuration show
      - how many images and epochs it corresponds to
      - how many images and epochs we will reach
 
 
 - mnist-jsoo soon (bugs)
+   1. Aborting training broken
    1. Handle the case of corrupted cache/indexeddb.
-   1. Aborting training still produce extraneous events (and silent exceptions)
-   1. Find a fix why multiple simultaneous tranings
    1. Firefox + tfjs + foreground `Error inside routine Error: Variable with name 421 was already registered!`
       - Steps: `tfjs-webgl-BG -> (eval fail) -> tfjs-FG -> (eval ok) -> tfjs-FG (train fails forever)`
+
 
 - mnist-jsoo soon (repo)
    1. Split the repo. Keep only the Github Pages resources inside this one (through copy and dune build). Move the source code to another one where the build directory has been removed from all commits.
@@ -23,9 +23,9 @@
 
 
 - mnist-jsoo display maybe
-   - Show time left on training/testing
    - Colorize network code
    - Mouseover the probability in the test-set sample
+
 
 - mnist-jsoo maybe
    - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`

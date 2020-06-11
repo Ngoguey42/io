@@ -35,30 +35,27 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 
 # TODO
-- Rollback traces on crash/abort
-- Move buttons above chart
-- Move legend below chart
-  - Horizontal legend? (does it fit?)
-  - improve background color
-- shrink plot height
-- Clean code / Improve separation of concerns
 - Range improvements
   - Index subsampling on the actual xs, and not the indices in the array because subsampling
     currently behaves poorly when using varying batch sizes.
-  - Disable possibility for user to affect axes ranges
+- Face improvements
+  - Buttons
+    - Add new plotly buttons to (- smoothing) (+ smoothing) (- samples) (+ samples)
     - Remove the necessary buttons
-    - Disable all mouse interactions that move
+    - Move above chart
+  - Disable all mouse interactions that move range
     - Keep hover on data !!
-  - What about axes sharing between tabs ? (OSEF I think)
-- Responsive graph
-- Cross tab
-  - Share axes range (discard?)
-  - Share traces visibility (wont do?)
+  - Move legend below chart
+    - Horizontal legend? (does it fit?)
+    - improve background color
+  - shrink plot height
+  - Responsive graph
+  - Description of individual stats meaning below chart
+  - hide y2/y3 lines, again
+- Rollback traces on crash/abort
+- Clean code / Improve separation of concerns
 - wontfix
-  - Don't let user pan out of (y in [0;1])
-  - Don't let user pan out of (x in [0;ceil(tabwise_max_images_seen / 60000) * 60000])
   - Show both epoch count and image count in x-axis hover
-  - hide y2/y3 lines ?
 
  *)
 

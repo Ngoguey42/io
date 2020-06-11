@@ -35,25 +35,38 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 # TODO
 - Rollback traces on crash/abort
-- Move buttons and legend below chart
-  - Horizontal legend??
+- Move buttons above chart
+- Move legend below chart
+  - Horizontal legend? (does it fit?)
+  - improve background color
 - shrink plot height
 - Clean code / Improve separation of concerns
-- Cross tab
-  - Share axes range
-  - Share traces visibility
-- Catch and deal with webgl context lost? (necessary? i'm using scatter and not glscatter)
-- don't show all points, rendering gets really long
-- don't render when window out of focus ? possible ?
+- Range improvements
+  - Disable possibility for user to affect axes ranges
+    - Remove the necessary buttons
+    - Disable all mouse interactions that move
+    - Keep hover on data !!
+  - Set range on each render
+  - What about axes sharing between tabs ? (OSEF I think)
+  - x range
+    - None: [0, 60000]
+    - Some: [0, 60000 * ceil (max / 60000)]
+  - y range (accuracies)
+    - Always: [0, 1]
+  - y1 range (loss)
+    - None: OSEF
+    - Only one. [0, val * 2]
+    - Many:  [0; mean + std * 2]
+  - y2 range (lr)
+    - None: OSEF
+    - All same: [0, val * 2]
+    - Not all same: [0, maxval * 1.1]
 - face
-  - improve color of legend
   - make it less complex to point the green crosses
-  - X1 range:
-    - Refresh x range when a point is being rendered outside (is it aggressive?)
-    - Is there an "autoscale" callback? I could make autoscale the default and fix many problems at once
-  - X2 range:
-    - Clip between [0; mean + std * 2]
-  - Responsive graph ?
+  - Responsive graph
+- Cross tab
+  - Share axes range (discard?)
+  - Share traces visibility (wont do?)
 - wontfix
   - Don't let user pan out of (y in [0;1])
   - Don't let user pan out of (x in [0;ceil(tabwise_max_images_seen / 60000) * 60000])
@@ -61,32 +74,264 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
   - hide y2/y3 lines ?
 
  *)
-type raw_data = {
-  train_xs : int Js.js_array Js.t;
-  train_ious : float Js.js_array Js.t;
-  train_recalls : float Js.js_array Js.t;
-  train_losses : float Js.js_array Js.t;
-  train_lrs : float Js.js_array Js.t;
-  test_xs : int Js.js_array Js.t;
-  test_ious : float Js.js_array Js.t;
-  test_recalls : float Js.js_array Js.t;
-}
+
+let round v = if mod_float v 1. >= 0.5 then ceil v else floor v
+
+let round_significant_base10 v b10_sig_digit =
+  if v = 0. then v
+  else begin
+      let b10_sig_digit = float_of_int b10_sig_digit in
+      let sign = if v > 0. then 1. else -1. in
+      let v = v *. sign in
+      let round_place = 10. ** (ceil (log10 v) -. b10_sig_digit) in
+      round_place *. round (v /. round_place) *. sign
+    end
+
+let round_significant_base10_inplace a b10_sig_digit =
+  for i = 0 to a##.length - 1 do
+    let v = Js.Unsafe.get a i in
+    Js.Unsafe.set a i (round_significant_base10 v b10_sig_digit)
+  done
+
+(* Exponential decay smoothing based on the number of images seen in training *)
+module Smoothing = struct
+  type t = [ `S0 | `S1 | `S2 | `S3 | `S4 ]
+
+  let values = [ `S0; `S1; `S2; `S3; `S4 ]
+
+  let half_life_image_count = function
+    | `S0 -> 0 (* no smoothing, but beware of divisions *)
+    | `S1 -> 480 (* 1/125 *)
+    | `S2 -> 2400 (* 1/25 *)
+    | `S3 -> 12000 (* 1/5 *)
+    | `S4 -> 60000
+
+  (* one epoch is the half-life *)
+
+  let momentum s =
+    let image_count = half_life_image_count s |> float_of_int in
+    if image_count = 0. then 0. else log 0.5 /. image_count |> exp
+
+  let correct_ys_inplace s xs ys =
+    (* Here `ys` are the raw exp-decayed data stored. The real ys are `ys / (1 - momentum ** xs)`.
+     *)
+    assert (xs##.length = ys##.length);
+    let momentum = momentum s in
+    for i = 0 to ys##.length - 1 do
+      let x = Js.Unsafe.get xs i in
+      let y = Js.Unsafe.get ys i in
+      Js.Unsafe.set ys i (y /. (1. -. (momentum ** float_of_int x)))
+    done
+end
+
+(* Store raw stats for chart in a datastructures with:
+   - `O(1)` append (stats arrive per batch)
+   - `O(1)` random reads (need to subsample training stats at each redraw)
+   - rollbackable (the user may abort an ongoing training).
+
+   We need to subsample and smooth the training data because:
+   1. 1k points ~= 1sec of render for plotly (linear complexity)
+   2. They are noisy
+
+   The test data do not need smoothing because:
+   1. They are few
+   2. I don't know how to exp-decay them because they don't have a batch_size correlated to their
+      `x` coordinate.
+
+   For each, `train y` and for each `smoothing value` we store the curves values to avoid smoothing
+   data on redraw but we will still need to apply the correction for the exponential decay.
+ *)
+module Raw_data = struct
+  module M = Map.Make (struct
+    type t = Smoothing.t
+
+    let compare = compare
+  end)
+
+  module Subsample = struct
+    type t = {
+      train_xs : int Js.js_array Js.t;
+      train_ious : float Js.js_array Js.t;
+      train_recalls : float Js.js_array Js.t;
+      train_losses : float Js.js_array Js.t;
+      train_lrs : float Js.js_array Js.t;
+          (* test_xs : int Js.js_array Js.t; *)
+          (* test_ious : float Js.js_array Js.t; *)
+          (* test_recalls : float Js.js_array Js.t; *)
+    }
+  end
+
+  type t = {
+    train_xs : int Js.js_array Js.t;
+    train_ious : float Js.js_array Js.t M.t;
+    train_recalls : float Js.js_array Js.t M.t;
+    train_losses : float Js.js_array Js.t M.t;
+    train_lrs : float Js.js_array Js.t M.t;
+    test_xs : int Js.js_array Js.t;
+    test_ious : float Js.js_array Js.t;
+    test_recalls : float Js.js_array Js.t;
+  }
+
+  let create () =
+    let create_y () =
+      [
+        (`S0, new%js Js.array_empty);
+        (`S1, new%js Js.array_empty);
+        (`S2, new%js Js.array_empty);
+        (`S3, new%js Js.array_empty);
+        (`S4, new%js Js.array_empty);
+      ]
+      |> List.to_seq |> M.of_seq
+    in
+    {
+      train_xs = new%js Js.array_empty;
+      train_ious = create_y ();
+      train_recalls = create_y ();
+      train_losses = create_y ();
+      train_lrs = create_y ();
+      test_xs = new%js Js.array_empty;
+      test_ious = new%js Js.array_empty;
+      test_recalls = new%js Js.array_empty;
+    }
+
+  let rollback : t -> int -> unit =
+   fun rd max_x ->
+    let rec find_first_above_max xs i =
+      if i = xs##.length then i
+      else if Js.Unsafe.get xs i > max_x then i
+      else find_first_above_max xs (i + 1)
+    in
+    let first_out = find_first_above_max rd.train_xs 0 in
+    let count = rd.train_xs##.length - first_out in
+    rd.train_xs##splice first_out count |> ignore;
+    List.iter
+      (fun smoothing ->
+        (M.find smoothing rd.train_ious)##splice first_out count |> ignore;
+        (M.find smoothing rd.train_recalls)##splice first_out count |> ignore;
+        (M.find smoothing rd.train_losses)##splice first_out count |> ignore;
+        (M.find smoothing rd.train_lrs)##splice first_out count |> ignore)
+      Smoothing.values;
+
+    let first_out = find_first_above_max rd.test_xs 0 in
+    let count = rd.test_xs##.length - first_out in
+    rd.test_xs##splice first_out count |> ignore;
+    rd.test_ious##splice first_out count |> ignore;
+    rd.test_recalls##splice first_out count |> ignore
+
+  let push_test : t -> int -> evaluation_stats -> unit =
+   fun rd x stats ->
+    rd.test_xs##push x |> ignore;
+    rd.test_ious##push stats.mean_iou_top1 |> ignore;
+    rd.test_recalls##push stats.mean_recall_top1 |> ignore
+
+  let push_train : t -> int -> training_stats -> unit =
+   fun rd x stats ->
+    let len = rd.train_xs##.length in
+    let batch_size = if len = 0 then x else x - Js.Unsafe.get rd.train_xs (len - 1) in
+    assert (x > 0);
+
+    rd.train_xs##push x |> ignore;
+    List.iter
+      (fun smoothing ->
+        (* Apply exp-decay. We also exponentiate the momentum by the batch size. *)
+        let momentum = Smoothing.momentum smoothing ** (batch_size |> float_of_int) in
+
+        let a = M.find smoothing rd.train_ious in
+        let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
+        a##push ((yprev *. momentum) +. (stats.mean_iou_top1 *. (1. -. momentum))) |> ignore;
+
+        let a = M.find smoothing rd.train_recalls in
+        let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
+        a##push ((yprev *. momentum) +. (stats.mean_recall_top1 *. (1. -. momentum))) |> ignore;
+
+        let a = M.find smoothing rd.train_lrs in
+        let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
+        a##push ((yprev *. momentum) +. (stats.mean_learning_rate *. (1. -. momentum))) |> ignore;
+
+        let a = M.find smoothing rd.train_losses in
+        let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
+        a##push ((yprev *. momentum) +. (stats.mean_loss_per_image *. (1. -. momentum))) |> ignore)
+      Smoothing.values
+
+  let subsample_vector : 'a Js.js_array Js.t -> int -> 'a Js.js_array Js.t =
+   fun a max_subsample_count ->
+    let len = a##.length in
+    if len <= max_subsample_count then
+      (* Perform a copy because we will apply exp-decay correction in place on the y data *)
+      a##slice 0 len
+    else begin
+      (* This will include the first point, the last point and (max_subsample_count - 2) others
+         in the middle *)
+      let b = new%js Js.array_empty in
+      let floating_stride = float_of_int len /. float_of_int (max_subsample_count - 1) in
+      for i = 0 to max_subsample_count - 1 do
+        let i = float_of_int i *. floating_stride |> int_of_float in
+        b##push (Js.Unsafe.get a i) |> ignore
+      done;
+      b
+      end
+
+  let subsample : t -> Smoothing.t -> int -> Subsample.t =
+   fun rd smoothing max_subsample_count ->
+    let ss =
+      Subsample.
+        {
+          train_xs = subsample_vector rd.train_xs max_subsample_count;
+          train_ious = subsample_vector (M.find smoothing rd.train_ious) max_subsample_count;
+          train_recalls = subsample_vector (M.find smoothing rd.train_recalls) max_subsample_count;
+          train_lrs = subsample_vector (M.find smoothing rd.train_lrs) max_subsample_count;
+          train_losses =
+            subsample_vector (M.find smoothing rd.train_losses) max_subsample_count
+            (* test_xs = subsample_vector rd.test_xs max_subsample_count; *)
+            (* test_ious = rd.test_ious; *)
+            (* test_recalls = rd.test_recalls; *);
+        }
+    in
+    Smoothing.correct_ys_inplace smoothing ss.train_xs ss.train_ious;
+    Smoothing.correct_ys_inplace smoothing ss.train_xs ss.train_recalls;
+    Smoothing.correct_ys_inplace smoothing ss.train_xs ss.train_lrs;
+    Smoothing.correct_ys_inplace smoothing ss.train_xs ss.train_losses;
+
+    (* Kill noise in learning rate because it may show on plot if all values are equal *)
+    round_significant_base10_inplace ss.train_lrs 5;
+    ss
+end
 
 (* DEBUG, will be removed *)
 let string_of_rid (a, b) = Printf.sprintf "(%d, %d)" a b
 
+let string_of_smoothing = function
+  | `S0 -> "`S0"
+  | `S1 -> "`S1"
+  | `S2 -> "`S2"
+  | `S3 -> "`S3"
+  | `S4 -> "`S4"
+
 let string_of_ev = function
-  | `Start_render (oldrid, newrid) ->
-      Printf.sprintf "`Start_render (%s -> %s)" (string_of_rid oldrid) (string_of_rid newrid)
+  | `Start_render _ -> "`Start_render"
   | `Plotly_cooled_down -> "`Plotly_cooled_down"
+  | `Smoothing v ->
+     Printf.sprintf "`Smoothing %s" (string_of_smoothing v)
+  | `Max_sampling v ->
+     Printf.sprintf "`Max_sampling %d" v
 
 let string_of_status = function `Plotly_hot -> "`Plotly_hot" | `Plotly_cool -> "`Plotly_cool"
 
-let wrap_raw_data raw_data =
+let string_of_state (rid, status, max_sampling, smoothing) =
+  Printf.sprintf "(%s, %s, %d, %s)"
+                 (string_of_rid rid)
+                 (string_of_status status)
+                 max_sampling
+                 (string_of_smoothing smoothing)
+
+
+let plotly_data_of_raw_data raw_data smoothing max_training_data_points =
+  let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_training_data_points in
+  let open Raw_data.Subsample in
   let train_iou =
     object%js
-      val x = raw_data.train_xs
-      val y = raw_data.train_ious
+      val x = subsampled_raw_data.train_xs
+      val y = subsampled_raw_data.train_ious
       val _type = Js.string "scatter"
       val mode = Js.string "markers"
       val name = Js.string "train iou"
@@ -105,12 +350,12 @@ let wrap_raw_data raw_data =
   in
   let train_recall =
     object%js
-      val x = raw_data.train_xs
-      val y = raw_data.train_recalls
+      val x = subsampled_raw_data.train_xs
+      val y = subsampled_raw_data.train_recalls
       val _type = Js.string "scatter"
       val mode = Js.string "markers"
       val name = Js.string "train recall"
-      val visible = Js.string "legendonly"
+      val visible = true (* Js.string "legendonly" *)
       (* val textinfo = Js.string "percent" *)
       (* val line = *)
       (*   object%js *)
@@ -126,8 +371,8 @@ let wrap_raw_data raw_data =
   in
   let loss =
     object%js
-      val x = raw_data.train_xs
-      val y = raw_data.train_losses
+      val x = subsampled_raw_data.train_xs
+      val y = subsampled_raw_data.train_losses
       val _type = Js.string "scatter"
       val yaxis = Js.string "y2"
       val mode = Js.string "markers"
@@ -146,13 +391,13 @@ let wrap_raw_data raw_data =
   in
   let lr =
     object%js
-      val x = raw_data.train_xs
-      val y = raw_data.train_lrs
+      val x = subsampled_raw_data.train_xs
+      val y = subsampled_raw_data.train_lrs
       val _type = Js.string "scatter"
       val yaxis = Js.string "y3"
       val mode = Js.string "lines"
       val name = Js.string "learning rate"
-      val visible = Js.string "legendonly"
+      val visible = true (* Js.string "legendonly" *)
       val line =
         object%js
           val color = Js.string "red"
@@ -187,7 +432,7 @@ let wrap_raw_data raw_data =
       val _type = Js.string "scatter"
       val mode = Js.string "lines+markers"
       val name = Js.string "test recall"
-      val visible = Js.string "legendonly"
+      val visible = true (* Js.string "legendonly" *)
       (* val textinfo = Js.string "percent" *)
       val line =
         object%js
@@ -215,7 +460,7 @@ let create_layout ?rev () =
     val clickmode = Js.string "none"
     val dragmode = false
     val datarevision = rev
-  
+
     (* val grid = *)
     (*   object%js *)
     (*     val domain = *)
@@ -224,7 +469,7 @@ let create_layout ?rev () =
     (*         val y = [| 0.; 1. |] |> Js.array *)
     (*       end *)
     (*   end *)
-  
+
     val legend =
       object%js
         (* val bgcolor = "#f7f7f780" *)
@@ -357,18 +602,8 @@ let listen_afterplot_event elt fire_render_cooled_down =
 
 let routine elt tab_shown_signal _tabsignal tabevents =
   (* Step 1 - Allocate arrays with ~constant append complexity *)
-  let raw_data =
-    {
-      train_xs = new%js Js.array_empty;
-      train_ious = new%js Js.array_empty;
-      train_recalls = new%js Js.array_empty;
-      train_losses = new%js Js.array_empty;
-      train_lrs = new%js Js.array_empty;
-      test_xs = new%js Js.array_empty;
-      test_ious = new%js Js.array_empty;
-      test_recalls = new%js Js.array_empty;
-    }
-  in
+
+  let raw_data = Raw_data.create () in
 
   (* Step 2 - Create signals reflecting the status of the above arrays *)
   let stats_events : [ `Test of evaluation_stats | `Train_batch of training_stats ] React.event =
@@ -390,11 +625,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
     |> React.E.fmap (function `Test _ -> None | `Train_batch stats -> Some stats)
     |> sample
          (fun (new_stats : training_stats) images_seen ->
-           raw_data.train_xs##push images_seen |> ignore;
-           raw_data.train_ious##push new_stats.mean_iou_top1 |> ignore;
-           raw_data.train_recalls##push new_stats.mean_recall_top1 |> ignore;
-           raw_data.train_losses##push new_stats.mean_loss_per_image |> ignore;
-           raw_data.train_lrs##push new_stats.mean_learning_rate |> ignore;
+           Raw_data.push_train raw_data images_seen new_stats;
            raw_data.train_xs##.length)
          images_seen_signal
     |> React.S.hold 0
@@ -405,9 +636,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
     |> React.E.fmap (function `Test stats -> Some stats | `Train_batch _ -> None)
     |> sample
          (fun new_stats images_seen ->
-           raw_data.test_xs##push images_seen |> ignore;
-           raw_data.test_ious##push new_stats.mean_iou_top1 |> ignore;
-           raw_data.test_recalls##push new_stats.mean_recall_top1 |> ignore;
+           Raw_data.push_test raw_data images_seen new_stats;
            raw_data.test_xs##.length)
          images_seen_signal
     |> React.S.hold 0
@@ -419,15 +648,18 @@ let routine elt tab_shown_signal _tabsignal tabevents =
 
   (* Step 3 - Create the primitives necessary for smooth rendering *)
 
-  (* Create the two React.event that will be triggered by JS *)
+  (* Create the React primitives that will be triggered from JS *)
   let render_cooled_down_event, fire_render_cooled_down = React.E.create () in
+  let max_sampling_signal, set_max_sampling = React.S.create 100 in
+  let smoothing_signal, set_smoothing = React.S.create `S2 in
+  ignore (set_smoothing, set_max_sampling);
 
   (* Define the recursive signal *)
-  let states0 = ((0, 0), `Plotly_cool) in
+  let states0 = ((0, 0), `Plotly_cool, 100, `S2) in
   let define recursive_signal =
     (* Unpack recursive signal (RID as in Revision ID) *)
-    let render_rid = React.S.Pair.fst recursive_signal in
-    let render_status = React.S.Pair.snd recursive_signal in
+    let render_rid = React.S.map (fun (v, _, _, _) -> v) recursive_signal in
+    let render_status = React.S.map (fun (_, v, _, _) -> v) recursive_signal in
 
     (* Create the React.event that is triggered by input signals
 
@@ -441,26 +673,31 @@ let routine elt tab_shown_signal _tabsignal tabevents =
       let rendered_long_ago = React.S.map (fun s -> s = `Plotly_cool) render_status in
       let should_start_render = React.S.Bool.(dirty && tab_shown_signal && rendered_long_ago) in
       React.S.sample
-        (fun () (old_rid, new_rid) -> (old_rid, new_rid))
+        (fun () ((_, _, max_sampling, smoothing), rid) -> (rid, max_sampling, smoothing))
         (React.S.Bool.rise should_start_render)
-        (React.S.Pair.pair render_rid data_rid_signal)
+        (React.S.Pair.pair recursive_signal data_rid_signal)
     in
 
     (* Fold all events and the previous states into the new states *)
     let recursive_signal' =
-      let fold ((rid, status) as s) ev =
-        (* Printf.eprintf "> Fold | rid:%s | status:%s | ev:%s\n%!" (string_of_rid rid) *)
-        (*   (string_of_status status) (string_of_ev ev); *)
+      let fold ((rid, status, max_sampling, smoothing) as s) ev =
+        Printf.eprintf "> Fold | old-state:%s | ev:%s\n%!" (string_of_state s) (string_of_ev ev);
         match (status, ev) with
-        | `Plotly_cool, `Start_render (_, new_rid) -> (new_rid, `Plotly_hot)
-        | `Plotly_hot, `Plotly_cooled_down -> (rid, `Plotly_cool)
+        | `Plotly_cool, `Start_render (new_rid, _, _) -> (new_rid, `Plotly_hot, max_sampling, smoothing)
+        | `Plotly_hot, `Plotly_cooled_down -> (rid, `Plotly_cool, max_sampling, smoothing)
         | `Plotly_cool, `Plotly_cooled_down -> s
         | `Plotly_hot, `Start_render _ -> failwith "Unreachable. Start render with plotly hot"
+        | (`Plotly_hot | `Plotly_cool), `Max_sampling max_sampling ->
+           (rid, status, max_sampling, smoothing)
+        | (`Plotly_hot | `Plotly_cool), `Smoothing smoothing ->
+           (rid, status, max_sampling, smoothing)
       in
       React.E.select
         [
           React.E.map (fun payload -> `Start_render payload) start_render_event;
           React.E.map (fun () -> `Plotly_cooled_down) render_cooled_down_event;
+          React.S.changes max_sampling_signal |> React.E.map (fun v -> `Max_sampling v);
+          React.S.changes smoothing_signal |> React.E.map (fun v -> `Smoothing v);
         ]
       |> React.S.fold fold states0
     in
@@ -471,7 +708,13 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   let start_render_event = React.S.fix states0 define in
 
   (* Step 4 - Prime Plotly with the div element *)
-  Js.Unsafe.global ##. Plotly##newPlot elt (wrap_raw_data raw_data) (create_layout ()) |> ignore;
+  let smoothing = React.S.value smoothing_signal in
+  let max_training_data_points = React.S.value max_sampling_signal in
+  Js.Unsafe.global ##. Plotly##newPlot
+    elt
+    (plotly_data_of_raw_data raw_data smoothing max_training_data_points)
+    (create_layout ())
+  |> ignore;
 
   (* Step 5 - Listen to the afterplot events to avoid to debounce rendering
      https://plotly.com/javascript/plotlyjs-events/#afterplot-event
@@ -479,10 +722,19 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   listen_afterplot_event elt fire_render_cooled_down;
 
   (* Step 6 - Schedule `extendTraces` calls *)
-  let on_start_render ((traini, testi), (trainj, testj)) =
+  let on_start_render (_, max_sampling, smoothing) =
     Lwt_js_events.async (fun () ->
-        let rev = Printf.sprintf "%d-%d-%d-%d" traini testi trainj testj in
-        Js.Unsafe.global ##. Plotly##react elt (wrap_raw_data raw_data) (create_layout ~rev ())
+        (* let smoothing = React.S.value smoothing_signal in *)
+        (* let max_training_data_points = React.S.value max_sampling_signal in *)
+        let rev =
+          Random.int ((2 lsl 29) - 1)
+          |> string_of_int
+        in
+        (* let rev = Printf.sprintf "%d-%d-%d-%d" traini testi trainj testj in *)
+        Js.Unsafe.global ##. Plotly##react
+          elt
+          (plotly_data_of_raw_data raw_data smoothing max_sampling)
+          (create_layout ~rev ())
         |> ignore;
         Lwt.return ())
   in

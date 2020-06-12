@@ -184,10 +184,10 @@ module Raw_data = struct
       Smoothing.values
 
   let subsample_indices_of_vector : 'a Js.js_array Js.t -> int -> int Js.js_array Js.t =
-    fun xs max_subsample_count ->
+   fun xs max_subsample_count ->
     (* Create an array of indices in `xs` of len `<=max_subsample_count` such that the spacing
        between selected xs is mostly constant.
-     *)
+    *)
     let len = xs##.length in
     assert (len > max_subsample_count);
     let get : int -> int = Js.Unsafe.get xs in
@@ -223,7 +223,7 @@ module Raw_data = struct
         if i0 = i1 then
           (* Skip that index. This index was already included because the distance between
              consecutive `xs` is larger than `stride_float` near those indices.
-           *)
+          *)
           aux (idx + 1) prev_push
         else (
           push i1;
@@ -239,7 +239,7 @@ module Raw_data = struct
     let ss =
       if len <= max_subsample_count then
         (* Cloning arrays because some inplace transformations follow *)
-        let clone a = a##slice 0 (a##.length) in
+        let clone a = a##slice 0 a##.length in
         let open Subsample in
         {
           train_xs = rd.train_xs;
@@ -267,7 +267,7 @@ module Raw_data = struct
         let train_losses = map (array_get (M.find smoothing rd.train_losses)) in
         let train_lrs = map (array_get (M.find `S0 rd.train_lrs)) in
 
-        Subsample.({ train_xs; train_ious; train_recalls; train_losses; train_lrs })
+        Subsample.{ train_xs; train_ious; train_recalls; train_losses; train_lrs }
     in
 
     Smoothing.correct_ys_inplace smoothing ss.train_xs ss.train_ious;
@@ -280,7 +280,7 @@ module Raw_data = struct
     ss
 end
 
-let plotly_data_of_raw_data raw_data subsampled_raw_data =
+let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
   let open Raw_data.Subsample in
   let train_iou =
     object%js
@@ -289,16 +289,11 @@ let plotly_data_of_raw_data raw_data subsampled_raw_data =
       val _type = Js.string "scatter"
       val mode = Js.string "markers"
       val name = Js.string "train iou"
-      (* val textinfo = Js.string "percent" *)
-      (* val line = *)
-      (*   object%js *)
-      (*     val color = Js.string "red" *)
-      (*   end *)
+      val visible = true (* Js.string "legendonly" *)
       val marker =
         object%js
           val color = Js.string "red"
           val size = 3
-                       (* val symbol = Js.string "x" *)
         end
     end [@ocamlformat "disable"]
   in
@@ -309,17 +304,11 @@ let plotly_data_of_raw_data raw_data subsampled_raw_data =
       val _type = Js.string "scatter"
       val mode = Js.string "markers"
       val name = Js.string "train recall"
-      val visible = true (* Js.string "legendonly" *)
-      (* val textinfo = Js.string "percent" *)
-      (* val line = *)
-      (*   object%js *)
-      (*     val color = Js.string "red" *)
-      (*   end *)
+      val visible =  Js.string "legendonly"
       val marker =
         object%js
           val color = Js.string "red"
           val size = 3
-                       (* val symbol = Js.string "x" *)
         end
     end [@ocamlformat "disable"]
   in
@@ -331,6 +320,7 @@ let plotly_data_of_raw_data raw_data subsampled_raw_data =
       val yaxis = Js.string "y2"
       val mode = Js.string "markers"
       val name = Js.string "loss"
+      val visible = true (* Js.string "legendonly" *)
       val line =
         object%js
           val color = Js.string "orange"
@@ -339,7 +329,6 @@ let plotly_data_of_raw_data raw_data subsampled_raw_data =
         object%js
           val color = Js.string "orange"
           val size = 3
-                       (* val symbol = Js.string "x" *)
         end
     end [@ocamlformat "disable"]
   in
@@ -388,8 +377,7 @@ let plotly_data_of_raw_data raw_data subsampled_raw_data =
       val _type = Js.string "scatter"
       val mode = Js.string "lines+markers"
       val name = Js.string "test recall"
-      val visible = true (* Js.string "legendonly" *)
-      (* val textinfo = Js.string "percent" *)
+      val visible = Js.string "legendonly"
       val line =
         object%js
           val color = Js.string "green"
@@ -406,9 +394,92 @@ let plotly_data_of_raw_data raw_data subsampled_raw_data =
   let i = Js.Unsafe.inject in
   [| i train_iou; i train_recall; i loss; i lr; i test_iou; i test_recall |] |> Js.array
 
-let create_layout ?rev raw_data subsampled_raw_data =
+let create_conf accum_max_sampling accum_smoothing =
+  let less_points _ =
+    accum_max_sampling (function
+      | 8 ->
+          Printf.eprintf "8\n%!";
+          8
+      | v ->
+          Printf.eprintf "%d / 2\n%!" v;
+
+          v / 2)
+  in
+  let more_points _ = accum_max_sampling (fun v -> if v * 2 > v then v * 2 else v) in
+  let less_smoothing _ =
+    accum_smoothing (function `S0 | `S1 -> `S0 | `S2 -> `S1 | `S3 -> `S2 | `S4 -> `S3)
+  in
+  let more_smoothing _ =
+    accum_smoothing (function `S0 -> `S1 | `S1 -> `S2 | `S2 -> `S3 | `S3 | `S4 -> `S4)
+  in
+
+  let sampling_button0 =
+    object%js
+      val name = Js.string "Less training points"
+      val click = Js.wrap_callback less_points
+      val icon =
+        object%js
+          val width = 875
+          val height = 1000
+          val path = Js.string "m0 788l0-876 875 0 0 876-875 0z m688-500l-500 0 0 125 500 0 0-125z"
+          val transform = Js.string "matrix(1 0 0 -1 0 850)"
+        end
+    end [@ocamlformat "disable"]
+  in
+  let sampling_button1 =
+    object%js
+      val name = Js.string "More training points"
+      val click = Js.wrap_callback more_points
+      val icon =
+        object%js
+          val width = 875
+          val height = 1000
+          val path = Js.string "m1 787l0-875 875 0 0 875-875 0z m687-500l-187 0 0-187-125 0 0 187-188 0 0 125 188 0 0 187 125 0 0-187 187 0 0-125z"
+          val transform = Js.string "matrix(1 0 0 -1 0 850)"
+        end
+    end [@ocamlformat "disable"]
+  in
+  let smoothing_button0 =
+    object%js
+      val name = Js.string "Less smoothing"
+      val click = Js.wrap_callback less_smoothing
+      val icon =
+        object%js
+          val width = 875
+          val height = 1000
+          val path = Js.string "m0 788l0-876 875 0 0 876-875 0z m688-500l-500 0 0 125 500 0 0-125z"
+          val transform = Js.string "matrix(1 0 0 -1 0 850)"
+        end
+    end [@ocamlformat "disable"]
+  in
+  let smoothing_button1 =
+    object%js
+      val name = Js.string "More smoothing"
+      val click = Js.wrap_callback more_smoothing
+      val icon =
+        object%js
+          val width = 875
+          val height = 1000
+          val path = Js.string "m1 787l0-875 875 0 0 875-875 0z m687-500l-187 0 0-187-125 0 0 187-188 0 0 125 188 0 0 187 125 0 0-187 187 0 0-125z"
+          val transform = Js.string "matrix(1 0 0 -1 0 850)"
+        end
+    end [@ocamlformat "disable"]
+  in
+
+  object%js
+    val modeBarButtonsToRemove = [|
+        "select2d"; "lasso2d"; "zoomIn2d"; "zoomOut2d"; "autoScale2d";
+        "hoverClosestCartesian"; "hoverCompareCartesian"; "toggleSpikelines";
+      |] |> Array.map Js.string |> Js.array
+  
+    val displayModeBar = true
+  
+    val modeBarButtonsToAdd = [| sampling_button0; sampling_button1; smoothing_button0; smoothing_button1 |] |> Js.array
+  end [@ocamlformat "disable"]
+
+let create_layout _first_render raw_data subsampled_raw_data =
   ignore raw_data;
-  let rev = Js.Opt.option rev in
+  let rev = Random.int ((2 lsl 29) - 1) |> string_of_int in
 
   let open Raw_data.Subsample in
   let epochs_shown =
@@ -456,7 +527,7 @@ let create_layout ?rev raw_data subsampled_raw_data =
     val clickmode = Js.string "none"
     val dragmode = false
     val datarevision = rev
-
+  
     (* val grid = *)
     (*   object%js *)
     (*     val domain = *)
@@ -465,7 +536,7 @@ let create_layout ?rev raw_data subsampled_raw_data =
     (*         val y = [| 0.; 1. |] |> Js.array *)
     (*       end *)
     (*   end *)
-
+  
     val legend =
       object%js
         (* val bgcolor = "#f7f7f780" *)
@@ -478,7 +549,7 @@ let create_layout ?rev raw_data subsampled_raw_data =
         val gridcolor = Js.string "black"
         val rangemode = Js.string "nonnegative"
         val range = Js.array [| 0; epochs_shown * 60000 |]
-        val autorange = true
+        (* val autorange = true *)
         val zerolinewidth = 1.5
         val tickfont =
           object%js

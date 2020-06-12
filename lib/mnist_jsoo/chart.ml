@@ -9,6 +9,7 @@ open struct
 end
 
 module Raw_data = Chart_data.Raw_data
+module Smoothing = Chart_data.Smoothing
 open Types
 
 (*
@@ -36,10 +37,7 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 # TODO
 - Face improvements
-  - Buttons
-    - Add new plotly buttons to (- smoothing) (+ smoothing) (- samples) (+ samples)
-    - Remove the necessary buttons
-    - Move above chart
+  - Preserve trace visibility on redraw
   - Disable all mouse interactions that move range
     - Keep hover on data !!
   - Move legend below chart
@@ -72,11 +70,12 @@ let string_of_ev = function
   | `Smoothing v -> Printf.sprintf "`Smoothing %s" (string_of_smoothing v)
   | `Max_sampling v -> Printf.sprintf "`Max_sampling %d" v
 
-let string_of_status = function `Plotly_hot -> "`Plotly_hot" | `Plotly_cool -> "`Plotly_cool"
+let string_of_temperature = function `Plotly_hot -> "`Plotly_hot" | `Plotly_cool -> "`Plotly_cool"
 
-let string_of_state (rid, status, max_sampling, smoothing) =
-  Printf.sprintf "(%s, %s, %d, %s)" (string_of_rid rid) (string_of_status status) max_sampling
-    (string_of_smoothing smoothing)
+let string_of_state (temperature, rid, max_sampling, smoothing) =
+  Printf.sprintf "(%s, %s, %d, %s)"
+    (string_of_temperature temperature)
+    (string_of_rid rid) max_sampling (string_of_smoothing smoothing)
 
 let listen_afterplot_event elt fire_render_cooled_down =
   let afterplot_cooldown_length = 2. in
@@ -113,7 +112,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   (* Step 1 - Allocate arrays with ~constant append complexity *)
   let raw_data = Raw_data.create () in
 
-  (* Step 2 - Create signals reflecting the status of the above arrays *)
+  (* Step 2 - Create signals reflecting the status of raw_data *)
   let stats_events : [ `Test of evaluation_stats | `Train_batch of training_stats ] React.event =
     tabevents
     |> React.E.fmap (function
@@ -156,57 +155,65 @@ let routine elt tab_shown_signal _tabsignal tabevents =
 
   (* Step 3 - Create the primitives necessary for smooth rendering *)
 
-  (* Create the React primitives that will be triggered from JS *)
+  (* Step 3.1 - Create the React primitives that will be triggered from JS *)
   let render_cooled_down_event, fire_render_cooled_down = React.E.create () in
-  let max_sampling_signal, set_max_sampling = React.S.create 64 in
-  let smoothing_signal, set_smoothing = React.S.create `S2 in
-  ignore (set_smoothing, set_max_sampling);
 
-  (* Define the recursive signal *)
-  let states0 = ((0, 0), `Plotly_cool, 64, `S2) in
+  let max_sampling_ops, accum_max_sampling = React.E.create () in
+  let accum_max_sampling : (int -> int) -> unit = accum_max_sampling in
+  let max_sampling_signal = React.S.accum max_sampling_ops 64 in
+
+  let smoothing_ops, accum_smoothing = React.E.create () in
+  let accum_smoothing : (Smoothing.t -> Smoothing.t) -> unit = accum_smoothing in
+  let smoothing_signal = React.S.accum smoothing_ops `S2 in
+
+  (* Step 3.2 - Define the recursive signal *)
+  let states0 = (`Plotly_cool, (0, 0), 64, `S2) in
   let define recursive_signal =
     (* Unpack recursive signal (RID as in Revision ID) *)
-    let render_rid = React.S.map (fun (v, _, _, _) -> v) recursive_signal in
-    let render_status = React.S.map (fun (_, v, _, _) -> v) recursive_signal in
+    let plotly_temperature = React.S.map (fun (v, _, _, _) -> v) recursive_signal in
+    let rendered_rid = React.S.map (fun (_, v, _, _) -> v) recursive_signal in
+    let rendered_max_sampling = React.S.map (fun (_, _, v, _) -> v) recursive_signal in
+    let rendered_smoothing = React.S.map (fun (_, _, _, v) -> v) recursive_signal in
 
-    (* Create the React.event that is triggered by input signals
-
-       This `start_render_event` will be fired as soon as the 3 conditions are met:
-       - render revision differs from data revision
-       - enough time passed since Plotly was done rendering
-       - the tab is the shown one
+    (* Create the React.event that is triggered by input signals.
+       This `start_render_event` will be fired as soon as the conditions are met. (see code)
     *)
     let start_render_event =
-      let dirty = React.S.Compare.(data_rid_signal <> render_rid) in
-      let rendered_long_ago = React.S.map (fun s -> s = `Plotly_cool) render_status in
-      let should_start_render = React.S.Bool.(dirty && tab_shown_signal && rendered_long_ago) in
+      let should_start_render =
+        let rendered_long_ago = React.S.map (fun s -> s = `Plotly_cool) plotly_temperature in
+        let open React.S.Compare in
+        let open React.S.Bool in
+        let data_dirty = data_rid_signal <> rendered_rid in
+        let max_sampling_dirty = max_sampling_signal <> rendered_max_sampling in
+        let smoothing_dirty = smoothing_signal <> rendered_smoothing in
+        tab_shown_signal
+        && ((data_dirty && rendered_long_ago) || max_sampling_dirty || smoothing_dirty)
+      in
       React.S.sample
-        (fun () ((_, _, max_sampling, smoothing), rid) -> (rid, max_sampling, smoothing))
+        (fun () (rid, max_sampling, smoothing) -> (rid, max_sampling, smoothing))
         (React.S.Bool.rise should_start_render)
-        (React.S.Pair.pair recursive_signal data_rid_signal)
+        (React.S.l3 (fun a b c -> (a, b, c)) data_rid_signal max_sampling_signal smoothing_signal)
     in
 
     (* Fold all events and the previous states into the new states *)
     let recursive_signal' =
-      let fold ((rid, status, max_sampling, smoothing) as s) ev =
-        (* Printf.eprintf "> Fold | old-state:%s | ev:%s\n%!" (string_of_state s) (string_of_ev ev); *)
-        match (status, ev) with
-        | `Plotly_cool, `Start_render (new_rid, _, _) ->
-            (new_rid, `Plotly_hot, max_sampling, smoothing)
-        | `Plotly_hot, `Plotly_cooled_down -> (rid, `Plotly_cool, max_sampling, smoothing)
-        | `Plotly_cool, `Plotly_cooled_down -> s
-        | `Plotly_hot, `Start_render _ -> failwith "Unreachable. Start render with plotly hot"
-        | (`Plotly_hot | `Plotly_cool), `Max_sampling max_sampling ->
-            (rid, status, max_sampling, smoothing)
-        | (`Plotly_hot | `Plotly_cool), `Smoothing smoothing ->
-            (rid, status, max_sampling, smoothing)
+      let fold ((temperature, rid, max_sampling, smoothing) as s) ev =
+        let s' =
+          match (temperature, ev) with
+          | `Plotly_hot, `Plotly_cooled_down -> (`Plotly_cool, rid, max_sampling, smoothing)
+          | `Plotly_cool, `Plotly_cooled_down -> s
+          | (`Plotly_cool | `Plotly_hot), `Start_render (rid, max_sampling, smoothing) ->
+              (`Plotly_hot, rid, max_sampling, smoothing)
+        in
+        Printf.eprintf "> Fold | s:%35s | ev:%20s | s':%35s\n%!" (string_of_state s)
+          (string_of_ev ev) (string_of_state s');
+
+        s'
       in
       React.E.select
         [
           React.E.map (fun payload -> `Start_render payload) start_render_event;
           React.E.map (fun () -> `Plotly_cooled_down) render_cooled_down_event;
-          React.S.changes max_sampling_signal |> React.E.map (fun v -> `Max_sampling v);
-          React.S.changes smoothing_signal |> React.E.map (fun v -> `Smoothing v);
         ]
       |> React.S.fold fold states0
     in
@@ -217,13 +224,15 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   let start_render_event = React.S.fix states0 define in
 
   (* Step 4 - Prime Plotly with the div element *)
+  let conf = Chart_data.create_conf accum_max_sampling accum_smoothing in
   let smoothing = React.S.value smoothing_signal in
   let max_training_data_points = React.S.value max_sampling_signal in
   let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_training_data_points in
   Js.Unsafe.global ##. Plotly##newPlot
     elt
-    (Chart_data.plotly_data_of_raw_data raw_data subsampled_raw_data)
-    (Chart_data.create_layout raw_data subsampled_raw_data)
+    (Chart_data.plotly_data_of_raw_data true raw_data subsampled_raw_data)
+    (Chart_data.create_layout true raw_data subsampled_raw_data)
+    conf
   |> ignore;
 
   (* Step 5 - Listen to the afterplot events to avoid to debounce rendering
@@ -234,13 +243,13 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   (* Step 6 - Schedule `extendTraces` calls *)
   let on_start_render (_, max_sampling, smoothing) =
     Lwt_js_events.async (fun () ->
-        let rev = Random.int ((2 lsl 29) - 1) |> string_of_int in
-        let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_sampling in
         (* Plotly.react has the same runtime as Plotly.extentTraces *)
+        let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_sampling in
         Js.Unsafe.global ##. Plotly##react
           elt
-          (Chart_data.plotly_data_of_raw_data raw_data subsampled_raw_data)
-          (Chart_data.create_layout ~rev raw_data subsampled_raw_data)
+          (Chart_data.plotly_data_of_raw_data false raw_data subsampled_raw_data)
+          (Chart_data.create_layout false raw_data subsampled_raw_data)
+          conf
         |> ignore;
         Lwt.return ())
   in

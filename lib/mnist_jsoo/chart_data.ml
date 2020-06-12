@@ -10,7 +10,7 @@ end
 
 open Types
 
-let round_significant_base10 v b10_sig_digit =
+let round_base10_significants v b10_sig_digit =
   if v = 0. then v
   else
     let b10_sig_digit = float_of_int b10_sig_digit in
@@ -19,10 +19,10 @@ let round_significant_base10 v b10_sig_digit =
     let round_place = 10. ** (ceil (log10 v) -. b10_sig_digit) in
     round_place *. Float.round (v /. round_place) *. sign
 
-let round_significant_base10_inplace a b10_sig_digit =
+let round_base10_significants_inplace a b10_sig_digit =
   for i = 0 to a##.length - 1 do
     let v = Js.Unsafe.get a i in
-    Js.Unsafe.set a i (round_significant_base10 v b10_sig_digit)
+    Js.Unsafe.set a i (round_base10_significants v b10_sig_digit)
   done
 
 (* Exponential decay smoothing based on the number of images seen in training *)
@@ -70,6 +70,9 @@ end
 
    For each, `train y` and for each `smoothing value` we store the curves values to avoid smoothing
    data on redraw but we will still need to apply the correction for the exponential decay.
+
+   Always use smoothing 0 for learning rate
+
  *)
 module Raw_data = struct
   module M = Map.Make (struct
@@ -160,7 +163,7 @@ module Raw_data = struct
     rd.train_xs##push x |> ignore;
     List.iter
       (fun smoothing ->
-        (* Apply exp-decay. We also exponentiate the momentum by the batch size. *)
+        (* Apply exp-decay. Need to exponentiate the momentum by the batch size. *)
         let momentum = Smoothing.momentum smoothing ** (batch_size |> float_of_int) in
 
         let a = M.find smoothing rd.train_ious in
@@ -180,47 +183,100 @@ module Raw_data = struct
         a##push ((yprev *. momentum) +. (stats.mean_loss_per_image *. (1. -. momentum))) |> ignore)
       Smoothing.values
 
-  let subsample_vector : 'a Js.js_array Js.t -> int -> 'a Js.js_array Js.t =
-   fun a max_subsample_count ->
-    let len = a##.length in
-    if len <= max_subsample_count then
-      (* Perform a copy because we will apply exp-decay correction in place on the y data *)
-      a##slice 0 len
-    else
-      (* This will include the first point, the last point and (max_subsample_count - 2) others
-         in the middle *)
-      let b = new%js Js.array_empty in
-      let floating_stride = float_of_int (len - 1) /. float_of_int (max_subsample_count - 1) in
-      for i = 0 to max_subsample_count - 1 do
-        let i =
-          (* Using `round` before `int_of_float` to avoid floating_point errors,
-             hence the following `min` just to be safe *)
-          float_of_int i *. floating_stride |> Float.round |> int_of_float |> min (len - 1)
-        in
-        b##push (Js.Unsafe.get a i) |> ignore
-      done;
-      b
+  let subsample_indices_of_vector : 'a Js.js_array Js.t -> int -> int Js.js_array Js.t =
+    fun xs max_subsample_count ->
+    (* Create an array of indices in `xs` of len `<=max_subsample_count` such that the spacing
+       between selected xs is mostly constant.
+     *)
+    let len = xs##.length in
+    assert (len > max_subsample_count);
+    let get : int -> int = Js.Unsafe.get xs in
+
+    let find_closest_x_from_idx idx_root targetx =
+      (* Search forward in `xs` for the value closest to `targetx` *)
+      assert (idx_root < len);
+      let rec aux ((_idx0, _x0, dist0) as prev_closest) idx1 =
+        if idx1 = len then prev_closest
+        else
+          let x1 = get idx1 in
+          let dist1 = float_of_int x1 -. targetx |> Float.abs in
+          if dist0 <= dist1 then prev_closest else aux (idx1, x1, dist1) (idx1 + 1)
+      in
+      let x_root = get idx_root in
+      let dist_root = float_of_int x_root -. targetx |> Float.abs in
+      aux (idx_root, x_root, dist_root) (idx_root + 1)
+    in
+
+    let minx = get 0 in
+    let maxx = get (len - 1) in
+    let span = maxx - minx in
+    let stride_float = float_of_int span /. (max_subsample_count - 1 |> float_of_int) in
+
+    let idxs = new%js Js.array_empty in
+    let push i = idxs##push i |> ignore in
+    let rec aux idx ((i0, _x0) as prev_push) =
+      (* `max_subsample_count` iterations *)
+      if idx = len - 1 then ()
+      else
+        let targetx = (float_of_int idx *. stride_float) +. float_of_int minx in
+        let i1, x1, _ = find_closest_x_from_idx i0 targetx in
+        if i0 = i1 then
+          (* Skip that index. This index was already included because the distance between
+             consecutive `xs` is larger than `stride_float` near those indices.
+           *)
+          aux (idx + 1) prev_push
+        else (
+          push i1;
+          aux (idx + 1) (i1, x1) )
+    in
+    push 0;
+    aux 1 (0, minx);
+    idxs
 
   let subsample : t -> Smoothing.t -> int -> Subsample.t =
    fun rd smoothing max_subsample_count ->
+    let len = rd.train_xs##.length in
     let ss =
-      Subsample.
+      if len <= max_subsample_count then
+        (* Cloning arrays because some inplace transformations follow *)
+        let clone a = a##slice 0 (a##.length) in
+        let open Subsample in
         {
-          (* Always use smoothing 0 for learning rate *)
-          train_xs = subsample_vector rd.train_xs max_subsample_count;
-          train_ious = subsample_vector (M.find smoothing rd.train_ious) max_subsample_count;
-          train_recalls = subsample_vector (M.find smoothing rd.train_recalls) max_subsample_count;
-          train_lrs = subsample_vector (M.find `S0 rd.train_lrs) max_subsample_count;
-          train_losses = subsample_vector (M.find smoothing rd.train_losses) max_subsample_count;
+          train_xs = rd.train_xs;
+          train_ious = M.find smoothing rd.train_ious |> clone;
+          train_recalls = M.find smoothing rd.train_recalls |> clone;
+          train_lrs = M.find `S0 rd.train_lrs |> clone;
+          train_losses = M.find smoothing rd.train_losses |> clone;
         }
+      else
+        let idxs = subsample_indices_of_vector rd.train_xs max_subsample_count in
+
+        let array_get a i = Js.array_get a i |> Js.Optdef.to_option |> Option.get in
+        let map : type a. (int -> a) -> a Js.js_array Js.t =
+         fun get ->
+          let a = new%js Js.array_empty in
+          for i = 0 to idxs##.length - 1 do
+            a##push (i |> array_get idxs |> get) |> ignore
+          done;
+          a
+        in
+
+        let train_xs = map (array_get rd.train_xs) in
+        let train_ious = map (array_get (M.find smoothing rd.train_ious)) in
+        let train_recalls = map (array_get (M.find smoothing rd.train_recalls)) in
+        let train_losses = map (array_get (M.find smoothing rd.train_losses)) in
+        let train_lrs = map (array_get (M.find `S0 rd.train_lrs)) in
+
+        Subsample.({ train_xs; train_ious; train_recalls; train_losses; train_lrs })
     in
+
     Smoothing.correct_ys_inplace smoothing ss.train_xs ss.train_ious;
     Smoothing.correct_ys_inplace smoothing ss.train_xs ss.train_recalls;
     Smoothing.correct_ys_inplace `S0 ss.train_xs ss.train_lrs;
     Smoothing.correct_ys_inplace smoothing ss.train_xs ss.train_losses;
 
     (* Kill noise in learning rate because it may show on plot if all values are equal *)
-    round_significant_base10_inplace ss.train_lrs 5;
+    round_base10_significants_inplace ss.train_lrs 5;
     ss
 end
 

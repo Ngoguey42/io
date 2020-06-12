@@ -35,9 +35,6 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 
 # TODO
-- Range improvements
-  - Index subsampling on the actual xs, and not the indices in the array because subsampling
-    currently behaves poorly when using varying batch sizes.
 - Face improvements
   - Buttons
     - Add new plotly buttons to (- smoothing) (+ smoothing) (- samples) (+ samples)
@@ -161,12 +158,12 @@ let routine elt tab_shown_signal _tabsignal tabevents =
 
   (* Create the React primitives that will be triggered from JS *)
   let render_cooled_down_event, fire_render_cooled_down = React.E.create () in
-  let max_sampling_signal, set_max_sampling = React.S.create 128 in
+  let max_sampling_signal, set_max_sampling = React.S.create 64 in
   let smoothing_signal, set_smoothing = React.S.create `S2 in
   ignore (set_smoothing, set_max_sampling);
 
   (* Define the recursive signal *)
-  let states0 = ((0, 0), `Plotly_cool, 100, `S2) in
+  let states0 = ((0, 0), `Plotly_cool, 64, `S2) in
   let define recursive_signal =
     (* Unpack recursive signal (RID as in Revision ID) *)
     let render_rid = React.S.map (fun (v, _, _, _) -> v) recursive_signal in

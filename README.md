@@ -42,3 +42,6 @@
    - Ensure no mem leaks with Reactml? Why warning in console from Reactjs about a leak
    - Find out why cpu+ww is sometime slow on chrome
    - Use js's WeakMap instead of OCaml's one
+   - FLOP per forward image
+     - in network creation be able to choose flops alongside parameter count (one changes the other)
+     - In chart, be able to plot by FLOP too

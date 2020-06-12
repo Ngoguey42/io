@@ -29,7 +29,7 @@ let t0 =
 <h2>React Components</h2>
 
 <p>
-   To define a component in <cite>Reactjs</cite> you can either define a class that inherits from
+   To define a component with <cite>Reactjs</cite> you can either define a class that inherits from
    <code>React.Component</code> or use the <cite>Hook</cite> API.
 </p>
 
@@ -130,7 +130,7 @@ let t0 =
 
 <p>
   The one above is a stateless component that only defines a render function. It looks a lot like
-  <cite>Reactjs</cite>'s <cite>hooks</cite>. It can instanciated into a <cite>Jsx</cite> object
+  <cite>Reactjs</cite>'s <cite>hooks</cite>. It can instanciated into a <cite>JSX</cite> object
   using <code>Reactjs.of_render</code>.
 </p>
 
@@ -138,7 +138,7 @@ let t0 =
   The one below is a stateful component that defines one signal and a
   render function. <cite>Reactjs</cite> will call the <cite>render</cite> function
   after construction and everytime the signal's value changes
-  (i.e. after a call to <code>set_signal</code>). It can instanciated into a <cite>Jsx</cite>
+  (i.e. after a call to <code>set_signal</code>). It can instanciated into a <cite>JSX</cite>
   object using <code>Reactjs.of_constructor</code>.
 </p>
 

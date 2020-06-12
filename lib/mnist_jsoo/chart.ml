@@ -38,16 +38,6 @@ Plotly.makeTemplate(figure)
 
 Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
-
-# TODO
-- Face improvements
-  - Show somewhere amount for smoothing and max training points
-  - Description of individual stats and axes meaning below chart
-- Rollback traces on crash/abort
-- Clean code / Improve separation of concerns
-- wontfix
-  - Show both epoch count and image count in x-axis hover
-
  *)
 
 (* DEBUG *)

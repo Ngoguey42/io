@@ -1,5 +1,7 @@
 (* Functional Neural Network (fnn)
 
+Quick and dirty pieces of documentation.
+
 
 # Network objects
 A network object is both a neural network layer and a neural network node. As a layer it contains

@@ -240,11 +240,7 @@ let construct_dashboard
     let routines = jsx_of_routines set_training_user_status training_user_status routine_status in
     let chart =
       let title = of_string "Statistics" >> of_tag "h5" in
-      let chart =
-        of_tag "div" ~ref:plotly_ref ~id:"my-div"
-          ~style:[ ("width", "686px"); ("height", "350px") ]
-          []
-      in
+      let chart = of_tag "div" ~ref:plotly_ref ~style:[ ("height", "325px") ] [] in
       of_tag "div" ~style:[ ("textAlign", "center") ] [ title; chart ]
     in
     let digits =

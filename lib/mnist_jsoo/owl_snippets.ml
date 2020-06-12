@@ -32,6 +32,9 @@ let stats_of_cm cm =
     let false_neg = Ndarray.get false_neg [| 0 |] -. true_pos in
     let false_pos = Ndarray.get false_pos [| 0 |] -. true_pos in
 
+    (* All those could be nan under some defined circumstances,
+       but `iou` and `recall` cannot be nan for all `catidx`.
+    *)
     let iou = true_pos /. (true_pos +. false_neg +. false_pos) in
     let recall = true_pos /. (true_pos +. false_neg) in
     let precision = true_pos /. (true_pos +. false_pos) in
@@ -41,7 +44,16 @@ let stats_of_cm cm =
   let ious = List.map (fun (v, _, _) -> v) l in
   let recalls = List.map (fun (_, v, _) -> v) l in
   let precisions = List.map (fun (_, _, v) -> v) l in
-  let mean l = List.fold_left ( +. ) 0. l /. 10. in
+
+  let mean l =
+    let sum, count =
+      List.fold_left
+        (fun (sum, count) v -> if Float.is_finite v then (sum +. v, count + 1) else (sum, count))
+        (0., 0) l
+    in
+    sum /. float_of_int count
+  in
+
   (mean ious, mean recalls, mean precisions)
 
 let _1hot_of_top1 a =

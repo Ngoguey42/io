@@ -75,6 +75,14 @@ form small ul {
     margin-bottom: 12px;
     margin-top: 5px;
 }
-
+.modebar-group {
+    background-color: transparent !important;
+}
+.modebar {
+    background-color: transparent !important;
+}
+.modebar-container {
+    top: -13px !important;
+}
 
 /* ************************************************************************** */

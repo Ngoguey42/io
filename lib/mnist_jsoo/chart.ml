@@ -12,6 +12,10 @@ module Raw_data = Chart_data.Raw_data
 module Smoothing = Chart_data.Smoothing
 open Types
 
+let default_max_sampling = 64
+
+let default_smoothing = `S3
+
 (*
 # Plotly events
 - plotly_afterplot
@@ -37,16 +41,8 @@ Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
 
 # TODO
 - Face improvements
-  - Preserve trace visibility on redraw
-  - Disable all mouse interactions that move range
-    - Keep hover on data !!
-  - Move legend below chart
-    - Horizontal legend? (does it fit?)
-    - improve background color
-  - shrink plot height
-  - Responsive graph
-  - Description of individual stats meaning below chart
-  - hide y2/y3 lines, again
+  - Show somewhere amount for smoothing and max training points
+  - Description of individual stats and axes meaning below chart
 - Rollback traces on crash/abort
 - Clean code / Improve separation of concerns
 - wontfix
@@ -63,6 +59,7 @@ let string_of_smoothing = function
   | `S2 -> "`S2"
   | `S3 -> "`S3"
   | `S4 -> "`S4"
+  | `S5 -> "`S5"
 
 let string_of_ev = function
   | `Start_render _ -> "`Start_render"
@@ -160,14 +157,14 @@ let routine elt tab_shown_signal _tabsignal tabevents =
 
   let max_sampling_ops, accum_max_sampling = React.E.create () in
   let accum_max_sampling : (int -> int) -> unit = accum_max_sampling in
-  let max_sampling_signal = React.S.accum max_sampling_ops 64 in
+  let max_sampling_signal = React.S.accum max_sampling_ops default_max_sampling in
 
   let smoothing_ops, accum_smoothing = React.E.create () in
   let accum_smoothing : (Smoothing.t -> Smoothing.t) -> unit = accum_smoothing in
-  let smoothing_signal = React.S.accum smoothing_ops `S2 in
+  let smoothing_signal = React.S.accum smoothing_ops default_smoothing in
 
   (* Step 3.2 - Define the recursive signal *)
-  let states0 = (`Plotly_cool, (0, 0), 64, `S2) in
+  let states0 = (`Plotly_cool, (0, 0), default_max_sampling, default_smoothing) in
   let define recursive_signal =
     (* Unpack recursive signal (RID as in Revision ID) *)
     let plotly_temperature = React.S.map (fun (v, _, _, _) -> v) recursive_signal in
@@ -205,9 +202,8 @@ let routine elt tab_shown_signal _tabsignal tabevents =
           | (`Plotly_cool | `Plotly_hot), `Start_render (rid, max_sampling, smoothing) ->
               (`Plotly_hot, rid, max_sampling, smoothing)
         in
-        Printf.eprintf "> Fold | s:%35s | ev:%20s | s':%35s\n%!" (string_of_state s)
-          (string_of_ev ev) (string_of_state s');
-
+        (* Printf.eprintf "> Fold | s:%35s | ev:%20s | s':%35s\n%!" (string_of_state s) *)
+        (*   (string_of_ev ev) (string_of_state s'); *)
         s'
       in
       React.E.select
@@ -230,7 +226,7 @@ let routine elt tab_shown_signal _tabsignal tabevents =
   let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_training_data_points in
   Js.Unsafe.global ##. Plotly##newPlot
     elt
-    (Chart_data.plotly_data_of_raw_data true raw_data subsampled_raw_data)
+    (Chart_data.plotly_data_of_raw_data raw_data subsampled_raw_data)
     (Chart_data.create_layout true raw_data subsampled_raw_data)
     conf
   |> ignore;
@@ -245,14 +241,14 @@ let routine elt tab_shown_signal _tabsignal tabevents =
     Lwt_js_events.async (fun () ->
         (* Plotly.react has the same runtime as Plotly.extentTraces *)
         let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_sampling in
+        let prev_template = Js.Unsafe.global ##. Plotly##makeTemplate elt in
         Js.Unsafe.global ##. Plotly##react
           elt
-          (Chart_data.plotly_data_of_raw_data false raw_data subsampled_raw_data)
+          (Chart_data.plotly_data_of_raw_data ~prev_template raw_data subsampled_raw_data)
           (Chart_data.create_layout false raw_data subsampled_raw_data)
           conf
         |> ignore;
         Lwt.return ())
   in
   start_render_event |> React.E.map on_start_render |> ignore;
-
   ()

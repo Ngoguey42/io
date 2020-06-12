@@ -45,3 +45,5 @@
    - FLOP per forward image
      - in network creation be able to choose flops alongside parameter count (one changes the other)
      - In chart, be able to plot by FLOP too
+     - Show current FLOPS alongside time left (need forward+backward FLOP on each layer)
+   - Add `probabilistic` stats alongside the `top1` ones

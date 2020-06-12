@@ -27,16 +27,17 @@ let round_base10_significants_inplace a b10_sig_digit =
 
 (* Exponential decay smoothing based on the number of images seen in training *)
 module Smoothing = struct
-  type t = [ `S0 | `S1 | `S2 | `S3 | `S4 ]
+  type t = [ `S0 | `S1 | `S2 | `S3 | `S4 | `S5 ]
 
-  let values = [ `S0; `S1; `S2; `S3; `S4 ]
+  let values = [ `S0; `S1; `S2; `S3; `S4; `S5 ]
 
   let half_life_image_count = function
     | `S0 -> 0 (* no smoothing, but beware of divisions *)
-    | `S1 -> 480 (* 1/125 *)
-    | `S2 -> 2400 (* 1/25 *)
-    | `S3 -> 12000 (* 1/5 *)
-    | `S4 -> (* one epoch is the half-life *) 60000
+    | `S1 -> 96 (* 1/625 *)
+    | `S2 -> 480 (* 1/125 *)
+    | `S3 -> 2400 (* 1/25 *)
+    | `S4 -> 12000 (* 1/5 *)
+    | `S5 -> (* one epoch is the half-life *) 60000
 
   let momentum s =
     let image_count = half_life_image_count s |> float_of_int in
@@ -72,6 +73,16 @@ end
    data on redraw but we will still need to apply the correction for the exponential decay.
 
    Always use smoothing 0 for learning rate
+
+   # nans and smoothing
+   As soon as a nan point strikes, the smoothing is ruined, even if subsequent values are not nan.
+   The momentum=0 smoothing is the only one explicitly protected against that behavior.
+
+   Per stats:
+   - iou and recall inputs cannot be nan
+   - precision input can be nan when batch_size is low
+   - loss input can be nan, but all the following losses will be nan
+   - lr cannot be nan
 
  *)
 module Raw_data = struct
@@ -110,6 +121,7 @@ module Raw_data = struct
         (`S2, new%js Js.array_empty);
         (`S3, new%js Js.array_empty);
         (`S4, new%js Js.array_empty);
+        (`S5, new%js Js.array_empty);
       ]
       |> List.to_seq |> M.of_seq
     in
@@ -163,24 +175,19 @@ module Raw_data = struct
     rd.train_xs##push x |> ignore;
     List.iter
       (fun smoothing ->
-        (* Apply exp-decay. Need to exponentiate the momentum by the batch size. *)
+        (* Apply exp-decay. Need to exponentiate the momentum by the batch size.
+         *)
         let momentum = Smoothing.momentum smoothing ** (batch_size |> float_of_int) in
+        let push a y =
+          let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
+          let v = if momentum = 0. then y else (yprev *. momentum) +. (y *. (1. -. momentum)) in
+          a##push v |> ignore
+        in
 
-        let a = M.find smoothing rd.train_ious in
-        let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
-        a##push ((yprev *. momentum) +. (stats.mean_iou_top1 *. (1. -. momentum))) |> ignore;
-
-        let a = M.find smoothing rd.train_recalls in
-        let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
-        a##push ((yprev *. momentum) +. (stats.mean_recall_top1 *. (1. -. momentum))) |> ignore;
-
-        let a = M.find smoothing rd.train_lrs in
-        let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
-        a##push ((yprev *. momentum) +. (stats.mean_learning_rate *. (1. -. momentum))) |> ignore;
-
-        let a = M.find smoothing rd.train_losses in
-        let yprev = if len = 0 then 0. else Js.Unsafe.get a (len - 1) in
-        a##push ((yprev *. momentum) +. (stats.mean_loss_per_image *. (1. -. momentum))) |> ignore)
+        push (M.find smoothing rd.train_ious) stats.mean_iou_top1;
+        push (M.find smoothing rd.train_recalls) stats.mean_recall_top1;
+        push (M.find smoothing rd.train_lrs) stats.mean_learning_rate;
+        push (M.find smoothing rd.train_losses) stats.mean_loss_per_image)
       Smoothing.values
 
   let subsample_indices_of_vector : 'a Js.js_array Js.t -> int -> int Js.js_array Js.t =
@@ -280,7 +287,17 @@ module Raw_data = struct
     ss
 end
 
-let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
+let plotly_data_of_raw_data ?prev_template raw_data subsampled_raw_data =
+  let rec dereference opt path =
+    match (opt, path) with
+    | None, _ -> None
+    | _, [] -> opt
+    | Some v, hd :: tl -> dereference (Js.Unsafe.get v hd |> Js.Optdef.to_option) tl
+  in
+
+  ignore prev_template;
+  ignore dereference;
+
   let open Raw_data.Subsample in
   let train_iou =
     object%js
@@ -289,7 +306,9 @@ let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
       val _type = Js.string "scatter"
       val mode = Js.string "markers"
       val name = Js.string "train iou"
-      val visible = true (* Js.string "legendonly" *)
+      val visible =
+        dereference prev_template ["data"; "scatter"; "0"; "visible"]
+        |> Option.value ~default:(Js.string "true")
       val marker =
         object%js
           val color = Js.string "red"
@@ -304,7 +323,9 @@ let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
       val _type = Js.string "scatter"
       val mode = Js.string "markers"
       val name = Js.string "train recall"
-      val visible =  Js.string "legendonly"
+      val visible =
+        dereference prev_template ["data"; "scatter"; "1"; "visible"]
+        |> Option.value ~default:(Js.string "legendonly")
       val marker =
         object%js
           val color = Js.string "red"
@@ -320,7 +341,9 @@ let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
       val yaxis = Js.string "y2"
       val mode = Js.string "markers"
       val name = Js.string "loss"
-      val visible = true (* Js.string "legendonly" *)
+      val visible =
+        dereference prev_template ["data"; "scatter"; "2"; "visible"]
+        |> Option.value ~default:(Js.string "true")
       val line =
         object%js
           val color = Js.string "orange"
@@ -340,7 +363,9 @@ let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
       val yaxis = Js.string "y3"
       val mode = Js.string "lines"
       val name = Js.string "learning rate"
-      val visible = true (* Js.string "legendonly" *)
+      val visible =
+        dereference prev_template ["data"; "scatter"; "3"; "visible"]
+        |> Option.value ~default:(Js.string "legendonly")
       val line =
         object%js
           val color = Js.string "red"
@@ -357,7 +382,9 @@ let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
       val _type = Js.string "scatter"
       val mode = Js.string "lines+markers"
       val name = Js.string "test iou"
-      (* val textinfo = Js.string "percent" *)
+      val visible =
+        dereference prev_template ["data"; "scatter"; "4"; "visible"]
+        |> Option.value ~default:(Js.string "true")
       val line =
         object%js
           val color = Js.string "green"
@@ -377,7 +404,9 @@ let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
       val _type = Js.string "scatter"
       val mode = Js.string "lines+markers"
       val name = Js.string "test recall"
-      val visible = Js.string "legendonly"
+      val visible =
+        dereference prev_template ["data"; "scatter"; "5"; "visible"]
+        |> Option.value ~default:(Js.string "legendonly")
       val line =
         object%js
           val color = Js.string "green"
@@ -395,22 +424,23 @@ let plotly_data_of_raw_data _first_render raw_data subsampled_raw_data =
   [| i train_iou; i train_recall; i loss; i lr; i test_iou; i test_recall |] |> Js.array
 
 let create_conf accum_max_sampling accum_smoothing =
-  let less_points _ =
-    accum_max_sampling (function
-      | 8 ->
-          Printf.eprintf "8\n%!";
-          8
-      | v ->
-          Printf.eprintf "%d / 2\n%!" v;
-
-          v / 2)
-  in
+  let less_points _ = accum_max_sampling (function 8 -> 8 | v -> v / 2) in
   let more_points _ = accum_max_sampling (fun v -> if v * 2 > v then v * 2 else v) in
   let less_smoothing _ =
-    accum_smoothing (function `S0 | `S1 -> `S0 | `S2 -> `S1 | `S3 -> `S2 | `S4 -> `S3)
+    accum_smoothing (function
+      | `S0 | `S1 -> `S0
+      | `S2 -> `S1
+      | `S3 -> `S2
+      | `S4 -> `S3
+      | `S5 -> `S4)
   in
   let more_smoothing _ =
-    accum_smoothing (function `S0 -> `S1 | `S1 -> `S2 | `S2 -> `S3 | `S3 | `S4 -> `S4)
+    accum_smoothing (function
+      | `S0 -> `S1
+      | `S1 -> `S2
+      | `S2 -> `S3
+      | `S3 -> `S4
+      | `S4 | `S5 -> `S5)
   in
 
   let sampling_button0 =
@@ -467,19 +497,25 @@ let create_conf accum_max_sampling accum_smoothing =
   in
 
   object%js
+    val responsive = Js._true
+  
     val modeBarButtonsToRemove = [|
         "select2d"; "lasso2d"; "zoomIn2d"; "zoomOut2d"; "autoScale2d";
         "hoverClosestCartesian"; "hoverCompareCartesian"; "toggleSpikelines";
       |] |> Array.map Js.string |> Js.array
   
-    val displayModeBar = true
+    val displayModeBar = Js._true
   
     val modeBarButtonsToAdd = [| sampling_button0; sampling_button1; smoothing_button0; smoothing_button1 |] |> Js.array
   end [@ocamlformat "disable"]
 
-let create_layout _first_render raw_data subsampled_raw_data =
+let create_layout first_render raw_data subsampled_raw_data =
   ignore raw_data;
-  let rev = Random.int ((2 lsl 29) - 1) |> string_of_int in
+
+  let rev =
+    if first_render then Random.int ((2 lsl 29) - 1) |> string_of_int |> Js.string |> Js.Opt.return
+    else Js.null
+  in
 
   let open Raw_data.Subsample in
   let epochs_shown =
@@ -521,36 +557,39 @@ let create_layout _first_render raw_data subsampled_raw_data =
   in
 
   object%js
-    val width = 686
-    val height = 350
-    val showlegend = true
+    val height = 325
+    val showlegend = Js._true
     val clickmode = Js.string "none"
-    val dragmode = false
+    val dragmode = Js._false
     val datarevision = rev
   
-    (* val grid = *)
-    (*   object%js *)
-    (*     val domain = *)
-    (*       object%js *)
-    (*         val x = [| 0.; 1. |] |> Js.array *)
-    (*         val y = [| 0.; 1. |] |> Js.array *)
-    (*       end *)
-    (*   end *)
-  
+    val font =
+      object%js
+        val family = Js.string {|-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji"|}
+      end
+    val modebar =
+      object%js
+        val bgcolor = Js.string "#f7f7f7"
+      end
     val legend =
       object%js
-        (* val bgcolor = "#f7f7f780" *)
-        val x = 0.8
-        val y = 0.5
+        val font =
+          object%js
+            val size = 12
+          end
+        val bgcolor = Js.string "#f7f7f7"
+        val x = 0.5
+        val y = -0.04
+        val xanchor = Js.string "center"
+        val yanchor = Js.string "top"
+        val orientation = Js.string "h"
       end
     val xaxis =
       object%js
-        val title = "image seen" |> Js.string
         val gridcolor = Js.string "black"
         val rangemode = Js.string "nonnegative"
         val range = Js.array [| 0; epochs_shown * 60000 |]
-        (* val autorange = true *)
-        val zerolinewidth = 1.5
+        val zerolinewidth = 1
         val tickfont =
           object%js
             val size = 8
@@ -558,15 +597,12 @@ let create_layout _first_render raw_data subsampled_raw_data =
       end
     val yaxis =
       object%js
-        (* val title = Js.string "accuracies" *)
         val range = Js.array [| 0.; 1. |]
-        val zerolinewidth = 1.5
-        val fixedrange = true
+        val zerolinewidth = 1
         val tickformat = Js.string ",.0%"
         val hoverformat = Js.string ",.2%"
         val rangemode = Js.string "nonnegative"
         val gridcolor = Js.string "black"
-        (* val ticks = Js.string "inside" *)
         val tickfont =
           object%js
             val size = 8
@@ -575,62 +611,28 @@ let create_layout _first_render raw_data subsampled_raw_data =
     (* Sets the domain of this axis (in plot fraction). *)
     val yaxis2 =
       object%js
-        val visible = false
-        (* val title = Js.string "loss" *)
-        val range = Js.array [| 0.; y2_max |]
-        val showgrid = false
-        val gridcolor = Js.string "F7F7F7"
-        val zeroline = false
-        val zerolinewidth = 0.01
-        val linewidth = 0.01
-        val showticklabels = false
-        (* val ticks = Js.string "" *)
-        val rangemode = Js.string "nonnegative"
-        val titlefont =
-          object%js
-            val color = Js.string "orange"
-          end
         val side = Js.string "right"
-        val tickfont =
-          object%js
-            val color = Js.string "#FcFcFc"
-            (* val color = Js.string "#F7F7F7" *)
-            val size = 1
-          end
         val overlaying = Js.string "y"
+        val range = Js.array [| 0.; y2_max |]
+        val showgrid = Js._false
+        val showticklabels = Js._false
+        val zeroline = Js._false
       end
     val yaxis3 =
       object%js
-        val visible = false
-        (* val title = Js.string "loss" *)
-        val range = Js.array [| 0.; y3_max |]
-        val showgrid = false
-        val gridcolor = Js.string "F7F7F7"
-        val zeroline = false
-        val hoverformat = Js.string ",.2e"
-        val zerolinewidth = 0.01
-        val linewidth = 0.01
-        val showticklabels = false
-        (* val ticks = Js.string "" *)
-        val rangemode = Js.string "nonnegative"
-        val titlefont =
-          object%js
-            val color = Js.string "orange"
-          end
         val side = Js.string "right"
-        val tickfont =
-          object%js
-            val color = Js.string "#FcFcFc"
-            (* val color = Js.string "#F7F7F7" *)
-            val size = 1
-          end
         val overlaying = Js.string "y"
+        val range = Js.array [| 0.; y3_max |]
+        val hoverformat = Js.string ".2e"
+        val showgrid = Js._false
+        val showticklabels = Js._false
+        val zeroline = Js._false
       end
     val margin =
       object%js
-        val l = 30
+        val l = 32
         val r = 10
-        val b = 25
+        val b = 10
         val t = 10
         val pad = 0
       end

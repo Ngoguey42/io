@@ -20,11 +20,12 @@ let display x =
 let main () =
   let open Lwt.Infix in
   (* Printexc.record_backtrace true; *)
+  let homepage_icon = [ [%html {|<img class="homepage-icon" alt="" src="images/ocaml_logo2_release.svg"/>|}] ] in
   let jsoo_icon = [ [%html {|<img class="mnist-icon" alt="0" src="|} zero_url {|"/>|}] ] in
   let header =
     [%html
     "<div id='header'>"
-    "<a href='index.html'>&#127968; Homepage</a> | "
+    "<a href='index.html'>" homepage_icon "Homepage</a> | "
     "<a href='mnist-jsoo.html'>" jsoo_icon "mnist-jsoo</a> | "
     "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | "
     "<a href='snippets.html'>&#x1f9f1; Snippets</a> | "

@@ -30,10 +30,8 @@ let t0 =
 
 let favicon_routine signal =
   let link =
-    [%html {|<link rel="icon" type="image/png" href="images/ocaml.png" />|}]
-    |> Tyxml_js.To_dom.of_element |> Dom_html.CoerceTo.link |> Js.Opt.to_option |> Option.get
+    Ft_js.select Dom_html.window##.document##.head "link[rel*='icon']" Dom_html.CoerceTo.link
   in
-  Dom.appendChild Dom_html.window##.document##.head link;
   let is_computing = function
     | Loading -> false
     | Loaded (_, _, tabstates) ->
@@ -44,8 +42,8 @@ let favicon_routine signal =
   in
   signal |> React.S.map is_computing |> React.S.changes
   |> React.E.map (function
-       | false -> link##.href := Js.string "images/ocaml.png"
-       | true -> link##.href := Js.string "images/ocaml-blue.png")
+       | false -> link##.href := Js.string "images/ocaml_logo2_release.svg"
+       | true -> link##.href := Js.string "images/ocaml_logo2_release_blue.svg")
   |> ignore
 
 let tab_states_equal a b =

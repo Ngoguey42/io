@@ -31,10 +31,10 @@ perspectives:
     - [ ./persp.yaml, ./README.md,    ./build.sh ]
     - [ <up>,         ./.ocamlformat, ./dune-project ]
   "01":
-    - [ ./index.html,      ./styles.css, ./mnist-jsoo.css ]
-    - [ ./mnist-jsoo.html, <up>,         <up> ]
-    - [ ./snippets.html,   <up>,         <up> ]
-    - [ ./about.html,      <up>,         <up> ]
+    - [ ./index.html,      ./styles.css, ./header.css, ./mnist-jsoo.css ]
+    - [ ./mnist-jsoo.html, <up>,         <up>,         <up> ]
+    - [ ./snippets.html,   <up>,         <up>,         <up> ]
+    - [ ./about.html,      <up>,         <up>,         <up> ]
   "02":
     - [ ./cinquante.html, ./cinquante.js, ./cinquante_bis.js ]
   "1": [[ bin/dune, bin/page_builder.ml ]]

@@ -40,52 +40,6 @@ h3 {
 }
 
 /* ************************************************************************** */
-#header {
-    text-align: center;
-    font-family: "Fira Sans", sans-serif;
-    font-weight: normal;
-    color: #007bff;
-    line-height: 1.5
-}
-#header a {
-    text-decoration: none !important;
-}
-#header a:visited { color: #007bff; }
-#header.black-bg {
-    position: absolute;
-    color: white;
-    margin-left: auto;
-    margin-right: auto;
-    left: 0;
-    right: 0;
-    text-align: center;
-}
-#header.black-bg a {
-    color: white;
-}
-.mnist-icon {
-    height: 18px;
-    width: 18px;
-    display: inline-block;
-    margin-bottom: 1px;
-    margin-right: 2px;
-    vertical-align: middle;
-    filter: invert();
-}
-.black-bg .mnist-icon {
-    filter: invert(0);
-}
-/*
-   .mnist-icon-blackbg {
-   height: 18px;
-   width: 18px;
-   display: inline-block;
-   margin-bottom: 1px;
-   margin-right: 2px;
-   vertical-align: middle;
-   }
- */
-/* ************************************************************************** */
 .bigbox-title {
     display: flex;
     align-items: center;

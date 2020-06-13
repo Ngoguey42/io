@@ -4,7 +4,7 @@
   1. Rollback traces on crash/abort
   1. Chart
      - Face improvements
-       - Show somewhere the amount of smoothing and max training points
+       - Show somewhere the current amount of smoothing and max training points (and total number of training samples)
        - Description of individual stats and axes meaning below chart
      - Clean code / Improve separation of concerns
      - wontfix

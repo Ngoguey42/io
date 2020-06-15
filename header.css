@@ -1,11 +1,17 @@
 /* ************************************************************************** */
+body { background: #FCFCFC; margin: 0; }
 #header {
     text-align: center;
     font-family: "Fira Sans", sans-serif;
     font-weight: normal;
-    color: #007bff;
+    /* color: #007bff; */
     line-height: 1.5;
     /* border-bottom: 1px solid black; */
+}
+#header span {
+    /* text-decoration: underline !important; */
+    font-weight: bold;
+    color: black;
 }
 #header a {
     text-decoration: none !important;

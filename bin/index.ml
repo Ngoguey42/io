@@ -28,7 +28,8 @@ let cards_data =
     {
       href = "reactjs-wrapper.html";
       title = "Reactjs wrapper";
-      description = "<cite>Js_of_ocaml</cite> wrapper for <cite>Reactjs</cite> using <cite>React</cite>(ml).";
+      description =
+        "<cite>Js_of_ocaml</cite> wrapper for <cite>Reactjs</cite> using <cite>React</cite>(ml).";
       date = "JUN 1, 2020";
     };
     {
@@ -59,8 +60,22 @@ let construct_cards () =
     let open Reactjs.Jsx in
     Printf.printf "> Component - cards | render\n%!";
 
-    List.rev cards_data |> List.map jsx_of_card |> of_bootstrap "Row" >> of_bootstrap "Container"
-    >> of_tag "div" ~classes:[ "bigbox1" ]
+    [
+      (* "Blog" *)
+      (* |> of_string *)
+      (* >> of_tag "h1" *)
+      (* >> of_tag "div" ~classes:["bigbox-title"]; *)
+      [
+        (* "Blog" *)
+        (* |> of_string *)
+        (* >> of_tag "h1"; *)
+        (* of_tag *)
+        List.rev cards_data |> List.map jsx_of_card |> of_bootstrap "Row"
+        >> of_bootstrap "Container";
+      ]
+      |> of_tag "div" ~classes:[ "bigbox1" ];
+    ]
+    |> of_react "Fragment"
   in
   Reactjs.construct render
 

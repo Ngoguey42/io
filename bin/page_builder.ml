@@ -17,21 +17,32 @@ let display x =
   let body = Dom_html.window##.document##.body in
   Dom.appendChild body (Tyxml_js.To_dom.of_element x)
 
+let put_header from =
+  let blog =
+    let icon =
+      [%html {|<img class="homepage-icon" alt="" src="images/ocaml_logo2_release.svg"/>|}]
+    in
+    if from = `Blog then [%html "<span>" [ icon ] "Blog</span> | "]
+    else [%html "<a href='index.html'>" [ icon ] "Blog</a> | "]
+  in
+  let mnist =
+    let icon = [%html {|<img class="mnist-icon" alt="0" src="|} zero_url {|"/>|}] in
+    if from = `Mnist then [%html "<span>" [ icon ] "mnist-jsoo</span> | "]
+    else [%html "<a href='mnist-jsoo.html'>" [ icon ] "mnist-jsoo</a> | "]
+  in
+  let about =
+    if from = `About then
+      [%html "<span><span style='margin-right: 4px;'>&#128196;</span>Making-of</span>"]
+    else
+      [%html
+        "<a href='about.html'><div style='display: inline-block; margin-right: \
+         4px;'>&#128196;</div>Making-of</a>"]
+  in
+  display [%html "<div id='header'>" (blog @ mnist @ [ about ]) "</div>"]
+
 let main () =
   let open Lwt.Infix in
   (* Printexc.record_backtrace true; *)
-  let homepage_icon =
-    [ [%html {|<img class="homepage-icon" alt="" src="images/ocaml_logo2_release.svg"/>|}] ]
-  in
-  let jsoo_icon = [ [%html {|<img class="mnist-icon" alt="0" src="|} zero_url {|"/>|}] ] in
-  let header =
-    [%html
-    "<div id='header'>"
-    "<a href='index.html'>" homepage_icon "Homepage</a> | "
-    "<a href='mnist-jsoo.html'>" jsoo_icon "mnist-jsoo</a> | "
-    "<a href='about.html'><div style='display: inline-block; margin-right: 4px;'>&#128196;</div>Making-of</a>"
-    "</div>"] [@ocamlformat "disable"]
-  in
   let error exn =
     Printf.eprintf "> Exception:\n%!";
     Firebug.console##log exn;
@@ -46,20 +57,28 @@ let main () =
     Printf.printf "Hello\n%!";
     Js_of_ocaml_lwt.Lwt_js_events.onload () >>= fun _ ->
     Printf.printf "Hello (onload)\n%!";
-    display header;
 
     let pagename =
       Dom_html.window##.location##.pathname
       |> Js.to_string |> Filename.basename |> Filename.remove_extension
     in
+
     match pagename with
-    | "index" | "/" -> Index.main ()
-    | "mnist-jsoo" -> Mnist_jsoo.main ()
-    | "reactjs-wrapper" -> Articles.A0_reactjs_wrapper.main ()
+    | "index" | "/" ->
+        put_header `Blog;
+        Index.main ()
+    | "mnist-jsoo" ->
+        put_header `Mnist;
+        Mnist_jsoo.main ()
+    | "reactjs-wrapper" ->
+        put_header `Other;
+        Articles.A0_reactjs_wrapper.main ()
     | "about" ->
+        put_header `About;
         display @@ About.create_content ();
         Lwt.return ()
     | _ ->
+        put_header `Other;
         Printf.sprintf "Unknown page: %s!" pagename |> Html.txt |> display;
         Lwt.return ()
   in

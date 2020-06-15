@@ -19,7 +19,7 @@ let turn_off_value_keyword code_elt =
   |> List.filter (fun elt -> elt##.innerHTML = Js.string "value")
   |> List.iter (fun elt -> elt##.classList##remove (Js.string "hljs-keyword"))
 
-let construct_snippet_code filename =
+let construct_article_code filename =
   let signal, set_signal = React.S.create `Loading in
   let code_ref = Reactjs.create_ref () in
   let on_error _exn =
@@ -29,8 +29,8 @@ let construct_snippet_code filename =
   let raw_gh_url, gh_url =
     let ( / ) = Filename.concat in
     let origin = Ft_js.origin_of_url (Dom_html.window##.location##.href |> Js.to_string) in
-    ( origin / "lib/snippets" / filename,
-      "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/snippets" / filename )
+    ( origin / "lib/articles" / filename,
+      "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/articles" / filename )
   in
   let load_code () =
     let open Lwt.Infix in

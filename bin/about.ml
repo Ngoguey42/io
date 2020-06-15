@@ -44,8 +44,8 @@ let[@ocamlformat "disable"] create_content () = [%html {|
     OCaml library or using the
     <a href="https://reactjs.org/"><cite>React</cite></a> and
     <a href="https://react-bootstrap.github.io/"><cite>React Bootstrap</cite></a>
-    JavaScript libraries when complex interactions are required. See the
-    <a href="snippets.html">Snippets</a> page for a description of the <cite>Reactjs</cite>
+    JavaScript libraries when complex interactions are required. See this
+    <a href="reactjs-wrapper.html">article</a> for a description of the <cite>Reactjs</cite>
     wrapper used.
   </p>
 

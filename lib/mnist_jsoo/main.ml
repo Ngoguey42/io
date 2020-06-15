@@ -183,7 +183,10 @@ let construct_mnist_jsoo _ =
 let main () =
   let open Lwt.Infix in
   let body = Dom_html.window##.document##.body in
-  let div = [%html "<div></div>"] |> Tyxml_js.To_dom.of_element in
+  let div =
+    [%html "<div><div style='text-align: center;'>loading</div></div>"]
+    |> Tyxml_js.To_dom.of_element
+  in
   Dom.appendChild body div;
   Ft_js.Scripts.import `Reactjs >>= fun () ->
   Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->

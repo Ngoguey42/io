@@ -33,7 +33,6 @@ perspectives:
   "01":
     - [ ./index.html,      ./styles.css, ./header.css, ./mnist-jsoo.css ]
     - [ ./mnist-jsoo.html, <up>,         <up>,         <up> ]
-    - [ ./snippets.html,   <up>,         <up>,         <up> ]
     - [ ./about.html,      <up>,         <up>,         <up> ]
   "02":
     - [ ./cinquante.html, ./cinquante.js, ./cinquante_bis.js ]
@@ -53,8 +52,8 @@ perspectives:
   "6": [[lib/mnist_jsoo/evaluation.ml, lib/mnist_jsoo/evaluation_tfjs.ml, lib/mnist_jsoo/evaluation_owl_cpu.ml]]
   "+6": [[ lib/mnist_jsoo/dashboard.ml, lib/mnist_jsoo/chart.ml, lib/mnist_jsoo/chart_data.ml]]
 
-  # snippets
+  # articles
   "21":
-    - [ lib/snippets/dune, lib/snippets/snippets.ml, lib/snippets/misc.ml ]
+    - [ lib/articles/dune, lib/articles/articles.ml, lib/articles/misc.ml ]
   "24":
-    - [ lib/snippets/reactjs_snip.ml, lib/snippets/reactjs_ex0.ml ]
+    - [ reactjs-wrapper.html, lib/articles/reactjs_snip.ml, lib/articles/reactjs_ex0.ml ]

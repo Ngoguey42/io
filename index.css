@@ -1,0 +1,28 @@
+.index-card-holder {
+    padding: 0px 5px 1px 5px !important;
+}
+.index-card-holder > a {
+    color: black;
+    text-decoration: none;
+    background-color: transparent;
+    border-radius: 0;
+    border: 1px solid transparent;
+    border-bottom: 1px solid #eb2829;
+}
+.index-card-holder > a:hover {
+    color: black;
+    text-decoration: none;
+    background-color: transparent;
+    border-radius: 0;
+    border: 1px solid black;
+    border-bottom: 1px solid #eb2829;
+}
+
+.index-card-holder .card-title {
+    font-family: "Fira Sans", sans-serif;
+}
+
+.index-card-holder small {
+    display: block;
+    margin-top: 17px;
+}

@@ -159,11 +159,11 @@ let t0 =
 
 |}
 
-let construct_reactjs_snippet () =
-  Printf.printf "> Component - reactjs_snippet | construct\n%!";
+let construct_reactjs_article () =
+  Printf.printf "> Component - reactjs_article | construct\n%!";
   let render () =
     let open Reactjs.Jsx in
-    Printf.printf "> Component - reactjs_snippet | render\n%!";
+    Printf.printf "> Component - reactjs_article | render\n%!";
     let to_table title content =
       let head = of_string title >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
       let body = content >> of_tag "th" >> of_tag "tr" >> of_tag "tbody" in
@@ -171,7 +171,7 @@ let construct_reactjs_snippet () =
     in
 
     let snip_jsx = of_constructor Reactjs_ex0.construct_component () in
-    let snip_code = of_constructor Misc.construct_snippet_code "reactjs_ex0.ml" in
+    let snip_code = of_constructor Misc.construct_article_code "reactjs_ex0.ml" in
 
     let box =
       [
@@ -187,3 +187,19 @@ let construct_reactjs_snippet () =
   in
 
   Reactjs.construct render
+
+let main () =
+  let open Lwt.Infix in
+  let body = Dom_html.window##.document##.body in
+
+  let div =
+    [%html "<div><div style='text-align: center;'>loading</div></div>"]
+    |> Tyxml_js.To_dom.of_element
+  in
+  Dom.appendChild body div;
+  Ft_js.Scripts.import `Reactjs >>= fun () ->
+  Ft_js.Scripts.import `Reactjsbootstrap >>= fun () ->
+  Ft_js.Scripts.import `Highlightjs >>= fun () ->
+  Ft_js.import_css "styles.css" >>= fun () ->
+  Reactjs.render (Reactjs.Jsx.of_constructor construct_reactjs_article ()) div;
+  Lwt.return ()

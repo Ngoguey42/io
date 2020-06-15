@@ -1,6 +1,6 @@
 (library
- (public_name snippets)
- (name snippets)
+ (public_name articles)
+ (name articles)
 
  (libraries
   js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml

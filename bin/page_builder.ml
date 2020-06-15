@@ -20,15 +20,15 @@ let display x =
 let main () =
   let open Lwt.Infix in
   (* Printexc.record_backtrace true; *)
-  let homepage_icon = [ [%html {|<img class="homepage-icon" alt="" src="images/ocaml_logo2_release.svg"/>|}] ] in
+  let homepage_icon =
+    [ [%html {|<img class="homepage-icon" alt="" src="images/ocaml_logo2_release.svg"/>|}] ]
+  in
   let jsoo_icon = [ [%html {|<img class="mnist-icon" alt="0" src="|} zero_url {|"/>|}] ] in
   let header =
     [%html
     "<div id='header'>"
     "<a href='index.html'>" homepage_icon "Homepage</a> | "
     "<a href='mnist-jsoo.html'>" jsoo_icon "mnist-jsoo</a> | "
-    (* "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | " *)
-    (* "<a href='snippets.html'>&#x1f9f1; Snippets</a> | " *)
     "<a href='about.html'><div style='display: inline-block; margin-right: 4px;'>&#128196;</div>Making-of</a>"
     "</div>"] [@ocamlformat "disable"]
   in
@@ -53,11 +53,9 @@ let main () =
       |> Js.to_string |> Filename.basename |> Filename.remove_extension
     in
     match pagename with
-    | "index" | "/" ->
-        display @@ Index.create_content ();
-        Lwt.return ()
+    | "index" | "/" -> Index.main ()
     | "mnist-jsoo" -> Mnist_jsoo.main ()
-    | "snippets" -> Snippets.main ()
+    | "reactjs-wrapper" -> Articles.A0_reactjs_wrapper.main ()
     | "about" ->
         display @@ About.create_content ();
         Lwt.return ()

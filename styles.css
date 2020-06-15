@@ -112,10 +112,10 @@ h3 {
 .hljs-type { color: black }
 
 .hljs-string { color: #eb2829 }
-.hljs-keyword { color: #007bff }
 .hljs-number { color: #eb2829 }
 .hljs-literal { color: #eb2829 }
-.hljs-built_in { color: #007bff }
+.hljs-keyword { color: #007bff }
+.hljs-built_in { color: rgb(127, 89, 239) }
 
 
 

@@ -3,6 +3,7 @@ body { background: #FCFCFC; margin: 0; }
 code {
     border-radius: 3px;
     background: #FCFCFC;
+    color: #eb2829;
     /* padding: 1px 6px 2px 6px; */
     border-style: solid;
     border-width: 0;
@@ -46,7 +47,8 @@ h3 {
     justify-content: center;
 }
 .bigbox-title h1 {
-    width: 768px;
+    /* width: 825px; */
+    /* width: 768px; */
     text-align: center;
     border-color: #ebebeb;
     font-size: 2em;
@@ -60,7 +62,7 @@ h3 {
     margin: 0 auto;
     margin-top: 15px;
     background: #F7F7F7;
-    padding: 10px 20px 30px 20px;
+    padding: 1px 20px 30px 20px;
     line-height: 1.4;
     border-color: #000000;
     border-style: solid;
@@ -68,11 +70,12 @@ h3 {
     border-radius: 5px;
 }
 .bigbox1 {
-    max-width: 768px;
+    /* max-width: 768px; */
+    max-width: 825px;
     margin: 0 auto;
     margin-top: 15px;
     background: #F7F7F7;
-    padding: 0px 20px 30px 20px;
+    padding: 1px 20px 30px 20px;
     line-height: 1.1;
     border-color: #000000;
     border-style: solid;
@@ -80,7 +83,11 @@ h3 {
     border-radius: 5px;
 }
 .smallbox0 { margin: 0; margin-bottom: 7px; }
-.smallbox0 > thead > tr { background: #EBEBEB; text-align: center }
+.smallbox0 > thead > tr {
+    background: #EBEBEB;
+    text-align: center;
+    font-family: "Fira Sans", sans-serif;
+}
 .smallbox0 .entry-name { text-align: right; width: 60%; }
 .smallbox0 .entry-status { text-align: center; }
 
@@ -94,6 +101,8 @@ h3 {
    string   brick  239 127 89
    bool     sky    rgb(128, 240, 202)
             violet rbg(127, 89, 239)
+   the red         #eb2829
+   the bs blue     #007bff
  */
 .hljs { background: #F7F7F7 }
 
@@ -102,11 +111,13 @@ h3 {
 .hljs-meta-string { color: black }
 .hljs-type { color: black }
 
-.hljs-string { color: rgb(239, 127, 89) }
-.hljs-keyword { color: rgb(1, 165, 239) }
-.hljs-number { color: rgb(239, 127, 89) }
-.hljs-literal { color: rgb(239, 127, 89) }
-.hljs-built_in { color: rgb(127, 89, 239) }
+.hljs-string { color: #eb2829 }
+.hljs-keyword { color: #007bff }
+.hljs-number { color: #eb2829 }
+.hljs-literal { color: #eb2829 }
+.hljs-built_in { color: #007bff }
+
+
 
 /* ************************************************************************** */
 .fttable {

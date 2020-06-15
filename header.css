@@ -4,12 +4,19 @@
     font-family: "Fira Sans", sans-serif;
     font-weight: normal;
     color: #007bff;
-    line-height: 1.5
+    line-height: 1.5;
+    /* border-bottom: 1px solid black; */
 }
 #header a {
     text-decoration: none !important;
 }
-#header a:visited { color: #007bff; }
+#header a:hover {
+    text-decoration: underline !important;
+}
+#header a:visited {
+    text-decoration: underline !important;
+    color: #007bff;
+}
 #header.black-bg {
     position: absolute;
     color: white;
@@ -27,7 +34,8 @@
     width: 18px;
     display: inline-block;
     margin-bottom: 1px;
-    margin-right: 2px;
+    margin-left: -2px;
+    margin-right: 4px;
     vertical-align: middle;
     filter: invert();
 }
@@ -36,7 +44,7 @@
     width: 18px;
     display: inline-block;
     margin-bottom: 1px;
-    margin-right: 2px;
+    margin-right: 5px;
     vertical-align: middle;
     /* filter: invert(); */
 }

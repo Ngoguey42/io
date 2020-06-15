@@ -27,9 +27,9 @@ let main () =
     "<div id='header'>"
     "<a href='index.html'>" homepage_icon "Homepage</a> | "
     "<a href='mnist-jsoo.html'>" jsoo_icon "mnist-jsoo</a> | "
-    "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | "
-    "<a href='snippets.html'>&#x1f9f1; Snippets</a> | "
-    "<a href='about.html'>&#128196; Making-of</a>"
+    (* "<a href='cinquante.html'>&#x1f3ae; Cinquante</a> | " *)
+    (* "<a href='snippets.html'>&#x1f9f1; Snippets</a> | " *)
+    "<a href='about.html'><div style='display: inline-block; margin-right: 4px;'>&#128196;</div>Making-of</a>"
     "</div>"] [@ocamlformat "disable"]
   in
   let error exn =

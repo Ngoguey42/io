@@ -181,7 +181,7 @@ let dconf_of_rconf : raw_conf -> derived_conf =
 (* React components ***************************************************************************** *)
 let construct_int_input :
     ((module INT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
-    Reactjs.constructor =
+    Reactjs.constructor_ =
  fun ((module M), update_rconf, dconf_signal, _) ->
   let signal = React.S.map M.string_of_dconf dconf_signal in
   let on_change ev =
@@ -210,7 +210,7 @@ let construct_int_input :
 
 let construct_float_input :
     ((module FLOAT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool * bool)
-    Reactjs.constructor =
+    Reactjs.constructor_ =
  fun ((module M), update_rconf, dconf_signal, _, _) ->
   let signal = React.S.map M.string_of_dconf dconf_signal in
   let on_change ev =
@@ -245,7 +245,7 @@ let construct_float_input :
 
 let construct_select :
     ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
-    Reactjs.constructor =
+    Reactjs.constructor_ =
  fun ((module M), update_rconf, dconf_signal, _) ->
   let signal = React.S.map M.string_of_dconf dconf_signal in
   let on_change ev =
@@ -288,7 +288,7 @@ let construct_select :
   in
   Reactjs.construct ~signal render
 
-let construct_training_config : _ Reactjs.constructor =
+let construct_training_config : _ Reactjs.constructor_ =
  fun (fire_upstream_event, _) ->
   Printf.printf "$  training_configuration | construct\n%!";
   let rconf_signal, update_rconf =

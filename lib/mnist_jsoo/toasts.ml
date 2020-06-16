@@ -42,14 +42,14 @@ let create_frp_primitives () =
   in
   (toast_signal, fire_toast, water_toast, unmount)
 
-let render_toast (id, (title, body), water_toast) =
+let jsx_of_toast id (title, body) water_toast =
   let open Reactjs.Jsx in
   let on_close () = water_toast id in
   let header =
     of_string title >> of_tag "strong" ~classes:[ "mr-auto" ] >> of_bootstrap "Toast.Header"
   in
   let body = of_string body >> of_bootstrap "Toast.Body" in
-  of_bootstrap "Toast" ~on_close ~animation_bool:false [ header; body ]
+  of_bootstrap "Toast" ~id ~on_close ~animation_bool:false [ header; body ]
 
 let construct_toasts (toast_signal, water_toast) =
   Printf.printf "$  toasts | construct\n%!";
@@ -57,7 +57,7 @@ let construct_toasts (toast_signal, water_toast) =
     Printf.printf "$$ toasts | render\n%!";
     let open Reactjs.Jsx in
     toast_signal |> React.S.value
-    |> List.map (fun (id, data) -> of_render ~key:id render_toast (id, data, water_toast))
+    |> List.map (fun (id, data) -> jsx_of_toast id data water_toast)
     |> of_tag "div" ~classes:[ "toast-holder" ]
   in
   Reactjs.construct ~signal:toast_signal render

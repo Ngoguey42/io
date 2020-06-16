@@ -56,7 +56,7 @@ module (<cite>Algodiff</cite>) and several tensor processing backends. <Cite>Owl
 OCaml backend transpiled to JavaScript is used here.
 |}
 
-let construct_backend_selection : _ Reactjs.constructor =
+let construct_backend_selection : _ Reactjs.constructor_ =
  fun (fire_upstream_event, tabidx, _) ->
   Printf.printf "$  backend_selection | construct\n%!";
 

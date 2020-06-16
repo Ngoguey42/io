@@ -122,9 +122,7 @@ let jsx_of_tab ((_, gsignal, _, _, i) as props) =
 
 let construct_mnist_jsoo _ =
   Printf.printf "$  mnist_jsoo | construct\n%!";
-  let signal, set_signal = React.S.create ~eq:states_equal Loading
-                         (* collected on unmount *)
-  in
+  let signal, set_signal = React.S.create ~eq:states_equal Loading (* collected on unmount *) in
   let set_signal : state -> unit = set_signal in
   let toast_signal, fire_toast, water_toast, unmount_toast = Toasts.create_frp_primitives () in
   let fire_toast : string * string -> unit = fire_toast in
@@ -182,7 +180,8 @@ let construct_mnist_jsoo _ =
   let mount () = favicon_routine signal in
   let unmount () =
     React.S.stop ~strong:true signal;
-    unmount_toast () in
+    unmount_toast ()
+  in
   Reactjs.construct ~signal ~mount ~unmount render
 
 let main () =

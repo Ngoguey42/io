@@ -1,7 +1,15 @@
 # TODO
+- blog
+  - Update reactjs post about garbage collection
+  - Update reactjs post. no more weak dict
+  - Make first post about fnn
+
+
 - mnist-jsoo soon
-  1. Repair training abort
-  1. Rollback traces on crash/abort
+  1. Finish implementing all permutation of `Reactjs.of_constructor_*`
+  1. Use the new Reactjs of_constructor throughout the libs
+  1. collect frp primitives in chart
+  1. Change color in firegrass to use the right red (what about the green?)
   1. Chart
      - Face improvements
        - Show somewhere the current amount of smoothing and max training points (and total number of training samples)
@@ -17,8 +25,6 @@
 
 - mnist-jsoo soon (bugs)
    1. Handle the case of corrupted cache/indexeddb.
-   1. Firefox + tfjs + foreground `Error inside routine Error: Variable with name 421 was already registered!`
-      - Steps: `tfjs-webgl-BG -> (eval fail) -> any-tfjs-FG -> (eval ok) -> any-tfjs-FG (train fails forever)`
 
 
 - mnist-jsoo soon (repo)
@@ -49,7 +55,6 @@
    - PR or issue `owl need an unpack_flt'`
    - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`
    - Ensure good propagation of exceptions throughout reactml/reactjs/webworker/lwt
-   - Ensure no mem leaks with Reactml? Why warning in console from Reactjs about a leak
    - Find out why cpu+ww is sometime slow on chrome
    - Use js's WeakMap instead of OCaml's one
    - Add `probabilistic` stats alongside the `top1` ones

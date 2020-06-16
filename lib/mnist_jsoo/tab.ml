@@ -168,8 +168,9 @@ let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
         (fire_backend_selected, tabidx, enabled)
     in
     let dashboard () =
-      of_constructor ~key:"res" Dashboard.construct_dashboard
-        (db, fire_training_event, fire_evaluation_event, tabshownsignal, signal, events)
+      of_constructor_sse ~key:"res" Dashboard.construct_dashboard
+        (db, fire_training_event, fire_evaluation_event)
+        ~s0:tabshownsignal ~s1:signal ~e0:events
     in
     let train enabled =
       of_constructor ~key:"train" Training_configuration.construct_training_config

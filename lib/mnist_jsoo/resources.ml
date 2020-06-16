@@ -218,7 +218,7 @@ let create_download_procedure fire_upstream_event =
   in
   (events, launch)
 
-let construct_resources_row : _ Reactjs.constructor =
+let construct_resources_row : _ Reactjs.constructor_ =
  fun (entry, procedure_events) ->
   let name = name_of_entry entry in
   let description = description_of_entry entry in
@@ -286,7 +286,7 @@ let construct_resources_row : _ Reactjs.constructor =
 
   Reactjs.construct ~signal ~signal:size_option_signal ~mount ~unmount render
 
-let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor =
+let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor_ =
  fun fire_upstream_event ->
   Printf.printf "$  resources | construct\n%!";
   let procedure_events, launch = create_download_procedure fire_upstream_event in

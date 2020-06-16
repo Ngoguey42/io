@@ -162,9 +162,7 @@ let routine elt tab_shown_signal tabsignal tabevents =
   let accum_max_sampling : (int -> int) -> unit = accum_max_sampling in
   let max_sampling_signal = React.S.accum max_sampling_ops default_max_sampling in
 
-  let smoothing_ops, accum_smoothing = React.E.create ()
-    (* collected when `collect` is called *)
-  in
+  let smoothing_ops, accum_smoothing = React.E.create () (* collected when `collect` is called *) in
   let accum_smoothing : (Smoothing.t -> Smoothing.t) -> unit = accum_smoothing in
   let smoothing_signal = React.S.accum smoothing_ops default_smoothing in
 

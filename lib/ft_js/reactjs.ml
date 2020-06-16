@@ -3,8 +3,7 @@ open struct
   module Js = Js_of_ocaml.Js
 end
 
-(* Types **************************************************************************************** *)
-
+(* Misc Types *********************************************************************************** *)
 class type ['target] event =
   object
     method target : 'target Js.readonly_prop
@@ -12,13 +11,99 @@ class type ['target] event =
     method preventDefault : unit Js.meth
   end
 
+class type ref_ =
+  object
+    method current : Dom_html.element Js.t Js.Opt.t Js.readonly_prop
+  end
+
 class type jsx = object end
 
-type 'props render = 'props -> jsx Js.t
+class type component_class = object end
 
-class type ['props] component =
+class type constructor_as_obj =
   object
-    method ftJsRender : 'props render Js.callback Js.writeonly_prop
+    method component_class : component_class Js.t Js.optdef_prop
+  end
+
+(* User's component types *********************************************************************** *)
+type 'main_props render = 'main_props -> jsx Js.t
+
+type 'main_props construction =
+  'main_props render * (unit -> unit) * (unit -> unit) * (unit -> unit) * unit React.event
+
+(* 0 Primitives *)
+type 'main_props constructor_ = 'main_props -> 'main_props construction
+
+(* 1 Primitive *)
+type ('main_props, 's0_prop) constructor_s =
+  s0:'s0_prop React.signal -> 'main_props -> 'main_props construction
+
+type ('main_props, 'e0_prop) constructor_e =
+  e0:'e0_prop React.event -> 'main_props -> 'main_props construction
+
+(* 2 Primitives *)
+type ('main_props, 's0_prop, 's1_prop) constructor_ss =
+  s0:'s0_prop React.signal -> s1:'s1_prop React.signal -> 'main_props -> 'main_props construction
+
+type ('main_props, 's0_prop, 'e0_prop) constructor_se =
+  s0:'s0_prop React.signal -> e0:'e0_prop React.event -> 'main_props -> 'main_props construction
+
+type ('main_props, 'e0_prop, 'e1_prop) constructor_ee =
+  e0:'e0_prop React.event -> e1:'e1_prop React.event -> 'main_props -> 'main_props construction
+
+(* 3 Primitives *)
+type ('main_props, 's0_prop, 's1_prop, 'e0_prop) constructor_sse =
+  s0:'s0_prop React.signal ->
+  s1:'s1_prop React.signal ->
+  e0:'e0_prop React.event ->
+  'main_props ->
+  'main_props construction
+
+type ('main_props, 's0_prop, 'e0_prop, 'e1_prop) constructor_see =
+  s0:'s0_prop React.signal ->
+  e0:'e0_prop React.event ->
+  e1:'e1_prop React.event ->
+  'main_props ->
+  'main_props construction
+
+(* 4 Primitives *)
+type ('main_props, 's0_prop, 's1_prop, 'e0_prop, 'e1_prop) constructor_ssee =
+  s0:'s0_prop React.signal ->
+  s1:'s1_prop React.signal ->
+  e0:'e0_prop React.event ->
+  e1:'e1_prop React.event ->
+  'main_props ->
+  'main_props construction
+
+type ('main, 's0, 's1, 'e0, 'e1, 'constructor) props_package =
+  | Unit : 'main -> ('main, _, _, _, _, 'main constructor_) props_package
+  | Sse :
+      ('main * 's0 React.signal * 's1 React.signal * 'e0 React.event)
+      -> ('main, 's0, 's1, 'e0, _, ('main, 's0, 's1, 'e0) constructor_sse) props_package
+  | Ssee :
+      ('main * 's0 React.signal * 's1 React.signal * 'e0 React.event * 'e1 React.event)
+      -> ('main, 's0, 's1, 'e0, 'e1, ('main, 's0, 's1, 'e0, 'e1) constructor_ssee) props_package
+
+class type ['main, 's0, 's1, 'e0, 'e1, 'constructor, 'key] props_holder =
+  object
+    method data : ('main, 's0, 's1, 'e0, 'e1, 'constructor) props_package Js.readonly_prop
+
+    method key : 'key Js.Optdef.t Js.readonly_prop
+  end
+
+class type state =
+  object
+    method revision : int Js.readonly_prop
+  end
+
+class type ['main, 's0, 's1, 'e0, 'e1, 'constructor, 'key] component =
+  object
+    method setState : state Js.t -> unit Js.meth
+
+    method props :
+      ('main, 's0, 's1, 'e0, 'e1, 'constructor, 'key) props_holder Js.t Js.readonly_prop
+
+    method ftJsRender : (unit -> jsx Js.t) Js.callback Js.writeonly_prop
 
     method ftJsMount : (unit -> unit) Js.callback Js.writeonly_prop
 
@@ -27,106 +112,103 @@ class type ['props] component =
     method ftJsUnmount : (unit -> unit) Js.callback Js.writeonly_prop
   end
 
-class type ['props, 'key] props_holder =
-  object
-    method data : 'props Js.readonly_prop
+(* Helpers ************************************************************************************** *)
+let component_class_of_constructor :
+    'constructor -> (unit -> component_class Js.t) -> component_class Js.t =
+ fun constructor build_class ->
+  let constructor : constructor_as_obj Js.t = Obj.magic constructor in
+  match constructor##.component_class |> Js.Optdef.to_option with
+  | Some cls -> cls
+  | None ->
+      let cls = build_class () in
+      constructor##.component_class := cls;
+      cls
 
-    method key : 'key Js.Optdef.t Js.readonly_prop
-  end
-
-type 'props construction =
-  'props render
-  * (unit -> unit)
-  * (unit -> unit)
-  * (unit -> unit)
-  * ('props component Js.t -> unit) list
-
-type 'props constructor = 'props -> 'props construction
-
-class type ref_ =
-  object
-    method current : Dom_html.element Js.t Js.Opt.t Js.readonly_prop
-  end
-
-(* Component classes **************************************************************************** *)
-class type ['props] component_class = object end
+let _name_of_function : 'constructor -> string option =
+ fun f -> Js.Unsafe.get f (Js.string "name") |> Js.Optdef.to_option |> Option.map Js.to_string
 
 external _create_component_class :
-  ('props component Js.t -> ('props, _) props_holder Js.t -> unit) Js.callback ->
+  (('main, 's0, 's1, 'e0, 'e1, 'constructor, 'key) component Js.t ->
+  ('main, 's0, 's1, 'e0, 'e1, 'constructor, 'key) props_holder Js.t ->
+  unit)
+  Js.callback ->
   Js.js_string Js.t ->
-  'props component_class Js.t = "ft_js_create_component_class"
+  component_class Js.t = "ft_js_create_component_class"
 
-module Constructor_magic_weak_dict = struct
-  type top
+let _of_constructor :
+    type main s0 s1 e0 e1 constructor.
+    constructor -> (main, s0, s1, e0, e1, constructor, 'key) props_holder Js.t -> jsx Js.t =
+ fun constructor ->
+  let build_class () =
+    let prime_react_component :
+        (main, s0, s1, e0, e1, constructor, 'key) component Js.t ->
+        (main, s0, s1, e0, e1, constructor, 'key) props_holder Js.t ->
+        unit =
+     fun self props_holder ->
+      (* call user's constructor *)
+      let render, mount, update, unmount, state_changes =
+        match props_holder##.data with
+        | Unit main -> constructor main
+        | Sse (main, s0, s1, e0) -> constructor main ~s0 ~s1 ~e0
+        | Ssee (main, s0, s1, e0, e1) -> constructor main ~s0 ~s1 ~e0 ~e1
+      in
+      self##.ftJsMount := Js.wrap_callback mount;
+      self##.ftJsUpdate := Js.wrap_callback update;
 
-  module D = Ephemeron.K1.Make (struct
-    type t = top constructor
+      (* wrap user's constructor. render's props taken from self *)
+      let render () =
+        match self##.props##.data with
+        | Unit main -> render main
+        | Sse (main, _, _, _) -> render main
+        | Ssee (main, _, _, _, _) -> render main
+      in
+      self##.ftJsRender := Js.wrap_callback render;
 
-    let equal a b = a == b
+      (* bind react primitives. they were all mapped to a single unit React.event *)
+      let count = ref 0 in
+      let state_changes =
+        let onchange () =
+          incr count;
+          let o =
+            object%js
+              val revision = !count
+            end
+          in
+          self##setState o
+        in
+        React.E.map onchange state_changes
+      in
 
-    let hash = Hashtbl.hash
-  end)
+      (* prepare unmount function. it cleans up and call user's unmount *)
+      let unmount () =
+        React.E.stop ~strong:true state_changes;
+        ( match props_holder##.data with
+        | Unit _ -> ()
+        | Sse (_, s0, s1, e0) ->
+            React.S.stop ~strong:true s0;
+            React.S.stop ~strong:true s1;
+            React.E.stop ~strong:true e0
+        | Ssee (_, s0, s1, e0, e1) ->
+            React.S.stop ~strong:true s0;
+            React.S.stop ~strong:true s1;
+            React.E.stop ~strong:true e0;
+            React.E.stop ~strong:true e1 );
+        unmount ()
+      in
+      self##.ftJsUnmount := Js.wrap_callback unmount
+    in
 
-  let d : top component_class Js.t D.t = D.create 25
-
-  let find_fallback :
-      top constructor -> (unit -> top component_class Js.t) -> top component_class Js.t =
-   fun f fallback ->
-    match D.find_opt d f with
-    | Some cls -> cls
-    | None ->
-        let cls = fallback () in
-        D.add d f cls;
-        cls
-
-  let find_fallback :
-      'props constructor -> (unit -> 'props component_class Js.t) -> 'props component_class Js.t =
-   fun f fallback ->
-    let f : 'props constructor = f in
-    let f : top constructor = Obj.magic f in
-    let fallback : unit -> 'props component_class Js.t = fallback in
-    let fallback : unit -> top component_class Js.t = Obj.magic fallback in
-    let cls : top component_class Js.t = find_fallback f fallback in
-    let cls : 'props component_class Js.t = Obj.magic cls in
-    cls
-end
-
-module Render_magic_weak_dict = struct
-  type top
-
-  module D = Ephemeron.K1.Make (struct
-    type t = top render
-
-    let equal a b = a == b
-
-    let hash = Hashtbl.hash
-  end)
-
-  let d : top component_class Js.t D.t = D.create 25
-
-  let find_fallback : top render -> (unit -> top component_class Js.t) -> top component_class Js.t =
-   fun f fallback ->
-    match D.find_opt d f with
-    | Some cls -> cls
-    | None ->
-        let cls = fallback () in
-        D.add d f cls;
-        cls
-
-  let find_fallback :
-      'props render -> (unit -> 'props component_class Js.t) -> 'props component_class Js.t =
-   fun f fallback ->
-    let f : 'props render = f in
-    let f : top render = Obj.magic f in
-    let fallback : unit -> 'props component_class Js.t = fallback in
-    let fallback : unit -> top component_class Js.t = Obj.magic fallback in
-    let cls : top component_class Js.t = find_fallback f fallback in
-    let cls : 'props component_class Js.t = Obj.magic cls in
-    cls
-end
-
-let _name_of_function : 'a -> string option =
- fun f -> Js.Unsafe.get f (Js.string "name") |> Js.Optdef.to_option |> Option.map Js.to_string
+    let display_name =
+      match _name_of_function constructor with
+      | None -> Js.string "ocaml_constructor"
+      | Some name -> "ocaml_" ^ name |> Js.string
+    in
+    _create_component_class (Js.wrap_callback prime_react_component) display_name
+  in
+  let cls = component_class_of_constructor constructor build_class in
+  fun props_holder ->
+    let open Js.Unsafe in
+    fun_call global##._React##.createElement [| inject cls; inject props_holder |]
 
 (* Functions ************************************************************************************ *)
 
@@ -155,41 +237,18 @@ let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s
   let mount = Option.value ~default:(fun () -> ()) mount in
   let update = Option.value ~default:(fun () -> ()) update in
   let unmount = Option.value ~default:(fun () -> ()) unmount in
-
-  let setup_signal signal idx self =
-    Js.Unsafe.set (Js.Unsafe.get self (Js.string "state")) idx (React.S.value signal);
-    let update_state value =
-      let o = object%js end in
-      Js.Unsafe.set o idx value;
-      Js.Unsafe.meth_call self "setState" [| Js.Unsafe.inject o |]
-    in
-    React.S.changes signal |> React.E.map update_state |> ignore
+  let diffs =
+    [
+      s0 |> Option.to_list |> List.map (fun s -> s |> React.S.changes |> React.E.map (fun _ -> ()));
+      s1 |> Option.to_list |> List.map (fun s -> s |> React.S.changes |> React.E.map (fun _ -> ()));
+      s2 |> Option.to_list |> List.map (fun s -> s |> React.S.changes |> React.E.map (fun _ -> ()));
+      s3 |> Option.to_list |> List.map (fun s -> s |> React.S.changes |> React.E.map (fun _ -> ()));
+      s4 |> Option.to_list |> List.map (fun s -> s |> React.S.changes |> React.E.map (fun _ -> ()));
+      e0 |> Option.to_list |> List.map (fun s -> s |> React.E.map (fun _ -> ()));
+    ]
+    |> List.concat |> React.E.select
   in
-
-  let setup_events events idx self =
-    let count = ref 1 in
-    Js.Unsafe.set (Js.Unsafe.get self (Js.string "state")) idx 0;
-    let update_state _ =
-      let o = object%js end in
-      Js.Unsafe.set o idx !count;
-      incr count;
-      Js.Unsafe.meth_call self "setState" [| Js.Unsafe.inject o |]
-    in
-    events |> React.E.map update_state |> ignore
-  in
-
-  let setup_signals =
-    List.concat
-      [
-        s0 |> Option.to_list |> List.map (fun s -> setup_signal s 0);
-        s1 |> Option.to_list |> List.map (fun s -> setup_signal s 1);
-        s2 |> Option.to_list |> List.map (fun s -> setup_signal s 2);
-        s3 |> Option.to_list |> List.map (fun s -> setup_signal s 3);
-        s4 |> Option.to_list |> List.map (fun s -> setup_signal s 4);
-        e0 |> Option.to_list |> List.map (fun s -> setup_events s 5);
-      ]
-  in
-  (render, mount, update, unmount, setup_signals)
+  (render, mount, update, unmount, diffs)
 
 (** https://reactjs.org/docs/refs-and-the-dom.html *)
 let create_ref () : ref_ Js.t =
@@ -383,81 +442,78 @@ module Jsx = struct
     in
     _create_element o
 
-  (** Create a Jsx object from:
+  (** Create a JSX object from:
       - an OCaml function ending with a call to `Reactjs.constructor`,
       - the props taken by that constructor and its render function.
 
-     Constructor is called with `props`. `render` is also called with `props` too because React
+     Constructor is called with `props`, `render` is also called with `props` too because React
      doesn't re-instanciate the component when `props` changes. Three design patterns can be adopted:
      - Don't perform render conditionned on props. Use signals.
      - Perform render conditionned on constructor's props. To do so, use a new `key` in parent's
        `of_constructor` call to trigger re-instanciations
        (a.k.a. Fully uncontrolled component with a key).
      - Perform render conditionned on render's props. To do so, ignore the mutable props passed to
-       construct and read them from `render`. (Caveat: I couldn't get rid of certain re-renders).
-       It also might be enough to use `of_render` instead of `of_constructor` in that case.
+       construct and read them from `render`.
   *)
-  let of_constructor : ?key:'a -> 'props constructor -> 'props render =
-   fun ?key constructor props ->
-    let build_class () =
-      let display_name =
-        match _name_of_function constructor with
-        | None -> Js.string "ocaml_constructor"
-        | Some name -> "ocaml_" ^ name |> Js.string
-      in
-      let prime_react_component self props_holder =
-        let render, mount, update, unmount, setup_signals = constructor props_holder##.data in
-        self##.ftJsRender := Js.wrap_callback render;
-        self##.ftJsMount := Js.wrap_callback mount;
-        self##.ftJsUpdate := Js.wrap_callback update;
-        self##.ftJsUnmount := Js.wrap_callback unmount;
-        List.iter (fun fn -> fn self) setup_signals
-      in
-      _create_component_class (Js.wrap_callback prime_react_component) display_name
-    in
-    let cls : 'props component_class Js.t =
-      Constructor_magic_weak_dict.find_fallback constructor build_class
-    in
-    let props : ('props, 'key) props_holder Js.t =
+  let of_constructor : 'main constructor_ -> ?key:'key -> 'main -> jsx Js.t =
+   fun constructor ?key main ->
+    let props_holder : _ props_holder Js.t =
       object%js
-        val data = props
+        val data = Unit main
 
         val key = Js.Optdef.option key
       end
     in
-    let open Js.Unsafe in
-    fun_call global##._React##.createElement [| inject cls; inject props |]
+    _of_constructor constructor props_holder
 
-  (** Create a Jsx object from:
-      - an OCaml function returning Jsx a object
-      - the props taken by that render function.
-   *)
-  let of_render : ?key:'key -> 'props render -> 'props render =
-   fun ?key render props ->
-    let build_class () =
-      let display_name =
-        match _name_of_function render with
-        | None -> Js.string "ocaml_render"
-        | Some name -> "ocaml_" ^ name |> Js.string
-      in
-      let prime_react_component self _ =
-        self##.ftJsRender := Js.wrap_callback render;
-        self##.ftJsMount := Js.wrap_callback (fun () -> ());
-        self##.ftJsUpdate := Js.wrap_callback (fun () -> ());
-        self##.ftJsUnmount := Js.wrap_callback (fun () -> ())
-      in
-      _create_component_class (Js.wrap_callback prime_react_component) display_name
-    in
-    let cls : 'props component_class Js.t =
-      Render_magic_weak_dict.find_fallback render build_class
-    in
-    let props : ('props, 'key) props_holder Js.t =
+  (* Specialization of `of_constructor`. See `of_constructor_ssee` *)
+  let of_constructor_sse :
+      ('main, 's0, 's1, 'e0) constructor_sse ->
+      ?key:'key ->
+      'main ->
+      s0:'s0 React.signal ->
+      s1:'s1 React.signal ->
+      e0:'e0 React.event ->
+      jsx Js.t =
+   fun constructor ?key main ~s0 ~s1 ~e0 ->
+    let props_holder : _ props_holder Js.t =
+      let smap = React.S.map in
+      let emap = React.E.map in
       object%js
-        val data = props
+        val data = Sse (main, smap Fun.id s0, smap Fun.id s1, emap Fun.id e0)
 
         val key = Js.Optdef.option key
       end
     in
-    let open Js.Unsafe in
-    fun_call global##._React##.createElement [| inject cls; inject props |]
+    _of_constructor constructor props_holder
+
+  (* Specialization of `of_constructor` that takes 4 FRP primitive props in addition to the `main`
+     props. Those 4 FRP primitives are first identity-mapped on construction and then stopped
+     when Reactjs unmounts the component. It implies that all the primitives derived from those 4
+     input primitives will be collected on unmount.
+
+     Since React doesn't use a weak dict with Js_of_ocaml there is no automatic collection of
+     FRP primitives, all collections must be manual. This function automatizes most of the process
+     when using with Reactjs.
+  *)
+  let of_constructor_ssee :
+      ('main, 's0, 's1, 'e0, 'e1) constructor_ssee ->
+      ?key:'key ->
+      'main ->
+      s0:'s0 React.signal ->
+      s1:'s1 React.signal ->
+      e0:'e0 React.event ->
+      e1:'e1 React.event ->
+      jsx Js.t =
+   fun constructor ?key main ~s0 ~s1 ~e0 ~e1 ->
+    let props_holder : _ props_holder Js.t =
+      let smap = React.S.map in
+      let emap = React.E.map in
+      object%js
+        val data = Ssee (main, smap Fun.id s0, smap Fun.id s1, emap Fun.id e0, emap Fun.id e1)
+
+        val key = Js.Optdef.option key
+      end
+    in
+    _of_constructor constructor props_holder
 end

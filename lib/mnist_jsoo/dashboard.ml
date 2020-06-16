@@ -188,18 +188,13 @@ let jsx_of_test_set_sample test_set_sample_urls probas =
   ]
   |> of_bootstrap "Container"
 
-let construct_dashboard
-    ( (traini, trainl, testi, testl),
-      fire_training_event,
-      fire_evaluation_event,
-      tabshownsignal,
-      tabsignal,
-      tabevents ) =
+let construct_dashboard ~s0:tabshownsignal ~s1:tabsignal ~e0:tabevents
+    ((traini, trainl, testi, testl), fire_training_event, fire_evaluation_event) =
   Printf.printf "$  dashboard | construct\n%!";
 
-  let tabshownsignal = React.S.map Fun.id tabshownsignal in
-  let tabsignal = React.S.map Fun.id tabsignal in
-  let tabevents = React.E.map Fun.id tabevents in
+  (* let tabshownsignal = React.S.map Fun.id tabshownsignal in *)
+  (* let tabsignal = React.S.map Fun.id tabsignal in *)
+  (* let tabevents = React.E.map Fun.id tabevents in *)
 
   (* Create the Reactjs "reference" that will be used to bind the Plotly lib *)
   let plotly_ref = Reactjs.create_ref () in
@@ -269,9 +264,9 @@ let construct_dashboard
   let unmount () =
     Printf.printf "$$ dashboard | unmount\n%!";
 
-    React.S.stop ~strong:true tabshownsignal;
-    React.S.stop ~strong:true tabsignal;
-    React.E.stop ~strong:true tabevents;
+    (* React.S.stop ~strong:true tabshownsignal; *)
+    (* React.S.stop ~strong:true tabsignal; *)
+    (* React.E.stop ~strong:true tabevents; *)
     React.S.stop ~strong:true training_user_status
     (* React.S.stop ~strong:true a; *)
     (* ignore b; *)

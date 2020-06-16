@@ -130,16 +130,18 @@ let t0 =
 
 <p>
   The one above is a stateless component that only defines a render function. It looks a lot like
-  <cite>Reactjs</cite>'s <cite>hooks</cite>. It can instanciated into a <cite>JSX</cite> object
-  using <code>Reactjs.of_render</code>.
+  <cite>Reactjs</cite>'s <cite>hooks</cite>.
 </p>
 
 <p>
   The one below is a stateful component that defines one signal and a
   render function. <cite>Reactjs</cite> will call the <cite>render</cite> function
   after construction and everytime the signal's value changes
-  (i.e. after a call to <code>set_signal</code>). It can instanciated into a <cite>JSX</cite>
-  object using <code>Reactjs.of_constructor</code>.
+  (i.e. after a call to <code>set_signal</code>).
+</p>
+
+<p>
+  Both can instanciated into a <cite>JSX</cite> object using <code>Reactjs.of_constructor</code>.
 </p>
 
 <p>

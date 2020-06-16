@@ -361,7 +361,7 @@ let dconf_of_rconf : raw_conf -> derived_conf =
 (* React components ***************************************************************************** *)
 let construct_int_input :
     ((module INT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
-    Reactjs.constructor =
+    Reactjs.constructor_ =
  fun ((module M), update_rconf, dconf_signal, _) ->
   let signal = React.S.map M.of_dconf dconf_signal in
   let on_change ev =
@@ -388,8 +388,8 @@ let construct_int_input :
   in
   Reactjs.construct ~signal render
 
-let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool) Reactjs.constructor
-    =
+let construct_select :
+    ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool) Reactjs.constructor_ =
  fun ((module M), update_rconf, _) ->
   let on_change ev =
     let v = ev##.target##.value |> Js.to_string |> M.of_string in
@@ -412,7 +412,7 @@ let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool)
   in
   Reactjs.construct render
 
-let construct_training_config : _ Reactjs.constructor =
+let construct_training_config : _ Reactjs.constructor_ =
  fun (fire_upstream_event, _) ->
   Printf.printf "$  network_creation | construct\n%!";
   let rconf_signal, update_rconf =

@@ -13,10 +13,15 @@ open struct
 end
 
 let create_frp_primitives () =
-  let add_toast_events, fire_toast = React.E.create () in
-  let rm_toast_events, water_toast = React.E.create () in
+  let add_toast_events, fire_toast = React.E.create () (* collected when `unmount` is called *) in
+  let rm_toast_events, water_toast = React.E.create () (* collected when `unmount` is called *) in
   let water_toast : string -> unit = water_toast in
   let toast_count = ref 0 in
+
+  let unmount () =
+    React.E.stop ~strong:true add_toast_events;
+    React.E.stop ~strong:true rm_toast_events
+  in
 
   let add_toast_events =
     React.E.map
@@ -35,7 +40,7 @@ let create_frp_primitives () =
            match ev with `Add (id, data) -> (id, data) :: s | `Rm id -> List.remove_assoc id s)
          []
   in
-  (toast_signal, fire_toast, water_toast)
+  (toast_signal, fire_toast, water_toast, unmount)
 
 let render_toast (id, (title, body), water_toast) =
   let open Reactjs.Jsx in
@@ -47,9 +52,9 @@ let render_toast (id, (title, body), water_toast) =
   of_bootstrap "Toast" ~on_close ~animation_bool:false [ header; body ]
 
 let construct_toasts (toast_signal, water_toast) =
-  Printf.printf "> Component - toasts | construct\n%!";
+  Printf.printf "$  toasts | construct\n%!";
   let render _ =
-    Printf.printf "> Component - toasts | render\n%!";
+    Printf.printf "$$ toasts | render\n%!";
     let open Reactjs.Jsx in
     toast_signal |> React.S.value
     |> List.map (fun (id, data) -> of_render ~key:id render_toast (id, data, water_toast))

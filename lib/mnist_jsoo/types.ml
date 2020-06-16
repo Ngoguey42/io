@@ -7,9 +7,9 @@ type db_train = uint8_ba * uint8_ba
 
 type db_test = uint8_ba * uint8_ba
 
-type backend = [ `Tfjs_webgl | `Tfjs_cpu | `Tfjs_wasm | `Owl_algodiff_cpu ]
+type backend = [ `Tfjs_webgl | `Tfjs_cpu | `Tfjs_wasm | `Owl_algodiff_cpu ] [@@deriving show]
 
-type lr = [ `Down of float * float | `Flat of float ]
+type lr = [ `Down of float * float | `Flat of float ] [@@deriving show]
 
 type float32_ba = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
@@ -26,32 +26,45 @@ type training_config = {
   images_seen : int;
   verbose : bool;
 }
+[@@deriving show]
 
 type training_parameters = {
-  db : db_train;
-  networks : Fnn.network list * Fnn.network;
+  db : db_train; [@opaque]
+  networks : Fnn.network list * Fnn.network; [@opaque]
   config : training_config;
 }
+[@@deriving show]
 
 type training_stats = {
   mean_iou_top1 : float;
   mean_recall_top1 : float;
   mean_precision_top1 : float;
   batch_count : int;
+  (* Number of batches aggregated *)
   image_count : int;
+  (* Number of images aggregated *)
   mean_loss_per_image : float;
   mean_learning_rate : float;
 }
+[@@deriving show]
 
-type training_user_status = [ `Train_to_end | `Early_stop | `Abort ]
+type training_user_status = [ `Train_to_end | `Early_stop | `Abort ] [@@deriving show]
 
 type training_outcome =
-  [ `End of Fnn.network list * Fnn.network * training_stats | `Abort | `Crash of string ]
+  [ `End of (Fnn.network list[@opaque]) * (Fnn.network[@opaque]) * (training_stats[@opaque])
+  | `Abort
+  | `Crash of string ]
+[@@deriving show]
 
 type training_routine_event =
-  [ `Init | `Batch_begin of int | `Batch_end of int * training_stats | `Outcome of training_outcome ]
+  [ `Init
+  | `Batch_begin of int
+  | `Batch_end of int * (training_stats[@opaque])
+  | `Outcome of training_outcome ]
+[@@deriving show]
 
 type training_routine_status = [ `Allocating | `Running | `Ended | `Aborted | `Crashed ]
+[@@deriving show]
 
 type training_backend_routine =
   ?verbose:bool ->
@@ -76,27 +89,32 @@ type evaluation_config = {
   batch_size : int;
   backend : backend;
 }
+[@@deriving show]
 
 type evaluation_parameters = {
-  db : db_test;
-  encoder : Fnn.network;
-  decoder : Fnn.network;
+  db : db_test; [@opaque]
+  encoder : Fnn.network; [@opaque]
+  decoder : Fnn.network; [@opaque]
   config : evaluation_config;
 }
+[@@deriving show]
 
 type evaluation_stats = {
   mean_iou_top1 : float;
   mean_recall_top1 : float;
   mean_precision_top1 : float;
-  test_set_sample_probas : float32_ba;
+  test_set_sample_probas : float32_ba; [@opaque]
 }
+[@@deriving show]
 
-type evaluation_outcome = [ `End of evaluation_stats | `Crash of string ]
+type evaluation_outcome = [ `End of evaluation_stats [@opaque] | `Crash of string ]
+[@@deriving show]
 
 type evaluation_routine_event =
   [ `Init | `Batch_begin of int | `Batch_end of int | `Outcome of evaluation_outcome ]
+[@@deriving show]
 
-type evaluation_routine_status = [ `Running | `Ended | `Crashed ]
+type evaluation_routine_status = [ `Running | `Ended | `Crashed ] [@@deriving show]
 
 type evaluation_backend_routine =
   ?verbose:bool ->
@@ -121,42 +139,48 @@ end
 
 type tab_state =
   | Creating_network
-  | Selecting_backend of { encoder : Fnn.network; decoder : Fnn.network; seed : int }
+  | Selecting_backend of {
+      encoder : Fnn.network; [@opaque]
+      decoder : Fnn.network; [@opaque]
+      seed : int;
+    }
   | Evaluating of {
-      old_encoder : Fnn.network option;
-      old_decoder : Fnn.network option;
-      old_images_seen : int option;
-      encoder : Fnn.network;
-      decoder : Fnn.network;
+      old : (Fnn.network * Fnn.network * int) option; [@opaque]
+      (* `old` contains the states from previous `Creating_training` state (if any).
+         Necessary to rollback states when eval crashes. *)
+      encoder : Fnn.network; [@opaque]
+      decoder : Fnn.network; [@opaque]
       seed : int;
       backend : backend;
       from_webworker : bool;
       images_seen : int;
-      config : evaluation_config;
+      config : evaluation_config; [@opaque]
     }
   | Creating_training of {
-      encoder : Fnn.network;
-      decoder : Fnn.network;
+      encoder : Fnn.network; [@opaque]
+      decoder : Fnn.network; [@opaque]
       seed : int;
       backend : backend;
       from_webworker : bool;
       images_seen : int;
     }
   | Training of {
-      encoder : Fnn.network;
-      decoder : Fnn.network;
+      encoder : Fnn.network; [@opaque]
+      decoder : Fnn.network; [@opaque]
       seed : int;
       backend : backend;
       from_webworker : bool;
       images_seen : int;
-      config : training_config;
+      config : training_config; [@opaque]
     }
+[@@deriving show]
 
 type tab_event =
-  | Network_made of { encoder : Fnn.network; decoder : Fnn.network; seed : int }
+  | Network_made of { encoder : Fnn.network; [@opaque] decoder : Fnn.network; [@opaque] seed : int }
   | Backend_selected of (backend * bool)
   | Evaluation_event of evaluation_routine_event
   | Training_conf of { lr : lr; batch_size : int; batch_count : int }
   | Training_event of training_routine_event
+[@@deriving show]
 
 type state = Loading | Loaded of db * int * tab_state array

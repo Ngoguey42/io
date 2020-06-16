@@ -58,13 +58,13 @@ OCaml backend transpiled to JavaScript is used here.
 
 let construct_backend_selection : _ Reactjs.constructor =
  fun (fire_upstream_event, tabidx, _) ->
-  Printf.printf "> Component - backend_selection | construct\n%!";
+  Printf.printf "$  backend_selection | construct\n%!";
 
   let on_change ev =
     ev##.target##.value |> Js.to_string |> int_of_string |> option_of_idx |> fire_upstream_event
   in
   let render (_, _, enabled) =
-    Printf.printf "> Component - backend_selection | render\n%!";
+    Printf.printf "$$ backend_selection | render\n%!";
     let open Reactjs.Jsx in
     let tbody =
       backends

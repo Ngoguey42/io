@@ -115,7 +115,7 @@ let get_leaf_vertices g =
   leaves |> List.to_seq |> Vset.of_seq
 
 let create_download_procedure fire_upstream_event =
-  let events, fire_event = React.E.create () in
+  let events, fire_event = React.E.create () (* collected on `resources` unmount *) in
 
   let launch_mnist_fetch () =
     let fire_mnist_event (entry, status) =
@@ -223,11 +223,10 @@ let construct_resources_row : _ Reactjs.constructor =
   let name = name_of_entry entry in
   let description = description_of_entry entry in
   let urls = urls_of_entry entry in
-  let size_fetch_events, fire_size_fetch_event = React.E.create () in
+  let size_fetch_events, fire_size_fetch_event = React.E.create () (* collected on unmount *) in
 
   let size_option_signal =
     size_fetch_events
-    (* |> React.E.map (fun (_, size) -> size) *)
     |> React.E.fold
          (fun acc (url, res) ->
            match (acc, res) with
@@ -283,12 +282,13 @@ let construct_resources_row : _ Reactjs.constructor =
         | None -> Ft_js.size_of_urls [ url ] fire_size_fetch_event)
       urls
   in
+  let unmount () = React.E.stop ~strong:true size_fetch_events in
 
-  Reactjs.construct ~signal ~signal:size_option_signal ~mount render
+  Reactjs.construct ~signal ~signal:size_option_signal ~mount ~unmount render
 
 let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor =
  fun fire_upstream_event ->
-  Printf.printf "> Component - resources | construct\n%!";
+  Printf.printf "$  resources | construct\n%!";
   let procedure_events, launch = create_download_procedure fire_upstream_event in
 
   let render _ =
@@ -305,7 +305,8 @@ let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Re
   in
 
   let mount () =
-    Printf.printf "> Component - resources | mount\n%!";
+    Printf.printf "$$ resources | mount\n%!";
     launch ()
   in
-  Reactjs.construct ~mount render
+  let unmount () = React.E.stop ~strong:true procedure_events in
+  Reactjs.construct ~mount ~unmount render

@@ -95,61 +95,76 @@ let listen_afterplot_event elt fire_render_cooled_down =
   in
   ()
 
-let routine elt tab_shown_signal _tabsignal tabevents =
+let routine elt tab_shown_signal tabsignal tabevents =
   (* Step 1 - Allocate arrays with ~constant append complexity *)
   let raw_data = Raw_data.create () in
 
   (* Step 2 - Create signals reflecting the status of raw_data *)
-  let stats_events : [ `Test of evaluation_stats | `Train_batch of training_stats ] React.event =
-    tabevents
-    |> React.E.fmap (function
-         | Evaluation_event (`Outcome (`End stats)) -> Some (`Test stats)
-         | Training_event (`Batch_end (_, stats)) -> Some (`Train_batch stats)
-         | _ -> None)
-  in
-  let images_seen_signal =
-    stats_events
-    |> React.S.fold
-         (fun s ev -> match ev with `Test _ -> s | `Train_batch stats -> s + stats.image_count)
-         0
-  in
-  let train_sample_count_signal =
-    let sample f s e = React.S.sample f e s in
-    stats_events
-    |> React.E.fmap (function `Test _ -> None | `Train_batch stats -> Some stats)
-    |> sample
-         (fun (new_stats : training_stats) images_seen ->
-           Raw_data.push_train raw_data images_seen new_stats;
-           raw_data.train_xs##.length)
-         images_seen_signal
-    |> React.S.hold 0
-  in
-  let test_sample_count_signal =
-    let sample f s e = React.S.sample f e s in
-    stats_events
-    |> React.E.fmap (function `Test stats -> Some stats | `Train_batch _ -> None)
-    |> sample
-         (fun new_stats images_seen ->
-           Raw_data.push_test raw_data images_seen new_stats;
-           raw_data.test_xs##.length)
-         images_seen_signal
-    |> React.S.hold 0
-  in
-  (* RID as in Revision ID *)
   let data_rid_signal =
-    React.S.l2 (fun a b -> (a, b)) train_sample_count_signal test_sample_count_signal
+    let fold ((train_count, test_count) as acc) (s, ev) =
+      Printf.eprintf "> Dashboard fold\n%!";
+      print_endline (show_tab_state s);
+      print_endline (show_tab_event ev);
+
+      match (s, ev) with
+      | ( Training { images_seen; config = { batch_size; _ }; _ },
+          Training_event (`Batch_end (batch_idx, stats)) ) ->
+          (* New training point *)
+          let x = images_seen + (batch_size * batch_idx) + stats.image_count in
+          Raw_data.push_train raw_data x stats;
+          let train_count = raw_data.train_xs##.length in
+          (train_count, test_count)
+      | _, Training_event (`Batch_end _) ->
+          failwith "Unreachable - Chart - train batch end with unexpected state"
+      | Creating_training { images_seen; _ }, Evaluation_event (`Outcome (`End stats)) ->
+          (* New eval point *)
+          let x = images_seen in
+          Raw_data.push_test raw_data x stats;
+          let test_count = raw_data.test_xs##.length in
+          (train_count, test_count)
+      | _, Evaluation_event (`Outcome (`End _)) ->
+          failwith "Unreachable - Chart - eval end with unexpected state"
+      | Selecting_backend _, Evaluation_event (`Outcome (`Crash _)) ->
+          (* Initial eval crash *)
+          Raw_data.rollback raw_data ~-1;
+          (0, 0)
+      | Creating_training { images_seen; _ }, Evaluation_event (`Outcome (`Crash _))
+      | Creating_training { images_seen; _ }, Training_event (`Outcome (`Abort | `Crash _)) ->
+          (* Eval or train crash or abort *)
+          Raw_data.rollback raw_data images_seen;
+          let train_count = raw_data.train_xs##.length in
+          let test_count = raw_data.test_xs##.length in
+          (train_count, test_count)
+      | _, Training_event (`Outcome (`Abort | `Crash _)) ->
+          failwith "Unreachable - Chart - train crash or abort with unexpected state"
+      | _, Evaluation_event (`Outcome (`Crash _)) ->
+          failwith "Unreachable - Chart - eval crash with unexpected state"
+      | _, Training_event (`Batch_begin _ | `Init | `Outcome (`End _)) -> acc
+      | _, (Network_made _ | Backend_selected _ | Training_conf _) -> acc
+      | _, Evaluation_event (`Batch_end _ | `Batch_begin _ | `Init) -> acc
+    in
+
+    React.S.sample (fun ev s -> (s, ev)) tabevents tabsignal |> React.S.fold fold (0, 0)
   in
 
   (* Step 3 - Create the primitives necessary for smooth rendering *)
 
   (* Step 3.1 - Create the React primitives that will be triggered from JS *)
-  let render_cooled_down_event, fire_render_cooled_down = React.E.create () in
+  let render_cooled_down_event, fire_render_cooled_down =
+    React.E.create ()
+    (* collected when `collect` is called *)
+  in
 
-  let max_sampling_ops, accum_max_sampling = React.E.create () in
+  let max_sampling_ops, accum_max_sampling =
+    React.E.create ()
+    (* collected when `collect` is called *)
+  in
   let accum_max_sampling : (int -> int) -> unit = accum_max_sampling in
   let max_sampling_signal = React.S.accum max_sampling_ops default_max_sampling in
 
-  let smoothing_ops, accum_smoothing = React.E.create () in
+  let smoothing_ops, accum_smoothing = React.E.create ()
+    (* collected when `collect` is called *)
+  in
   let accum_smoothing : (Smoothing.t -> Smoothing.t) -> unit = accum_smoothing in
   let smoothing_signal = React.S.accum smoothing_ops default_smoothing in
 

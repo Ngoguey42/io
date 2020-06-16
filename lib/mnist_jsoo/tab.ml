@@ -15,22 +15,27 @@ end
 open Types
 
 let tab_states_reducer signal set_signal fire_toast =
-  let (events : tab_event React.event), fire_event = React.E.create () in
+  let (events : tab_event React.event), fire_event =
+    React.E.create ()
+    (* collected on `tab` unmount *)
+  in
 
   let reduce : tab_event -> tab_state -> tab_state =
    fun ev s ->
+    Printf.eprintf "> Tab fold\n%!";
+    print_endline (show_tab_state s);
+    print_endline (show_tab_event ev);
     match (s, ev) with
     | Creating_network, Network_made ev ->
         (* Just created network. Very first event *)
         Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
     | Selecting_backend s, Backend_selected (backend, from_webworker) ->
         (* Selected backend for the first time, can select it again later *)
-        let config = { backend; from_webworker; verbose = false; batch_size = 500 } in
+        let config = { backend; from_webworker; verbose = true; batch_size = 5000 } in
+        (* TODO: RESTORE BATCH SIZE *)
         Evaluating
           {
-            old_encoder = None;
-            old_decoder = None;
-            old_images_seen = None;
+            old = None;
             encoder = s.encoder;
             decoder = s.decoder;
             seed = s.seed;
@@ -44,16 +49,7 @@ let tab_states_reducer signal set_signal fire_toast =
     | Evaluating _, Evaluation_event (`Batch_end _) ->
         (* Ignoring eval events *)
         s
-    | ( Evaluating
-          {
-            old_encoder = Some encoder;
-            old_decoder = Some decoder;
-            old_images_seen = Some images_seen;
-            seed;
-            backend;
-            from_webworker;
-            _;
-          },
+    | ( Evaluating { old = Some (encoder, decoder, images_seen); seed; backend; from_webworker; _ },
         Evaluation_event (`Outcome (`Crash msg)) ) ->
         (* Recovering from eval crash following training *)
         fire_toast ("Evaluation crashed", msg);
@@ -111,15 +107,13 @@ let tab_states_reducer signal set_signal fire_toast =
           {
             backend = s.backend;
             from_webworker = s.from_webworker;
-            verbose = false;
-            batch_size = 500;
+            verbose = true;
+            batch_size = 5000 (* TODO: RESTORE BATCH SIZE *);
           }
         in
         Evaluating
           {
-            old_encoder = Some s.encoder;
-            old_decoder = Some s.decoder;
-            old_images_seen = Some s.images_seen;
+            old = Some (s.encoder, s.decoder, s.images_seen);
             encoder;
             decoder;
             seed = s.seed;
@@ -150,7 +144,7 @@ let tab_states_reducer signal set_signal fire_toast =
   (events, fire_event)
 
 let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
-  Printf.printf "> Component - tab%d | construct\n%!" tabidx;
+  Printf.printf "$  tab%d | construct\n%!" tabidx;
   let events, fire_event = tab_states_reducer signal set_signal fire_toast in
   let fire_network_made (encoder, decoder, seed) =
     Network_made { encoder; decoder; seed } |> fire_event
@@ -163,7 +157,7 @@ let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
   in
 
   let render _ =
-    Printf.printf "> Component - tab%d | render\n%!" tabidx;
+    Printf.printf "$$ tab%d | render\n%!" tabidx;
     let open Reactjs.Jsx in
     let net enabled =
       of_constructor ~key:"net" Network_construction.construct_training_config
@@ -190,4 +184,5 @@ let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
         [ dashboard (); train true; backend true; net false ] |> of_react "Fragment"
     | Training _ -> [ dashboard (); train false; backend false; net false ] |> of_react "Fragment"
   in
-  Reactjs.construct ~signal render
+  let unmount () = React.E.stop ~strong:true events in
+  Reactjs.construct ~signal ~unmount render

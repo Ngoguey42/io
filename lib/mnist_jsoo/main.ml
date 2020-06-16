@@ -72,7 +72,7 @@ let states_equal a b =
       else List.for_all2 tab_states_equal (Array.to_list tabstates) (Array.to_list tabstates')
 
 let construct_tab (db, gsignal, set_gsignal, fire_toast, i) =
-  Printf.printf "> Component - main/tab%d | construct\n%!" i;
+  Printf.printf "$  main/tab%d | construct\n%!" i;
   let tabshownsignal =
     gsignal
     |> React.S.fmap (function Loaded (_, j, _) -> Some j | _ -> None) 0
@@ -95,7 +95,7 @@ let construct_tab (db, gsignal, set_gsignal, fire_toast, i) =
   in
   let render _ =
     let open Reactjs.Jsx in
-    Printf.printf "> Component - main/tab%d | render\n%!" i;
+    Printf.printf "$$ main/tab%d | render\n%!" i;
     of_constructor Tab.construct_tab (db, tabshownsignal, i, signal, set_signal, fire_toast)
   in
   Reactjs.construct render
@@ -121,10 +121,12 @@ let jsx_of_tab ((_, gsignal, _, _, i) as props) =
   of_constructor construct_tab props >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
 
 let construct_mnist_jsoo _ =
-  Printf.printf "> Component - mnist_jsoo | construct\n%!";
-  let signal, set_signal = React.S.create ~eq:states_equal Loading in
+  Printf.printf "$  mnist_jsoo | construct\n%!";
+  let signal, set_signal = React.S.create ~eq:states_equal Loading
+                         (* collected on unmount *)
+  in
   let set_signal : state -> unit = set_signal in
-  let toast_signal, fire_toast, water_toast = Toasts.create_frp_primitives () in
+  let toast_signal, fire_toast, water_toast, unmount_toast = Toasts.create_frp_primitives () in
   let fire_toast : string * string -> unit = fire_toast in
 
   let fire_resources db = set_signal (Loaded (db, 0, [| Types.Creating_network |])) in
@@ -143,7 +145,7 @@ let construct_mnist_jsoo _ =
           set_signal (Loaded (db, i, tabstates))
   in
   let render _ =
-    Printf.printf "> Component - mnist_jsoo | render\n%!";
+    Printf.printf "$$ mnist_jsoo | render\n%!";
     let open Reactjs.Jsx in
     let toasts = of_constructor ~key:"toasts" Toasts.construct_toasts (toast_signal, water_toast) in
     let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
@@ -178,7 +180,10 @@ let construct_mnist_jsoo _ =
   in
 
   let mount () = favicon_routine signal in
-  Reactjs.construct ~signal ~mount render
+  let unmount () =
+    React.S.stop ~strong:true signal;
+    unmount_toast () in
+  Reactjs.construct ~signal ~mount ~unmount render
 
 let main () =
   let open Lwt.Infix in

@@ -195,7 +195,11 @@ let construct_dashboard
       tabshownsignal,
       tabsignal,
       tabevents ) =
-  Printf.printf "> Component - dashboard | construct\n%!";
+  Printf.printf "$  dashboard | construct\n%!";
+
+  let tabshownsignal = React.S.map Fun.id tabshownsignal in
+  let tabsignal = React.S.map Fun.id tabsignal in
+  let tabevents = React.E.map Fun.id tabevents in
 
   (* Create the Reactjs "reference" that will be used to bind the Plotly lib *)
   let plotly_ref = Reactjs.create_ref () in
@@ -208,7 +212,10 @@ let construct_dashboard
 
   (* Create various signals *)
   let routines_signal = create_routines_signal tabsignal tabevents in
-  let training_user_status, set_training_user_status = React.S.create `Train_to_end in
+  let training_user_status, set_training_user_status =
+    React.S.create `Train_to_end
+    (* collected on unmount *)
+  in
   let set_training_user_status : training_user_status -> unit = set_training_user_status in
   let test_set_sample_signal =
     tabevents
@@ -233,7 +240,7 @@ let construct_dashboard
   |> ignore;
 
   let render _ =
-    Printf.printf "> Dashboard | render\n%!";
+    Printf.printf "$$ dashboard | render\n%!";
     let open Reactjs.Jsx in
     let training_user_status = React.S.value training_user_status in
     let routine_status = React.S.value routines_signal in
@@ -254,9 +261,20 @@ let construct_dashboard
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
   let mount () =
+    Printf.printf "$$ dashboard | mount\n%!";
     match plotly_ref##.current |> Js.Opt.to_option with
     | None -> failwith "unreachable. React.ref failed"
     | Some elt -> Chart.routine elt tabshownsignal tabsignal tabevents
   in
+  let unmount () =
+    Printf.printf "$$ dashboard | unmount\n%!";
 
-  Reactjs.construct ~signal:routines_signal ~signal:test_set_sample_signal ~mount render
+    React.S.stop ~strong:true tabshownsignal;
+    React.S.stop ~strong:true tabsignal;
+    React.E.stop ~strong:true tabevents;
+    React.S.stop ~strong:true training_user_status
+    (* React.S.stop ~strong:true a; *)
+    (* ignore b; *)
+    (* ignore c; *)
+  in
+  Reactjs.construct ~signal:routines_signal ~signal:test_set_sample_signal ~mount ~unmount render

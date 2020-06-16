@@ -414,7 +414,7 @@ let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool)
 
 let construct_training_config : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
-  Printf.printf "> Component - network_creation | construct\n%!";
+  Printf.printf "$  network_creation | construct\n%!";
   let rconf_signal, update_rconf =
     React.S.create
       {
@@ -424,6 +424,7 @@ let construct_training_config : _ Reactjs.constructor =
         seed = Seed.default;
         optimizer_tag = Optimizer.default;
       }
+    (* collected on unmount *)
   in
 
   let dconf_signal = React.S.map dconf_of_rconf rconf_signal in
@@ -441,6 +442,7 @@ let construct_training_config : _ Reactjs.constructor =
   in
 
   let render (_, enabled) =
+    Printf.printf "$$ network_creation | render\n%!";
     let open Reactjs.Jsx in
     let dconf = React.S.value dconf_signal in
     let tt =
@@ -494,4 +496,5 @@ let construct_training_config : _ Reactjs.constructor =
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
 
-  Reactjs.construct ~signal:dconf_signal render
+  let unmount () = React.S.stop ~strong:true rconf_signal in
+  Reactjs.construct ~signal:dconf_signal ~unmount render

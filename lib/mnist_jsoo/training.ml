@@ -171,8 +171,14 @@ module Webworker_routine = struct
     type out_msg = _out_msg
 
     let create_on_in_message () =
-      let routine_events, fire_routine_event = React.E.create () in
-      let user_status, set_user_status = React.S.create `Train_to_end in
+      let routine_events, fire_routine_event =
+        React.E.create ()
+        (* collected when WW is stopped *)
+      in
+      let user_status, set_user_status =
+        React.S.create `Train_to_end
+        (* collected when WW is stopped *)
+      in
 
       routine_events |> React.E.map preprocess_out_msg |> React.E.map Ww.post_out_message |> ignore;
 
@@ -195,22 +201,28 @@ let routine (params : training_parameters) fire_upstream_event user_status =
   if not params.config.from_webworker then routine params fire_upstream_event user_status
   else
     (* 1. Create worker
-         2. Setup events and signals processing
-         3. Setup user_state in worker
-         4. Prime worker
+       2. Setup events and signals processing
+       3. Setup user_state in worker
+       4. Prime worker
     *)
+    let user_status = React.S.map Fun.id user_status in
+    let terminate ww =
+      Webworker_routine.terminate ww;
+      React.S.stop ~strong:true user_status
+    in
+
     let on_out_msg ww ev =
+      Printf.eprintf "> Training-ww (from main) - on_out_msg\n%!";
       match React.S.value user_status with
       | `Abort ->
           Firebug.console##warn (Js.string "Filtering out a message comming from training routine")
       | _ ->
           let ev = Webworker_routine.postprocess_out_msg ev in
-          ( match ev with
-          | `Init | `Batch_begin _ | `Batch_end _ -> ()
-          | `Outcome _ -> Webworker_routine.terminate ww );
+          (match ev with `Init | `Batch_begin _ | `Batch_end _ -> () | `Outcome _ -> terminate ww);
           fire_upstream_event ev
     in
     let on_out_error_msg ev =
+      Printf.eprintf "> Training-ww (from main) - on_out_error_msg\n%!";
       let msg =
         match
           ( (Js.Unsafe.coerce ev)##.msg |> Js.Optdef.to_option,
@@ -228,18 +240,21 @@ let routine (params : training_parameters) fire_upstream_event user_status =
           Firebug.console##warn (Js.string msg)
       | _ -> `Outcome (`Crash msg) |> fire_upstream_event
     in
-    let on_new_user_status ww = function
+    let on_new_user_status ww s =
+      Printf.eprintf "> Training-ww (from main) - on_new_user_status\n%!";
+      match s with
       | `Abort ->
+          Printf.eprintf "|||| Firing `Abort upstream\n%!";
           fire_upstream_event (`Outcome `Abort);
-          Webworker_routine.terminate ww
+          Printf.eprintf "|||| Terminating ww\n%!";
+          terminate ww
       | s -> Webworker_routine.post_in_message ww s
     in
 
     let ww = Webworker_routine.create on_out_msg on_out_error_msg in
 
-    user_status
-    |> React.S.map Webworker_routine.preprocess_in_msg
-    |> React.S.changes
+    user_status |> React.S.changes
+    |> React.E.map Webworker_routine.preprocess_in_msg
     |> React.E.map (on_new_user_status ww)
     |> ignore;
 

@@ -180,9 +180,8 @@ let dconf_of_rconf : raw_conf -> derived_conf =
 
 (* React components ***************************************************************************** *)
 let construct_int_input :
-    ((module INT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
-    Reactjs.constructor_ =
- fun ((module M), update_rconf, dconf_signal, _) ->
+    ((module INT) * ((raw_conf -> raw_conf) -> unit) * bool, derived_conf) Reactjs.constructor_s =
+ fun ~s0:dconf_signal ((module M), update_rconf, _) ->
   let signal = React.S.map M.string_of_dconf dconf_signal in
   let on_change ev =
     let newtxt = ev##.target##.value |> Js.to_string in
@@ -195,7 +194,7 @@ let construct_int_input :
           | v -> v |> M.update_rconf |> update_rconf
           | exception Failure _ -> () )
   in
-  let render (_, _, _, enabled) =
+  let render (_, _, enabled) =
     let open Reactjs.Jsx in
     let s = React.S.value signal in
     of_bootstrap "Form.Group"
@@ -209,9 +208,10 @@ let construct_int_input :
   Reactjs.construct ~signal render
 
 let construct_float_input :
-    ((module FLOAT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool * bool)
-    Reactjs.constructor_ =
- fun ((module M), update_rconf, dconf_signal, _, _) ->
+    ( (module FLOAT) * ((raw_conf -> raw_conf) -> unit) * bool * bool,
+      derived_conf )
+    Reactjs.constructor_s =
+ fun ~s0:dconf_signal ((module M), update_rconf, _, _) ->
   let signal = React.S.map M.string_of_dconf dconf_signal in
   let on_change ev =
     let newtxt = ev##.target##.value |> Js.to_string in
@@ -221,7 +221,7 @@ let construct_float_input :
       | v -> v |> M.update_rconf |> update_rconf
       | exception Failure _ -> ()
   in
-  let render (_, _, _, minimal, enabled) =
+  let render (_, _, minimal, enabled) =
     let open Reactjs.Jsx in
     let s = React.S.value signal in
     if minimal then
@@ -244,15 +244,14 @@ let construct_float_input :
   Reactjs.construct ~signal render
 
 let construct_select :
-    ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
-    Reactjs.constructor_ =
- fun ((module M), update_rconf, dconf_signal, _) ->
+    ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool, derived_conf) Reactjs.constructor_s =
+ fun ~s0:dconf_signal ((module M), update_rconf, _) ->
   let signal = React.S.map M.string_of_dconf dconf_signal in
   let on_change ev =
     let v = ev##.target##.value |> Js.to_string |> M.of_string in
     update_rconf (M.update_rconf v)
   in
-  let render (_, _, _, enabled) =
+  let render (_, _, enabled) =
     let open Reactjs.Jsx in
     let dconf = React.S.value dconf_signal in
     let s = React.S.value signal in
@@ -267,7 +266,7 @@ let construct_select :
       let md_span = 12 / List.length submodules in
       List.map
         (fun v ->
-          of_constructor construct_float_input (v, update_rconf, dconf_signal, true, enabled)
+          of_constructor_s construct_float_input ~s0:dconf_signal (v, update_rconf, true, enabled)
           >> of_bootstrap "Col" ~md_span)
         submodules
     in
@@ -327,8 +326,10 @@ let construct_training_config : _ Reactjs.constructor_ =
       >> of_bootstrap ~disabled:(not enabled) ~on_click "Button" ~type_:"submit" ~size:"lg"
       >> of_tag "div" ~style:[ ("display", "flex"); ("alignItems", "flex-end") ]
     in
-    let select m = of_constructor construct_select (m, update_rconf, dconf_signal, enabled) in
-    let input m = of_constructor construct_int_input (m, update_rconf, dconf_signal, enabled) in
+    let select m = of_constructor_s construct_select ~s0:dconf_signal (m, update_rconf, enabled) in
+    let input m =
+      of_constructor_s construct_int_input ~s0:dconf_signal (m, update_rconf, enabled)
+    in
     let tbody =
       [
         [ select (module Lr); button ]

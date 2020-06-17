@@ -46,21 +46,6 @@ let favicon_routine signal =
        | true -> link##.href := Js.string "images/ocaml_logo2_release_blue.svg")
   |> ignore
 
-let tab_states_equal a b =
-  let open Types in
-  match (a, b) with
-  | Creating_network, Creating_network -> true
-  | Creating_network, _ -> false
-  | Selecting_backend _, Selecting_backend _ -> true
-  | Selecting_backend _, _ -> false
-  | Evaluating _, Evaluating _ -> true
-  | Evaluating _, _ -> false
-  | Creating_training s, Creating_training s' ->
-      s.backend = s'.backend && s.from_webworker = s'.from_webworker
-  | Creating_training _, _ -> false
-  | Training _, Training _ -> true
-  | Training _, _ -> false
-
 let states_equal a b =
   match (a, b) with
   | Loading, Loading -> true
@@ -69,10 +54,11 @@ let states_equal a b =
   | Loaded (_, focusidx, _), Loaded (_, focusidx', _) when focusidx <> focusidx' -> false
   | Loaded (_, _, tabstates), Loaded (_, _, tabstates') ->
       if Array.length tabstates <> Array.length tabstates' then false
-      else List.for_all2 tab_states_equal (Array.to_list tabstates) (Array.to_list tabstates')
+      else List.for_all2 Tab_state.equal (Array.to_list tabstates) (Array.to_list tabstates')
 
-let construct_tab (db, gsignal, set_gsignal, fire_toast, i) =
+let construct_tab ~s0:gsignal (i, db, set_gsignal, fire_toast) =
   Printf.printf "$  main/tab%d | construct\n%!" i;
+
   let tabshownsignal =
     gsignal
     |> React.S.fmap (function Loaded (_, j, _) -> Some j | _ -> None) 0
@@ -80,10 +66,10 @@ let construct_tab (db, gsignal, set_gsignal, fire_toast, i) =
   in
   let signal =
     gsignal
-    |> React.S.map (function
+    |> Tab_state.S.map (function
          | Loading -> failwith "Unreachable. A tab constructed before loading"
          | Loaded (_, _, tabstates) -> tabstates.(i))
-    |> React.S.changes |> React.S.hold Creating_network
+    |> React.S.changes |> Tab_state.S.hold Creating_network
   in
   let set_signal s =
     match React.S.value gsignal with
@@ -94,13 +80,13 @@ let construct_tab (db, gsignal, set_gsignal, fire_toast, i) =
         set_gsignal (Loaded (db, focusidx, tabstates))
   in
   let render _ =
-    let open Reactjs.Jsx in
     Printf.printf "$$ main/tab%d | render\n%!" i;
-    of_constructor Tab.construct_tab (db, tabshownsignal, i, signal, set_signal, fire_toast)
+    let open Reactjs.Jsx in
+    of_constructor_ss Tab.construct_tab ~s0:signal ~s1:tabshownsignal (i, db, set_signal, fire_toast)
   in
   Reactjs.construct render
 
-let jsx_of_tab ((_, gsignal, _, _, i) as props) =
+let jsx_of_tab gsignal ((i, _, _, _) as main_props) =
   let open Reactjs.Jsx in
   let k = string_of_int i in
   let is_spinning =
@@ -118,11 +104,13 @@ let jsx_of_tab ((_, gsignal, _, _, i) as props) =
     else []
   in
   let title_jsx = of_react "Fragment" (of_string k :: spinner) in
-  of_constructor construct_tab props >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
+  of_constructor_s construct_tab ~s0:gsignal main_props
+  >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
 
-let construct_mnist_jsoo _ =
+let construct_mnist_jsoo () =
   Printf.printf "$  mnist_jsoo | construct\n%!";
   let signal, set_signal = React.S.create ~eq:states_equal Loading (* collected on unmount *) in
+
   let set_signal : state -> unit = set_signal in
   let toast_signal, fire_toast, water_toast, unmount_toast = Toasts.create_frp_primitives () in
   let fire_toast : string * string -> unit = fire_toast in
@@ -142,10 +130,12 @@ let construct_mnist_jsoo _ =
           let i = int_of_string k in
           set_signal (Loaded (db, i, tabstates))
   in
-  let render _ =
+  let render () =
     Printf.printf "$$ mnist_jsoo | render\n%!";
     let open Reactjs.Jsx in
-    let toasts = of_constructor ~key:"toasts" Toasts.construct_toasts (toast_signal, water_toast) in
+    let toasts =
+      of_constructor_s ~key:"toasts" Toasts.construct_toasts ~s0:toast_signal water_toast
+    in
     let res = of_constructor ~key:"res" Resources.construct_resources fire_resources in
     let tabs =
       (* The `Tab` elements must be direct children of `Tabs`. It won't work if anything is
@@ -160,7 +150,7 @@ let construct_mnist_jsoo _ =
           in
           let tabs =
             List.init (Array.length tabstates) (fun i ->
-                jsx_of_tab (db, signal, set_signal, fire_toast, i))
+                jsx_of_tab signal (i, db, set_signal, fire_toast))
           in
           let plus =
             of_bootstrap "Tab" ~title_jsx:(of_string "+" >> of_tag "b") ~event_key:"+" []

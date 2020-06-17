@@ -1,6 +1,7 @@
 open struct
   module Dom_html = Js_of_ocaml.Dom_html
   module Js = Js_of_ocaml.Js
+  module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 end
 
 (* Misc Types *********************************************************************************** *)
@@ -23,6 +24,8 @@ class type component_class = object end
 class type constructor_as_obj =
   object
     method component_class : component_class Js.t Js.optdef_prop
+
+    method name : Js.js_string Js.t Js.optdef_prop
   end
 
 (* User's component types *********************************************************************** *)
@@ -81,6 +84,9 @@ type ('main, 's0, 's1, 'e0, 'e1, 'constructor) props_package =
       ('main * 's0 React.signal)
       -> ('main, 's0, _, _, _, ('main, 's0) constructor_s) props_package
   | E : ('main * 'e0 React.event) -> ('main, _, _, 'e0, _, ('main, 'e0) constructor_e) props_package
+  | Ss :
+      ('main * 's0 React.signal * 's1 React.signal)
+      -> ('main, 's0, 's1, _, _, ('main, 's0, 's1) constructor_ss) props_package
   | Sse :
       ('main * 's0 React.signal * 's1 React.signal * 'e0 React.event)
       -> ('main, 's0, 's1, 'e0, _, ('main, 's0, 's1, 'e0) constructor_sse) props_package
@@ -117,19 +123,24 @@ class type ['main, 's0, 's1, 'e0, 'e1, 'constructor, 'key] component =
   end
 
 (* Helpers ************************************************************************************** *)
+let _name_of_function : 'constructor -> string option =
+ fun f -> Js.Unsafe.get f (Js.string "name") |> Js.Optdef.to_option |> Option.map Js.to_string
+
 let component_class_of_constructor :
     'constructor -> (unit -> component_class Js.t) -> component_class Js.t =
  fun constructor build_class ->
+  (* let n = _name_of_function constructor |> Option.value ~default:"noname" in *)
   let constructor : constructor_as_obj Js.t = Obj.magic constructor in
+
   match constructor##.component_class |> Js.Optdef.to_option with
-  | Some cls -> cls
+  | Some cls ->
+      (* Printf.eprintf "> component_class_of_constructor | Cache hit on %s\n%!" n; *)
+      cls
   | None ->
+      (* Printf.eprintf "> component_class_of_constructor | Cache miss on %s\n%!" n; *)
       let cls = build_class () in
       constructor##.component_class := cls;
       cls
-
-let _name_of_function : 'constructor -> string option =
- fun f -> Js.Unsafe.get f (Js.string "name") |> Js.Optdef.to_option |> Option.map Js.to_string
 
 external _create_component_class :
   (('main, 's0, 's1, 'e0, 'e1, 'constructor, 'key) component Js.t ->
@@ -143,7 +154,7 @@ let _of_constructor :
     type main s0 s1 e0 e1 constructor.
     constructor -> (main, s0, s1, e0, e1, constructor, 'key) props_holder Js.t -> jsx Js.t =
  fun constructor ->
-  let build_class () =
+  let build_class_on_cache_miss () =
     let prime_react_component :
         (main, s0, s1, e0, e1, constructor, 'key) component Js.t ->
         (main, s0, s1, e0, e1, constructor, 'key) props_holder Js.t ->
@@ -155,6 +166,7 @@ let _of_constructor :
         | Unit main -> constructor main
         | S (main, s0) -> constructor main ~s0
         | E (main, e0) -> constructor main ~e0
+        | Ss (main, s0, s1) -> constructor main ~s0 ~s1
         | Sse (main, s0, s1, e0) -> constructor main ~s0 ~s1 ~e0
         | Ssee (main, s0, s1, e0, e1) -> constructor main ~s0 ~s1 ~e0 ~e1
       in
@@ -167,22 +179,33 @@ let _of_constructor :
         | Unit main -> render main
         | S (main, _) -> render main
         | E (main, _) -> render main
+        | Ss (main, _, _) -> render main
         | Sse (main, _, _, _) -> render main
         | Ssee (main, _, _, _, _) -> render main
       in
       self##.ftJsRender := Js.wrap_callback render;
 
-      (* bind react primitives. they were all mapped to a single unit React.event *)
+      (* bind react primitives to reactjs states (they were all mapped to a single unit React.event
+         in `construct`.
+
+         Each time a primitive changes we don't update the component's state right away in order to
+         give time to Reactml to finish its React.step before some new rendering is triggered.
+         If several update are scheduled simultaneously we discard them all but the last one.
+      *)
       let count = ref 0 in
       let state_changes =
         let onchange () =
           incr count;
-          let o =
-            object%js
-              val revision = !count
-            end
-          in
-          self##setState o
+          let c = !count in
+          Lwt_js_events.async (fun () ->
+              ( if c = !count then
+                let o =
+                  object%js
+                    val revision = !count
+                  end
+                in
+                self##setState o );
+              Lwt.return ())
         in
         React.E.map onchange state_changes
       in
@@ -194,6 +217,9 @@ let _of_constructor :
         | Unit _ -> ()
         | S (_, s0) -> React.S.stop ~strong:true s0
         | E (_, e0) -> React.E.stop ~strong:true e0
+        | Ss (_, s0, s1) ->
+            React.S.stop ~strong:true s0;
+            React.S.stop ~strong:true s1
         | Sse (_, s0, s1, e0) ->
             React.S.stop ~strong:true s0;
             React.S.stop ~strong:true s1;
@@ -215,7 +241,7 @@ let _of_constructor :
     in
     _create_component_class (Js.wrap_callback prime_react_component) display_name
   in
-  let cls = component_class_of_constructor constructor build_class in
+  let cls = component_class_of_constructor constructor build_class_on_cache_miss in
   fun props_holder ->
     let open Js.Unsafe in
     fun_call global##._React##.createElement [| inject cls; inject props_holder |]
@@ -481,9 +507,9 @@ module Jsx = struct
       ('main, 'e0) constructor_e -> ?key:'key -> 'main -> e0:'e0 React.event -> jsx Js.t =
    fun constructor ?key main ~e0 ->
     let props_holder : _ props_holder Js.t =
-      let emap = React.E.map in
+      let emap s = React.E.map Fun.id s in
       object%js
-        val data = E (main, emap Fun.id e0)
+        val data = E (main, emap e0)
 
         val key = Js.Optdef.option key
       end
@@ -495,9 +521,28 @@ module Jsx = struct
       ('main, 's0) constructor_s -> ?key:'key -> 'main -> s0:'s0 React.signal -> jsx Js.t =
    fun constructor ?key main ~s0 ->
     let props_holder : _ props_holder Js.t =
-      let smap = React.S.map in
+      let smap s = React.S.map ~eq:( == ) Fun.id s in
       object%js
-        val data = S (main, smap Fun.id s0)
+        val data = S (main, smap s0)
+
+        val key = Js.Optdef.option key
+      end
+    in
+    _of_constructor constructor props_holder
+
+  (* Specialization of `of_constructor`. See `of_constructor_sse` *)
+  let of_constructor_ss :
+      ('main, 's0, 's1) constructor_ss ->
+      ?key:'key ->
+      'main ->
+      s0:'s0 React.signal ->
+      s1:'s1 React.signal ->
+      jsx Js.t =
+   fun constructor ?key main ~s0 ~s1 ->
+    let props_holder : _ props_holder Js.t =
+      let smap s = React.S.map ~eq:( == ) Fun.id s in
+      object%js
+        val data = Ss (main, smap s0, smap s1)
 
         val key = Js.Optdef.option key
       end
@@ -515,10 +560,10 @@ module Jsx = struct
       jsx Js.t =
    fun constructor ?key main ~s0 ~s1 ~e0 ->
     let props_holder : _ props_holder Js.t =
-      let smap = React.S.map in
-      let emap = React.E.map in
+      let smap s = React.S.map ~eq:( == ) Fun.id s in
+      let emap s = React.E.map Fun.id s in
       object%js
-        val data = Sse (main, smap Fun.id s0, smap Fun.id s1, emap Fun.id e0)
+        val data = Sse (main, smap s0, smap s1, emap e0)
 
         val key = Js.Optdef.option key
       end
@@ -533,6 +578,8 @@ module Jsx = struct
      Since React doesn't use a weak dict with Js_of_ocaml there is no automatic collection of
      FRP primitives, all collections must be manual. This function automatizes most of the process
      when using with Reactjs.
+
+     Using physical equality (==) for best perfs possible.
   *)
   let of_constructor_ssee :
       ('main, 's0, 's1, 'e0, 'e1) constructor_ssee ->
@@ -545,10 +592,10 @@ module Jsx = struct
       jsx Js.t =
    fun constructor ?key main ~s0 ~s1 ~e0 ~e1 ->
     let props_holder : _ props_holder Js.t =
-      let smap = React.S.map in
-      let emap = React.E.map in
+      let smap s = React.S.map ~eq:( == ) Fun.id s in
+      let emap s = React.E.map Fun.id s in
       object%js
-        val data = Ssee (main, smap Fun.id s0, smap Fun.id s1, emap Fun.id e0, emap Fun.id e1)
+        val data = Ssee (main, smap s0, smap s1, emap e0, emap e1)
 
         val key = Js.Optdef.option key
       end

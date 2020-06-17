@@ -51,7 +51,7 @@ let jsx_of_toast id (title, body) water_toast =
   let body = of_string body >> of_bootstrap "Toast.Body" in
   of_bootstrap "Toast" ~id ~on_close ~animation_bool:false [ header; body ]
 
-let construct_toasts (toast_signal, water_toast) =
+let construct_toasts ~s0:toast_signal water_toast =
   Printf.printf "$  toasts | construct\n%!";
   let render _ =
     Printf.printf "$$ toasts | render\n%!";

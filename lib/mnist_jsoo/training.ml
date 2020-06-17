@@ -102,7 +102,6 @@ let _routine { db = train_imgs, train_labs; networks = encoders, decoder; config
 
 let routine params fire_event instructions =
   let on_error exn =
-    Printf.eprintf "Error inside routine %s!\n%!" (Printexc.to_string exn);
     fire_event (`Outcome (`Crash (Printexc.to_string exn)));
     Lwt.return ()
   in
@@ -212,7 +211,6 @@ let routine (params : training_parameters) fire_upstream_event user_status =
     in
 
     let on_out_msg ww ev =
-      Printf.eprintf "> Training-ww (from main) - on_out_msg\n%!";
       match React.S.value user_status with
       | `Abort ->
           Firebug.console##warn (Js.string "Filtering out a message comming from training routine")
@@ -222,7 +220,6 @@ let routine (params : training_parameters) fire_upstream_event user_status =
           fire_upstream_event ev
     in
     let on_out_error_msg ev =
-      Printf.eprintf "> Training-ww (from main) - on_out_error_msg\n%!";
       let msg =
         match
           ( (Js.Unsafe.coerce ev)##.msg |> Js.Optdef.to_option,
@@ -241,12 +238,9 @@ let routine (params : training_parameters) fire_upstream_event user_status =
       | _ -> `Outcome (`Crash msg) |> fire_upstream_event
     in
     let on_new_user_status ww s =
-      Printf.eprintf "> Training-ww (from main) - on_new_user_status\n%!";
       match s with
       | `Abort ->
-          Printf.eprintf "|||| Firing `Abort upstream\n%!";
           fire_upstream_event (`Outcome `Abort);
-          Printf.eprintf "|||| Terminating ww\n%!";
           terminate ww
       | s -> Webworker_routine.post_in_message ww s
     in

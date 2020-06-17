@@ -3,10 +3,7 @@
   - Make first post about fnn
 
 - mnist-jsoo soon
-  1. Finish implementing all permutation of `Reactjs.of_constructor_*`
-  1. Use the new Reactjs of_constructor throughout the libs
   1. collect frp primitives in chart
-  1. Change color in firegrass to use the right red (what about the green?)
   1. Chart
      - Face improvements
        - Show somewhere the current amount of smoothing and max training points (and total number of training samples)
@@ -15,9 +12,6 @@
      - wontfix
        - Show both epoch count and image count in x-axis hover
   1. fix plotly version
-  1. in training configuration show
-     - how many images and epochs it corresponds to
-     - how many images and epochs we will reach
 
 
 - mnist-jsoo soon (bugs)
@@ -39,7 +33,10 @@
      - in network creation be able to choose flops alongside parameter count (one changes the other)
      - In chart, be able to plot by FLOP too
      - Show current FLOPS alongside time left (need forward+backward FLOP on each layer)
-
+   - Change color in firegrass to use the right red (what about the green?)
+   - in training configuration show
+     - how many images and epochs it corresponds to
+     - how many images and epochs we will reach
 
 - mnist-jsoo maybe
    - PR or issue `js_of_ocaml ErrorError##.msg -> ErrorError##.message`

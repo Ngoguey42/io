@@ -22,17 +22,16 @@ let tab_states_reducer signal set_signal fire_toast =
 
   let reduce : tab_event -> tab_state -> tab_state =
    fun ev s ->
-    Printf.eprintf "> Tab fold\n%!";
-    print_endline (show_tab_state s);
-    print_endline (show_tab_event ev);
+    (* Printf.eprintf "> Tab reduce\n%!"; *)
+    (* print_endline (show_tab_state s); *)
+    (* print_endline (show_tab_event ev); *)
     match (s, ev) with
     | Creating_network, Network_made ev ->
         (* Just created network. Very first event *)
         Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
     | Selecting_backend s, Backend_selected (backend, from_webworker) ->
         (* Selected backend for the first time, can select it again later *)
-        let config = { backend; from_webworker; verbose = true; batch_size = 5000 } in
-        (* TODO: RESTORE BATCH SIZE *)
+        let config = { backend; from_webworker; verbose = false; batch_size = 500 } in
         Evaluating
           {
             old = None;
@@ -107,8 +106,8 @@ let tab_states_reducer signal set_signal fire_toast =
           {
             backend = s.backend;
             from_webworker = s.from_webworker;
-            verbose = true;
-            batch_size = 5000 (* TODO: RESTORE BATCH SIZE *);
+            verbose = false;
+            batch_size = 500;
           }
         in
         Evaluating
@@ -143,7 +142,7 @@ let tab_states_reducer signal set_signal fire_toast =
   React.E.map (fun ev -> set_signal (reduce ev (React.S.value signal))) events |> ignore;
   (events, fire_event)
 
-let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
+let construct_tab ~s0:signal ~s1:tabshownsignal (tabidx, db, set_signal, fire_toast) =
   Printf.printf "$  tab%d | construct\n%!" tabidx;
   let events, fire_event = tab_states_reducer signal set_signal fire_toast in
   let fire_network_made (encoder, decoder, seed) =
@@ -158,6 +157,7 @@ let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
 
   let render _ =
     Printf.printf "$$ tab%d | render\n%!" tabidx;
+
     let open Reactjs.Jsx in
     let net enabled =
       of_constructor ~key:"net" Network_construction.construct_training_config
@@ -168,9 +168,9 @@ let construct_tab (db, tabshownsignal, tabidx, signal, set_signal, fire_toast) =
         (fire_backend_selected, tabidx, enabled)
     in
     let dashboard () =
-      of_constructor_sse ~key:"res" Dashboard.construct_dashboard
+      of_constructor_sse ~key:"res" Dashboard.construct_dashboard ~s0:signal ~s1:tabshownsignal
+        ~e0:events
         (db, fire_training_event, fire_evaluation_event)
-        ~s0:tabshownsignal ~s1:signal ~e0:events
     in
     let train enabled =
       of_constructor ~key:"train" Training_configuration.construct_training_config

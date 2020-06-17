@@ -218,8 +218,7 @@ let create_download_procedure fire_upstream_event =
   in
   (events, launch)
 
-let construct_resources_row : _ Reactjs.constructor_ =
- fun (entry, procedure_events) ->
+let construct_resources_row ~e0:procedure_events entry =
   let name = name_of_entry entry in
   let description = description_of_entry entry in
   let urls = urls_of_entry entry in
@@ -297,7 +296,8 @@ let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Re
     let entries = List.map fst dependencies in
     let tails =
       List.map
-        (fun entry -> of_constructor ~key:entry construct_resources_row (entry, procedure_events))
+        (fun entry ->
+          of_constructor_e ~key:entry construct_resources_row ~e0:procedure_events entry)
         entries
     in
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm"

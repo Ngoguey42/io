@@ -175,6 +175,32 @@ type tab_state =
     }
 [@@deriving show]
 
+module Tab_state = struct
+  let equal a b =
+    match (a, b) with
+    | Creating_network, Creating_network -> true
+    | Creating_network, _ -> false
+    | Selecting_backend _, Selecting_backend _ -> true
+    | Selecting_backend _, _ -> false
+    | Evaluating s, Evaluating s' -> s.images_seen = s'.images_seen
+    | Evaluating _, _ -> false
+    | Creating_training s, Creating_training s' ->
+        s.backend = s'.backend
+        && s.from_webworker = s'.from_webworker
+        && s.images_seen = s'.images_seen
+    | Creating_training _, _ -> false
+    | Training s, Training s' -> s.images_seen = s'.images_seen
+    | Training _, _ -> false
+
+  module Eq = struct
+    type _ t = tab_state
+
+    let equal = equal
+  end
+
+  module S = React.S.Make (Eq)
+end
+
 type tab_event =
   | Network_made of { encoder : Fnn.network; [@opaque] decoder : Fnn.network; [@opaque] seed : int }
   | Backend_selected of (backend * bool)

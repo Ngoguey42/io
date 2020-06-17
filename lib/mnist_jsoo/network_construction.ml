@@ -360,9 +360,8 @@ let dconf_of_rconf : raw_conf -> derived_conf =
 
 (* React components ***************************************************************************** *)
 let construct_int_input :
-    ((module INT) * ((raw_conf -> raw_conf) -> unit) * derived_conf React.signal * bool)
-    Reactjs.constructor_ =
- fun ((module M), update_rconf, dconf_signal, _) ->
+    ((module INT) * ((raw_conf -> raw_conf) -> unit) * bool, derived_conf) Reactjs.constructor_s =
+ fun ~s0:dconf_signal ((module M), update_rconf, _) ->
   let signal = React.S.map M.of_dconf dconf_signal in
   let on_change ev =
     let newtxt = ev##.target##.value |> Js.to_string in
@@ -375,7 +374,7 @@ let construct_int_input :
           | v -> v |> M.update_rconf |> update_rconf
           | exception Failure _ -> () )
   in
-  let render (_, _, _, enabled) =
+  let render (_, _, enabled) =
     let open Reactjs.Jsx in
     let v = React.S.value signal in
     of_bootstrap "Form.Group"
@@ -475,7 +474,7 @@ let construct_training_config : _ Reactjs.constructor_ =
       >> of_bootstrap "Col" ~xs_span:12 ~xs_order ~md_span:6 ~md_order
     in
     let input m xs_order md_order =
-      of_constructor construct_int_input (m, update_rconf, dconf_signal, enabled)
+      of_constructor_s construct_int_input ~s0:dconf_signal (m, update_rconf, enabled)
       >> of_bootstrap "Col" ~xs_span:12 ~xs_order ~md_span:6 ~md_order
     in
     let tbody =

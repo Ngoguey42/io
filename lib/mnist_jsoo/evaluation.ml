@@ -43,13 +43,11 @@ let repair_storable_nn : 'a -> 'a =
 
 let _routine { db; encoder; decoder; config = { verbose; batch_size; backend; _ } } fire_event =
   let main () =
-    Printf.eprintf "> Eval._routine | main go\n%!";
     let module Backend = (val Backend.create backend) in
     let yield_sleep_length = if Ft_js.Webworker.is_web_worker then 0. else 0.01 in
     Backend.eval ~fire_event ~verbose ~yield_sleep_length ~batch_size ~db ~encoder ~decoder
   in
   let on_error exn =
-    Printf.eprintf "> Eval._routine | on_error, fire `Crash\n%!";
     fire_event (`Outcome (`Crash (Printexc.to_string exn)));
     Lwt.return ()
   in
@@ -130,13 +128,11 @@ let routine params fire_upstream_event =
   if not params.config.from_webworker then _routine params fire_upstream_event
   else
     let on_out_msg ww ev =
-      Printf.eprintf "> Eval-ww (from main) - on_out_msg\n%!";
       let ev = ev |> Webworker_routine.postprocess_out_msg in
       (match ev with `Outcome _ -> Webworker_routine.terminate ww | _ -> ());
       fire_upstream_event ev
     in
     let on_out_error_msg ev =
-      Printf.eprintf "> Eval-ww (from main) - on_out_error_msg\n%!";
       let ev =
         match
           ( (Js.Unsafe.coerce ev)##.msg |> Js.Optdef.to_option,

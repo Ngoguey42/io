@@ -102,10 +102,9 @@ let routine elt tab_shown_signal tabsignal tabevents =
   (* Step 2 - Create signals reflecting the status of raw_data *)
   let data_rid_signal =
     let fold ((train_count, test_count) as acc) (s, ev) =
-      Printf.eprintf "> Dashboard fold\n%!";
-      print_endline (show_tab_state s);
-      print_endline (show_tab_event ev);
-
+      (* Printf.eprintf "> Chart fold\n%!"; *)
+      (* print_endline (show_tab_state s); *)
+      (* print_endline (show_tab_event ev); *)
       match (s, ev) with
       | ( Training { images_seen; config = { batch_size; _ }; _ },
           Training_event (`Batch_end (batch_idx, stats)) ) ->

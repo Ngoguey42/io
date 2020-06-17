@@ -63,13 +63,13 @@ let t0 =
 <h2>JSX</h2>
 <p>
    <cite>Reactjs</cite> defines a very convenient syntax extension called <cite>JSX</cite> to
-   help <code>render</code> functions look like HTML. This syntax hides
+   help make <code>render</code> functions look like HTML. This syntax hides
    calls to <cite>React.createElement</cite> that can be called from <cite>Js_of_ocaml</cite>.
    The <code>Reactjs.Jsx</code> module of this wrapper provides several high level functions above
    <cite>React.createElement</cite>.
 </p>
 <p>
-   This table lists some correspondences between JSX and the OCaml wrapper.
+   This table lists some correspondences between <cite>JSX</cite> and the OCaml wrapper.
 </p>
 <table class="fttable">
 <thead><tr>
@@ -139,12 +139,13 @@ let t0 =
 </p>
 
 <p>
-  Both can be instanciated into a <cite>JSX</cite> object using <code>Reactjs.of_constructor</code>.
+  Both can be instanciated into <cite>JSX</cite> objects using <code>Reactjs.of_constructor</code>.
 </p>
 
 <p>
-   A <code>React.event</code> is created and transformed to a signal using
-   <code>React.S.accum</code>. Many other operations are available in <cite>React(ml)</cite>
+   In this exemple a <code>React.event</code> is created and transformed to a
+   <code>React.signal</code> using <code>React.S.accum</code>.
+   Many other operations are available in <cite>React(ml)</cite>
    to transform and create primitives (i.e. signal / event). Take a look at the documentation
    <a href="https://erratique.ch/software/react">https://erratique.ch/software/react</a>.
 </p>
@@ -163,8 +164,8 @@ let t1 =
 <h2><cite>React(ml)</cite> Garbage Collection</h2>
 
 <p>
-   In the previous example the <code>operation_events</code> value is explicitly collected in the
-   <code>unmount</code> callback.
+   In the previous example the <code>operation_events</code> value is explicitly collected inside
+   the <code>unmount</code> callback.
    In general when using <cite>React(ml)</cite> with <cite>Js_of_ocaml</cite>, all primitives must
    be explicitly collected.
    The reason is because <cite>React(ml)</cite> internally relies on
@@ -176,7 +177,7 @@ let t1 =
    offer a way to automatically collect the input primitives to a component when
    <cite>unmount</cite> is fired by <cite>Reactjs</cite>.
    This will trigger the garbage collection of most of the primitives created in a component
-   while preserving the original input primitives if they are still in use elsewhere.
+   while preserving the original input primitives integrity if they are still in use elsewhere.
 </p>
 <p>
    More formally, if the component <code>a</code> creates two components <code>b</code> and
@@ -194,7 +195,7 @@ let t1 =
 
 <h2>GC Example</h2>
 <p>
-   This example highlights the leak occuring inside the
+   This example highlights a leak occuring inside the
    <code>leaking_head (queries, answer)</code> constructor versus the leak-free
    <code>safe_head ~e0:queries answer</code> constructor.
 </p>

@@ -119,18 +119,16 @@ let t0 =
 </p>
 <p>
    In order to ensure the proper typing of <code>props</code> and preserve <cite>Reactjs</cite>'s
-   behavior regarding components' hierarchy, some <cite>weak dicts</cite> and <cite>magic</cite> is
-   required under the hood.
+   behavior regarding components' hierarchy, some <cite>magic</cite> is required under the hood.
 </p>
 
-<h2>Example</h2>
+<h2>Simple Example</h2>
 <p>
   Two components are defined in this example.
 </p>
 
 <p>
-  The one above is a stateless component that only defines a render function. It looks a lot like
-  <cite>Reactjs</cite>'s <cite>hooks</cite>.
+  The one above is a stateless component that only defines a render function.
 </p>
 
 <p>
@@ -141,7 +139,7 @@ let t0 =
 </p>
 
 <p>
-  Both can instanciated into a <cite>JSX</cite> object using <code>Reactjs.of_constructor</code>.
+  Both can be instanciated into a <cite>JSX</cite> object using <code>Reactjs.of_constructor</code>.
 </p>
 
 <p>
@@ -158,11 +156,64 @@ let t0 =
    and a callback to update the state (<code>fire_operation</code>) is passed to the child components
    through the <cite>props</cite>.
 <p>
+|}
 
+let t1 =
+  {|
+<h2><cite>React(ml)</cite> Garbage Collection</h2>
+
+<p>
+   In the previous example the <code>operation_events</code> value is explicitly collected in the
+   <code>unmount</code> callback.
+   In general when using <cite>React(ml)</cite> with <cite>Js_of_ocaml</cite>, all primitives must
+   be explicitly collected.
+   The reason is because <cite>React(ml)</cite> internally relies on
+   OCaml's <cite>weak hash tables</cite> to ensure proper garbage collection which is currently
+   implemented with regular <cite>hash tables</cite> in <cite>Js_of_ocaml</cite>.
+</p>
+<p>
+   To help in this tedious process the <code>of_constructor_*</code> functions
+   offer a way to automatically collect the input primitives to a component when
+   <cite>unmount</cite> is fired by <cite>Reactjs</cite>.
+   This will trigger the garbage collection of most of the primitives created in a component
+   while preserving the original input primitives if they are still in use elsewhere.
+</p>
+<p>
+   More formally, if the component <code>a</code> creates two components <code>b</code> and
+   <code>c</code> and sends them the same primitive <code>pa</code>, the wrapper will not
+   directly pass <code>pa</code> to <code>b</code> but a copy <code>pa'</code> of
+   <code>pa</code>. When <code>b</code> unmounts, <code>pa'</code> will be automatically collected
+   which will trigger the collection of
+   all the other primitives created by <code>b</code> that only depends on <code>pa'</code>.
+   <code>pa</code> will survive this collection since it is still in use by <code>c</code>.
+</p>
+<p>
+   The other primitives created by calls to <code>React.S.create</code> and
+   <code>React.E.create</code> still have to be manually collected.
+</p>
+
+<h2>GC Example</h2>
+<p>
+   This example highlights the leak occuring inside the
+   <code>leaking_head (queries, answer)</code> constructor versus the leak-free
+   <code>safe_head ~e0:queries answer</code> constructor.
+</p>
+<p>
+   For typing concerns, <code>safe_head</code> has to be instanciated using the
+   <code>of_constructor_e</code> function. Several other permutations are available such as
+   <code>of_constructor_ssee</code> for a constructor with the following type:
+</p>
+<pre><code id="type0" class="language-ocaml">s0:'s0 React.signal ->
+s1:'s1 React.signal ->
+e0:'e0 React.event ->
+e1:'e1 React.event ->
+'main_props ->
+'main_props construction</code></pre>
 |}
 
 let construct_reactjs_article () =
   Printf.printf "> Component - reactjs_article | construct\n%!";
+  let ref0 = Reactjs.create_ref () in
   let render () =
     let open Reactjs.Jsx in
     Printf.printf "> Component - reactjs_article | render\n%!";
@@ -172,23 +223,32 @@ let construct_reactjs_article () =
       [ head; body ] |> of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm"
     in
 
-    let snip_jsx = of_constructor Reactjs_ex0.construct_component () in
-    let snip_code = of_constructor Misc.construct_article_code "reactjs_ex0.ml" in
+    let snip_jsx0 = of_constructor Reactjs_ex0.construct_component () in
+    let snip_code0 = of_constructor Misc.construct_article_code "reactjs_ex0.ml" in
+    let snip_jsx1 = of_constructor Reactjs_ex1.construct_component () in
+    let snip_code1 = of_constructor Misc.construct_article_code "reactjs_ex1.ml" in
 
     let box =
       [
         of_tag "h1" [ of_string "Reactjs wrapper" ];
         of_tag "div" ~inner_html:t0 [];
-        to_table "Example: Code" snip_code;
-        to_table "Example: Result" snip_jsx;
+        to_table "Simple Example: Code" snip_code0;
+        to_table "Simple Example: Result" snip_jsx0;
+        of_tag "div" ~inner_html:t1 ~ref:ref0 [];
+        to_table "GC Example: Code" snip_code1;
+        to_table "GC Example: Result" snip_jsx1;
       ]
       |> of_bootstrap "Col" >> of_bootstrap "Row"
       >> of_bootstrap "Container" ~fluid:true ~classes:[ "bigbox1" ]
     in
     of_react "Fragment" [ box ]
   in
-
-  Reactjs.construct render
+  let mount () =
+    let ( >|= ) opt f = Js.Opt.iter opt f in
+    ref0##.current >|= fun elt ->
+    elt##querySelector (Js.string "#type0") >|= fun elt -> Misc.highlight_element elt
+  in
+  Reactjs.construct ~mount render
 
 let main () =
   let open Lwt.Infix in

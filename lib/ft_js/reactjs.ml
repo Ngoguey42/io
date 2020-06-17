@@ -77,6 +77,10 @@ type ('main_props, 's0_prop, 's1_prop, 'e0_prop, 'e1_prop) constructor_ssee =
 
 type ('main, 's0, 's1, 'e0, 'e1, 'constructor) props_package =
   | Unit : 'main -> ('main, _, _, _, _, 'main constructor_) props_package
+  | S :
+      ('main * 's0 React.signal)
+      -> ('main, 's0, _, _, _, ('main, 's0) constructor_s) props_package
+  | E : ('main * 'e0 React.event) -> ('main, _, _, 'e0, _, ('main, 'e0) constructor_e) props_package
   | Sse :
       ('main * 's0 React.signal * 's1 React.signal * 'e0 React.event)
       -> ('main, 's0, 's1, 'e0, _, ('main, 's0, 's1, 'e0) constructor_sse) props_package
@@ -149,6 +153,8 @@ let _of_constructor :
       let render, mount, update, unmount, state_changes =
         match props_holder##.data with
         | Unit main -> constructor main
+        | S (main, s0) -> constructor main ~s0
+        | E (main, e0) -> constructor main ~e0
         | Sse (main, s0, s1, e0) -> constructor main ~s0 ~s1 ~e0
         | Ssee (main, s0, s1, e0, e1) -> constructor main ~s0 ~s1 ~e0 ~e1
       in
@@ -159,6 +165,8 @@ let _of_constructor :
       let render () =
         match self##.props##.data with
         | Unit main -> render main
+        | S (main, _) -> render main
+        | E (main, _) -> render main
         | Sse (main, _, _, _) -> render main
         | Ssee (main, _, _, _, _) -> render main
       in
@@ -184,6 +192,8 @@ let _of_constructor :
         React.E.stop ~strong:true state_changes;
         ( match props_holder##.data with
         | Unit _ -> ()
+        | S (_, s0) -> React.S.stop ~strong:true s0
+        | E (_, e0) -> React.E.stop ~strong:true e0
         | Sse (_, s0, s1, e0) ->
             React.S.stop ~strong:true s0;
             React.S.stop ~strong:true s1;
@@ -460,6 +470,34 @@ module Jsx = struct
     let props_holder : _ props_holder Js.t =
       object%js
         val data = Unit main
+
+        val key = Js.Optdef.option key
+      end
+    in
+    _of_constructor constructor props_holder
+
+  (* Specialization of `of_constructor`. See `of_constructor_ssee` *)
+  let of_constructor_e :
+      ('main, 'e0) constructor_e -> ?key:'key -> 'main -> e0:'e0 React.event -> jsx Js.t =
+   fun constructor ?key main ~e0 ->
+    let props_holder : _ props_holder Js.t =
+      let emap = React.E.map in
+      object%js
+        val data = E (main, emap Fun.id e0)
+
+        val key = Js.Optdef.option key
+      end
+    in
+    _of_constructor constructor props_holder
+
+  (* Specialization of `of_constructor`. See `of_constructor_ssee` *)
+  let of_constructor_s :
+      ('main, 's0) constructor_s -> ?key:'key -> 'main -> s0:'s0 React.signal -> jsx Js.t =
+   fun constructor ?key main ~s0 ->
+    let props_holder : _ props_holder Js.t =
+      let smap = React.S.map in
+      object%js
+        val data = S (main, smap Fun.id s0)
 
         val key = Js.Optdef.option key
       end

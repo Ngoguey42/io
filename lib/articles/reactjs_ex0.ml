@@ -42,5 +42,6 @@ let construct_component () =
     in
     [ value; buttons ] |> of_tag "div" ~style:[ ("textAlign", "center") ]
   in
-  Reactjs.construct ~signal:value_signal render
+  let unmount () = React.E.stop ~strong:true operation_events in
+  Reactjs.construct ~signal:value_signal ~unmount render
 (* snip-after *)

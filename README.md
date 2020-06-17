@@ -1,9 +1,6 @@
 # TODO
 - blog
-  - Update reactjs post about garbage collection
-  - Update reactjs post. no more weak dict
   - Make first post about fnn
-
 
 - mnist-jsoo soon
   1. Finish implementing all permutation of `Reactjs.of_constructor_*`

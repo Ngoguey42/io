@@ -56,4 +56,5 @@ perspectives:
   "21":
     - [ lib/articles/dune, lib/articles/articles.ml, lib/articles/misc.ml ]
   "24":
-    - [ reactjs-wrapper.html, lib/articles/reactjs_snip.ml, lib/articles/reactjs_ex0.ml ]
+    - [reactjs-wrapper.html, lib/articles/a0_reactjs_wrapper.ml, lib/articles/reactjs_ex1.ml]
+    - [lib/articles/reactjs_ex0.ml, <up>, <up>]

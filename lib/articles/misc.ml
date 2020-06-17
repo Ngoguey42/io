@@ -12,12 +12,31 @@ open struct
   module Lwt_js_events = Js_of_ocaml_lwt.Lwt_js_events
 end
 
-let turn_off_value_keyword code_elt =
+let turn_off_extraneous_value code_elt =
   let nodes = code_elt##querySelectorAll (Js.string ".hljs-keyword") in
   List.init nodes##.length (fun i -> nodes##item i |> Js.Opt.to_option |> Option.to_list)
   |> List.concat
   |> List.filter (fun elt -> elt##.innerHTML = Js.string "value")
   |> List.iter (fun elt -> elt##.classList##remove (Js.string "hljs-keyword"))
+
+let turn_off_extraneous_int code_elt =
+  let nodes = code_elt##querySelectorAll (Js.string ".hljs-built_in") in
+  List.init nodes##.length (fun i -> nodes##item i |> Js.Opt.to_option |> Option.to_list)
+  |> List.concat
+  |> List.filter (fun elt -> elt##.innerHTML = Js.string "int")
+  |> List.filter (fun elt ->
+         match elt##.previousSibling |> Js.Opt.to_option with
+         | None -> false
+         | Some node -> (
+             match node##.nodeValue |> Js.Opt.to_option with
+             | None -> false
+             | Some v -> v = Js.string "." ))
+  |> List.iter (fun elt -> elt##.classList##remove (Js.string "hljs-built_in"))
+
+let highlight_element elt =
+  Js.Unsafe.global##.hljs##highlightBlock elt |> ignore;
+  turn_off_extraneous_value elt;
+  turn_off_extraneous_int elt
 
 let construct_article_code filename =
   let signal, set_signal = React.S.create `Loading in
@@ -71,8 +90,6 @@ let construct_article_code filename =
   let update () =
     match code_ref##.current |> Js.Opt.to_option with
     | None -> ()
-    | Some elt ->
-        Js.Unsafe.global##.hljs##highlightBlock elt |> ignore;
-        turn_off_value_keyword elt
+    | Some elt -> highlight_element elt
   in
   Reactjs.construct ~signal ~mount ~update render

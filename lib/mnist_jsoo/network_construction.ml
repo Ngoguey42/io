@@ -413,7 +413,7 @@ let construct_select :
 
 let construct_training_config : _ Reactjs.constructor_ =
  fun (fire_upstream_event, _) ->
-  Printf.printf "$  network_creation | construct\n%!";
+  Debug.on_construct "network_creation";
   let rconf_signal, update_rconf =
     React.S.create
       {
@@ -441,7 +441,7 @@ let construct_training_config : _ Reactjs.constructor_ =
   in
 
   let render (_, enabled) =
-    Printf.printf "$$ network_creation | render\n%!";
+    Debug.on_render "network_creation";
     let open Reactjs.Jsx in
     let dconf = React.S.value dconf_signal in
     let tt =
@@ -496,7 +496,7 @@ let construct_training_config : _ Reactjs.constructor_ =
   in
 
   let unmount () =
-    Printf.printf " $ network_creation | unmount\n%!";
+    Debug.on_unmount "network_creation";
     React.S.stop ~strong:true rconf_signal
   in
   Reactjs.construct ~signal:dconf_signal ~unmount render

@@ -31,7 +31,7 @@ let tab_states_reducer signal set_signal fire_toast =
         Selecting_backend { encoder = ev.encoder; decoder = ev.decoder; seed = ev.seed }
     | Selecting_backend s, Backend_selected (backend, from_webworker) ->
         (* Selected backend for the first time, can select it again later *)
-        let config = { backend; from_webworker; verbose = false; batch_size = 500 } in
+        let config = { backend; from_webworker; verbose = Debug.verbose_test; batch_size = 500 } in
         Evaluating
           {
             old = None;
@@ -85,7 +85,7 @@ let tab_states_reducer signal set_signal fire_toast =
                 batch_count = ev.batch_count;
                 seed = s.seed;
                 images_seen = s.images_seen;
-                verbose = false;
+                verbose = Debug.verbose_train;
               };
             backend = s.backend;
             from_webworker = s.from_webworker;
@@ -106,7 +106,7 @@ let tab_states_reducer signal set_signal fire_toast =
           {
             backend = s.backend;
             from_webworker = s.from_webworker;
-            verbose = false;
+            verbose = Debug.verbose_test;
             batch_size = 500;
           }
         in
@@ -143,7 +143,7 @@ let tab_states_reducer signal set_signal fire_toast =
   (events, fire_event)
 
 let construct_tab ~s0:signal ~s1:tabshownsignal (tabidx, db, set_signal, fire_toast) =
-  Printf.printf "$  tab%d | construct\n%!" tabidx;
+  Debug.on_construct ("tab" ^ string_of_int tabidx);
   let events, fire_event = tab_states_reducer signal set_signal fire_toast in
   let fire_network_made (encoder, decoder, seed) =
     Network_made { encoder; decoder; seed } |> fire_event
@@ -156,7 +156,7 @@ let construct_tab ~s0:signal ~s1:tabshownsignal (tabidx, db, set_signal, fire_to
   in
 
   let render _ =
-    Printf.printf "$$ tab%d | render\n%!" tabidx;
+    Debug.on_render ("tab" ^ string_of_int tabidx);
 
     let open Reactjs.Jsx in
     let net enabled =
@@ -186,7 +186,7 @@ let construct_tab ~s0:signal ~s1:tabshownsignal (tabidx, db, set_signal, fire_to
     | Training _ -> [ dashboard (); train false; backend false; net false ] |> of_react "Fragment"
   in
   let unmount () =
-    Printf.printf " $ tab%d | unmount\n%!" tabidx;
+    Debug.on_unmount ("tab" ^ string_of_int tabidx);
     React.E.stop ~strong:true events
   in
   Reactjs.construct ~signal ~unmount render

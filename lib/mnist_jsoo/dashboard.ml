@@ -190,7 +190,7 @@ let jsx_of_test_set_sample test_set_sample_urls probas =
 
 let construct_dashboard ~s0:tabsignal ~s1:tabshownsignal ~e0:tabevents
     ((traini, trainl, testi, testl), fire_training_event, fire_evaluation_event) =
-  Printf.printf "$  dashboard | construct\n%!";
+  Debug.on_construct "dashboard";
 
   (* Create the Reactjs "reference" that will be used to bind the Plotly lib *)
   let plotly_ref = Reactjs.create_ref () in
@@ -231,7 +231,7 @@ let construct_dashboard ~s0:tabsignal ~s1:tabshownsignal ~e0:tabevents
   |> ignore;
 
   let render _ =
-    Printf.printf "$$ dashboard | render\n%!";
+    Debug.on_render "dashboard";
     let open Reactjs.Jsx in
     let training_user_status = React.S.value training_user_status in
     let routine_status = React.S.value routines_signal in
@@ -252,14 +252,14 @@ let construct_dashboard ~s0:tabsignal ~s1:tabshownsignal ~e0:tabevents
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
   let mount () =
-    Printf.printf " $ dashboard | mount\n%!";
+    Debug.on_mount "dashboard";
     let collect_chart =
       match plotly_ref##.current |> Js.Opt.to_option with
       | None -> failwith "unreachable. React.ref failed"
       | Some elt -> Chart.routine elt tabshownsignal tabsignal tabevents
     in
     fun () ->
-      Printf.printf " $ dashboard | unmount\n%!";
+      Debug.on_unmount "dashboard";
       React.S.stop ~strong:true training_user_status;
       collect_chart ()
   in

@@ -52,9 +52,9 @@ let jsx_of_toast id (title, body) water_toast =
   of_bootstrap "Toast" ~id ~on_close ~animation_bool:false [ header; body ]
 
 let construct_toasts ~s0:toast_signal water_toast =
-  Printf.printf "$  toasts | construct\n%!";
+  Debug.on_construct "toasts";
   let render _ =
-    Printf.printf "$$ toasts | render\n%!";
+    Debug.on_render "toasts";
     let open Reactjs.Jsx in
     toast_signal |> React.S.value
     |> List.map (fun (id, data) -> jsx_of_toast id data water_toast)

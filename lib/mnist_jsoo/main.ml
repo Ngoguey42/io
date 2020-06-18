@@ -57,7 +57,7 @@ let states_equal a b =
       else List.for_all2 Tab_state.equal (Array.to_list tabstates) (Array.to_list tabstates')
 
 let construct_tab ~s0:gsignal (i, db, set_gsignal, fire_toast) =
-  Printf.printf "$  main/tab%d | construct\n%!" i;
+  Debug.on_construct ("main/tab" ^ string_of_int i);
 
   let tabshownsignal =
     gsignal
@@ -80,7 +80,7 @@ let construct_tab ~s0:gsignal (i, db, set_gsignal, fire_toast) =
         set_gsignal (Loaded (db, focusidx, tabstates))
   in
   let render _ =
-    Printf.printf "$$ main/tab%d | render\n%!" i;
+    Debug.on_render ("main/tab" ^ string_of_int i);
     let open Reactjs.Jsx in
     of_constructor_ss Tab.construct_tab ~s0:signal ~s1:tabshownsignal (i, db, set_signal, fire_toast)
   in
@@ -108,7 +108,7 @@ let jsx_of_tab gsignal ((i, _, _, _) as main_props) =
   >> of_bootstrap "Tab" ~title_jsx ~event_key:k ~key:k
 
 let construct_mnist_jsoo () =
-  Printf.printf "$  mnist_jsoo | construct\n%!";
+  Debug.on_construct "mnist_jsoo";
   let signal, set_signal = React.S.create ~eq:states_equal Loading (* collected on unmount *) in
 
   let set_signal : state -> unit = set_signal in
@@ -131,7 +131,7 @@ let construct_mnist_jsoo () =
           set_signal (Loaded (db, i, tabstates))
   in
   let render () =
-    Printf.printf "$$ mnist_jsoo | render\n%!";
+    Debug.on_render "mnist_jsoo";
     let open Reactjs.Jsx in
     let toasts =
       of_constructor_s ~key:"toasts" Toasts.construct_toasts ~s0:toast_signal water_toast
@@ -168,10 +168,10 @@ let construct_mnist_jsoo () =
   in
 
   let mount () =
-    Printf.printf " $ mnist_jsoo | mount\n%!";
+    Debug.on_mount "mnist_jsoo";
     favicon_routine signal;
     fun () ->
-      Printf.printf " $ mnist_jsoo | unmount\n%!";
+      Debug.on_unmount "mnist_jsoo";
       React.S.stop ~strong:true signal;
       unmount_toast ()
   in

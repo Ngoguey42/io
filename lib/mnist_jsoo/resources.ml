@@ -287,10 +287,11 @@ let construct_resources_row ~e0:procedure_events entry =
 
 let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor_ =
  fun fire_upstream_event ->
-  Printf.printf "$  resources | construct\n%!";
+  Debug.on_construct "resources";
   let procedure_events, launch = create_download_procedure fire_upstream_event in
 
   let render _ =
+    Debug.on_render "resources";
     let open Reactjs.Jsx in
     let head = of_tag "tr" [ of_tag "th" ~colspan:"3" [ of_string "Resources" ] ] in
     let entries = List.map fst dependencies in
@@ -305,10 +306,10 @@ let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Re
   in
 
   let mount () =
-    Printf.printf " $ resources | mount\n%!";
+    Debug.on_mount "resources";
     launch ();
     fun () ->
-      Printf.printf " $ resources | unmount\n%!";
+      Debug.on_unmount "resources";
       React.E.stop ~strong:true procedure_events
   in
   Reactjs.construct ~mount render

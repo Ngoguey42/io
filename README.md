@@ -1,5 +1,6 @@
 # TODO
 - blog
+  - Rename fnn to fann
   - Make first post about fnn
 
 - mnist-jsoo soon

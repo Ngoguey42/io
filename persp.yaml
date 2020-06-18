@@ -44,6 +44,7 @@ perspectives:
     - [ lib/mnist_jsoo/dune, lib/mnist_jsoo/mnist.ml, lib/mnist_jsoo/resources.ml ]
     - [ lib/mnist_jsoo/mnist_jsoo.ml, <up>, <up> ]
     - [ lib/mnist_jsoo/backend.ml, <up>, <up> ]
+    - [ lib/mnist_jsoo/debug.ml, <up>, <up> ]
   "4" : [[ lib/mnist_jsoo/main.ml, lib/mnist_jsoo/tab.ml, lib/mnist_jsoo/types.ml ]]
   "++4" : [[  lib/mnist_jsoo/owl_snippets.ml, lib/mnist_jsoo/toasts.ml, lib/mnist_jsoo/backend_selection.ml]]
 

@@ -289,7 +289,7 @@ let construct_select :
 
 let construct_training_config : _ Reactjs.constructor_ =
  fun (fire_upstream_event, _) ->
-  Printf.printf "$  training_configuration | construct\n%!";
+  Debug.on_construct "training_configuration";
   let rconf_signal, update_rconf =
     React.S.create
       {
@@ -317,7 +317,7 @@ let construct_training_config : _ Reactjs.constructor_ =
   in
 
   let render (_, enabled) =
-    Printf.printf "$$ training_configuration | render\n%!";
+    Debug.on_render "training_configuration";
     let open Reactjs.Jsx in
     let dconf = React.S.value dconf_signal in
     ignore dconf;
@@ -345,7 +345,7 @@ let construct_training_config : _ Reactjs.constructor_ =
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
   let unmount () =
-    Printf.printf " $ training_configuration | unmount\n%!";
+    Debug.on_unmount "training_configuration";
     React.S.stop ~strong:true rconf_signal
   in
   Reactjs.construct ~signal:dconf_signal ~unmount render

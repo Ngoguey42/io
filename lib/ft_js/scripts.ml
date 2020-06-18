@@ -32,6 +32,7 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
     | `Js, `Js | `Css, `Css -> true
     | `Both, `Css | `Both, `Js -> true
   in
+  let root = Dom_html.window##.location##.href |> Js.to_string |> Misc.origin_of_url in
   ( match entry with
   | `Tfjs -> [ [ "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js" ] ]
   | `Cryptojs ->
@@ -55,28 +56,16 @@ let urls_of_entry : ?what:[ `Js | `Css | `Both ] -> entry -> string list list =
           "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css";
         ];
       ]
-  | `Pagebuilder ->
-      [
-        [
-          Filename.concat
-            (Misc.origin_of_url (Dom_html.window##.location##.href |> Js.to_string))
-            "build/default/bin/page_builder.bc.js";
-        ];
-      ]
+  | `Pagebuilder -> [ [ Filename.concat root "build/default/bin/page_builder.bc.js" ] ]
   | `Highlightjs ->
       [
         [
           "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/default.min.css";
-          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/solarized-light.min.css"; *)
-          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/school-book.min.css"; *)
-          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/gruvbox-light.min.css"; *)
-          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/github-gist.min.css"; *)
-          (* "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/foundation.min.css"; *)
           "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js";
         ];
         [ "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/languages/ocaml.min.js" ];
       ]
-  | `Plotly -> [ [ "https://cdn.plot.ly/plotly-latest.min.js" ] ] )
+  | `Plotly -> [ [ "https://cdn.plot.ly/plotly-1.54.3.min.js" ] ] )
   |> List.map (List.filter is_url_accepted)
   |> List.filter (fun l -> List.length l > 0)
 

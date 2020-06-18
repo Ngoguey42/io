@@ -6,7 +6,6 @@
 - mnist-jsoo soon
   1. Chart
      - Description of individual stats and axes meaning below chart
-  1. fix plotly version
 
 
 - mnist-jsoo soon (bugs)
@@ -50,3 +49,4 @@
    - Use js's WeakMap instead of OCaml's one
    - Add `probabilistic` stats alongside the `top1` ones
    - Find a better syntax coloring lib
+   - Download all js/css in parallel and reorder when inserting in <head>

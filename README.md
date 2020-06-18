@@ -5,12 +5,7 @@
 
 - mnist-jsoo soon
   1. Chart
-     - Face improvements
-       - Show somewhere the current amount of smoothing and max training points (and total number of training samples)
-       - Description of individual stats and axes meaning below chart
-     - Clean code / Improve separation of concerns
-     - wontfix
-       - Show both epoch count and image count in x-axis hover
+     - Description of individual stats and axes meaning below chart
   1. fix plotly version
 
 
@@ -37,6 +32,7 @@
    - in training configuration show
      - how many images and epochs it corresponds to
      - how many images and epochs we will reach
+   - Show both epoch count and image count in x-axis hover
 
 
 - mnist-jsoo maybe

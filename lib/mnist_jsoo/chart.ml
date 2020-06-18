@@ -95,7 +95,12 @@ let listen_afterplot_event elt fire_render_cooled_down =
   in
   fun () -> React.E.stop ~strong:true event
 
-let routine elt tab_shown_signal tabsignal tabevents =
+let construct_chart ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents () =
+  Debug.on_construct "chart";
+
+  (* Create the Reactjs "reference" that will be used to bind the Plotly lib *)
+  let plotly_ref = Reactjs.create_ref () in
+
   (* Step 1 - Allocate arrays with ~constant append complexity *)
   let raw_data = Raw_data.create () in
 
@@ -216,43 +221,86 @@ let routine elt tab_shown_signal tabsignal tabevents =
     in
 
     (* Done *)
-    (recursive_signal', start_render_event)
+    (recursive_signal', (recursive_signal', start_render_event))
   in
-  let start_render_event = React.S.fix states0 define in
+  let recursive_signal, start_render_event = React.S.fix states0 define in
 
-  (* Step 4 - Prime Plotly with the div element *)
-  let conf = Chart_data.create_conf accum_max_sampling accum_smoothing in
-  let smoothing = React.S.value smoothing_signal in
-  let max_training_data_points = React.S.value max_sampling_signal in
-  let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_training_data_points in
-  Js.Unsafe.global ##. Plotly##newPlot
-    elt
-    (Chart_data.plotly_data_of_raw_data raw_data subsampled_raw_data)
-    (Chart_data.create_layout true raw_data subsampled_raw_data)
-    conf
-  |> ignore;
+  let render () =
+    Debug.on_render "chart";
+    let _, (train_points, _), max_sampling, smoothing =
+      React.S.value recursive_signal
+    in
+    let max_sampling = min train_points max_sampling in
+    let open Reactjs.Jsx in
+    let s = (Smoothing.half_life_image_count smoothing) in
+    let s' =
+      (float_of_int s /. (float_of_int Mnist.train_set_size) *. 100.)
+    in
+    let d0 =
+      Printf.sprintf "%d/%d training points shown" max_sampling train_points
+      |> of_string
+      >> of_tag "p"
+      >> of_bootstrap "Col" ~md_span:6 ~classes:["text-muted"; "chart-info"; "chart-info-left"]
+    in
+    let d1 =
+      Printf.sprintf "Smoothing half-life at %d images (%.1f%% of an epoch)" s s'
+      |> of_string
+      >> of_tag "p"
+      >> of_bootstrap "Col" ~md_span:6 ~classes:["text-muted"; "chart-info"; "chart-info-right"]
+    in
+    let descr =
+      [d0 ; d1]
+      |> of_bootstrap "Row"
+      >> of_bootstrap "Container"
+    in
 
-  (* Step 5 - Listen to the afterplot events to avoid to debounce rendering
-     https://plotly.com/javascript/plotlyjs-events/#afterplot-event
-  *)
-  let collect_afterplot = listen_afterplot_event elt fire_render_cooled_down in
-
-  (* Step 6 - Schedule `extendTraces` calls *)
-  let on_start_render (_, max_sampling, smoothing) =
-    Lwt_js_events.async (fun () ->
-        (* Plotly.react has the same runtime as Plotly.extentTraces *)
-        let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_sampling in
-        let prev_template = Js.Unsafe.global ##. Plotly##makeTemplate elt in
-        Js.Unsafe.global ##. Plotly##react
-          elt
-          (Chart_data.plotly_data_of_raw_data ~prev_template raw_data subsampled_raw_data)
-          (Chart_data.create_layout false raw_data subsampled_raw_data)
-          conf
-        |> ignore;
-        Lwt.return ())
+    let chart = of_tag "div" ~key:"plotly" ~ref:plotly_ref ~style:[ ("height", "325px") ] [] in
+    [descr; chart] |> of_react "Fragment"
   in
-  start_render_event |> React.E.map on_start_render |> ignore;
-  fun () ->
-    collect_afterplot ();
-    React.E.stop ~strong:true render_cooled_down_event;
-    React.E.stop ~strong:true max_sampling_ops
+  let mount () =
+    Debug.on_mount "chart";
+    let elt =
+      match plotly_ref##.current |> Js.Opt.to_option with
+      | None -> failwith "unreachable. React.ref failed"
+      | Some elt -> elt
+    in
+    (* Step 4 - Prime Plotly with the div element *)
+    let conf = Chart_data.create_conf accum_max_sampling accum_smoothing in
+    let smoothing = React.S.value smoothing_signal in
+    let max_training_data_points = React.S.value max_sampling_signal in
+    let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_training_data_points in
+    Js.Unsafe.global ##. Plotly##newPlot
+      elt
+      (Chart_data.plotly_data_of_raw_data raw_data subsampled_raw_data)
+      (Chart_data.create_layout true raw_data subsampled_raw_data)
+      conf
+    |> ignore;
+
+    (* Step 5 - Listen to the afterplot events to avoid to debounce rendering
+       https://plotly.com/javascript/plotlyjs-events/#afterplot-event
+    *)
+    let collect_afterplot = listen_afterplot_event elt fire_render_cooled_down in
+
+    (* Step 6 - Schedule `extendTraces` calls *)
+    let on_start_render (_, max_sampling, smoothing) =
+      Lwt_js_events.async (fun () ->
+          (* Plotly.react has the same runtime as Plotly.extentTraces *)
+          let subsampled_raw_data = Raw_data.subsample raw_data smoothing max_sampling in
+          let prev_template = Js.Unsafe.global ##. Plotly##makeTemplate elt in
+          Js.Unsafe.global ##. Plotly##react
+            elt
+            (Chart_data.plotly_data_of_raw_data ~prev_template raw_data subsampled_raw_data)
+            (Chart_data.create_layout false raw_data subsampled_raw_data)
+            conf
+          |> ignore;
+          Lwt.return ())
+    in
+    start_render_event |> React.E.map on_start_render |> ignore;
+    fun () ->
+      Debug.on_unmount "chart";
+      collect_afterplot ();
+      React.E.stop ~strong:true render_cooled_down_event;
+      React.E.stop ~strong:true max_sampling_ops
+  in
+
+  Reactjs.construct ~signal:recursive_signal ~mount render

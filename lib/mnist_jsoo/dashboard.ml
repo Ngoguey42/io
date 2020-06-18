@@ -188,12 +188,9 @@ let jsx_of_test_set_sample test_set_sample_urls probas =
   ]
   |> of_bootstrap "Container"
 
-let construct_dashboard ~s0:tabsignal ~s1:tabshownsignal ~e0:tabevents
+let construct_dashboard ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents
     ((traini, trainl, testi, testl), fire_training_event, fire_evaluation_event) =
   Debug.on_construct "dashboard";
-
-  (* Create the Reactjs "reference" that will be used to bind the Plotly lib *)
-  let plotly_ref = Reactjs.create_ref () in
 
   (* Combute the base64 img urls of the 10 sampled digits *)
   let test_set_sample_urls =
@@ -237,9 +234,12 @@ let construct_dashboard ~s0:tabsignal ~s1:tabshownsignal ~e0:tabevents
     let routine_status = React.S.value routines_signal in
     let routines = jsx_of_routines set_training_user_status training_user_status routine_status in
     let chart =
-      let title = of_string "Statistics" >> of_tag "h5" in
-      let chart = of_tag "div" ~ref:plotly_ref ~style:[ ("height", "325px") ] [] in
-      of_tag "div" ~style:[ ("textAlign", "center") ] [ title; chart ]
+      let title = of_string "Statistics" >> of_tag "h5" ~style:[ ("textAlign", "center") ] in
+      let chart =
+        of_constructor_sse Chart.construct_chart ~s0:tabsignal ~s1:tab_shown_signal
+          ~e0:tabevents ()
+      in
+      of_tag "div"  [ title; chart ]
     in
     let digits =
       match React.S.value test_set_sample_signal with
@@ -251,16 +251,8 @@ let construct_dashboard ~s0:tabsignal ~s1:tabshownsignal ~e0:tabevents
     let thead = [ of_string "Dashboard" ] |> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
-  let mount () =
-    Debug.on_mount "dashboard";
-    let collect_chart =
-      match plotly_ref##.current |> Js.Opt.to_option with
-      | None -> failwith "unreachable. React.ref failed"
-      | Some elt -> Chart.routine elt tabshownsignal tabsignal tabevents
-    in
-    fun () ->
-      Debug.on_unmount "dashboard";
-      React.S.stop ~strong:true training_user_status;
-      collect_chart ()
+  let unmount () =
+    Debug.on_unmount "dashboard";
+    React.S.stop ~strong:true training_user_status
   in
-  Reactjs.construct ~signal:routines_signal ~signal:test_set_sample_signal ~mount render
+  Reactjs.construct ~signal:routines_signal ~signal:test_set_sample_signal ~unmount render

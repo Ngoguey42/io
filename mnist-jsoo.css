@@ -85,4 +85,14 @@ form small ul {
     top: -13px !important;
 }
 
+.chart-info {
+    font-weight: normal;
+    font-size: small;
+}
+.chart-info-right { text-align: left;}
+.chart-info-left { text-align: right;}
+@media only screen and (max-width: 768px) {
+    .chart-info-right { text-align: center;}
+    .chart-info-left { text-align: center;}
+}
 /* ************************************************************************** */

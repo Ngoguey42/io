@@ -32,7 +32,7 @@ class type constructor_as_obj =
 type 'main_props render = 'main_props -> jsx Js.t
 
 type 'main_props construction =
-  'main_props render * (unit -> unit) * (unit -> unit) * (unit -> unit) * unit React.event
+  'main_props render * (unit -> unit -> unit) * (unit -> unit) * (unit -> unit) * unit React.event
 
 (* 0 Primitives *)
 type 'main_props constructor_ = 'main_props -> 'main_props construction
@@ -161,7 +161,7 @@ let _of_constructor :
         unit =
      fun self props_holder ->
       (* call user's constructor *)
-      let render, mount, update, unmount, state_changes =
+      let render, user_mount, update, user_unmount, state_changes =
         match props_holder##.data with
         | Unit main -> constructor main
         | S (main, s0) -> constructor main ~s0
@@ -170,7 +170,6 @@ let _of_constructor :
         | Sse (main, s0, s1, e0) -> constructor main ~s0 ~s1 ~e0
         | Ssee (main, s0, s1, e0, e1) -> constructor main ~s0 ~s1 ~e0 ~e1
       in
-      self##.ftJsMount := Js.wrap_callback mount;
       self##.ftJsUpdate := Js.wrap_callback update;
 
       (* wrap user's constructor. render's props taken from self *)
@@ -193,12 +192,13 @@ let _of_constructor :
          If several update are scheduled simultaneously we discard them all but the last one.
       *)
       let count = ref 0 in
+      let unmounted = ref false in
       let state_changes =
         let onchange () =
           incr count;
           let c = !count in
           Lwt_js_events.async (fun () ->
-              ( if c = !count then
+              ( if c = !count && !unmounted = false then
                 let o =
                   object%js
                     val revision = !count
@@ -210,8 +210,11 @@ let _of_constructor :
         React.E.map onchange state_changes
       in
 
-      (* prepare unmount function. it cleans up and call user's unmount *)
+      (* prepare mount and unmount *)
+      let user_unmount' : (unit -> unit) option ref = ref None in
+      let mount () = user_unmount' := Some (user_mount ()) in
       let unmount () =
+        unmounted := true;
         React.E.stop ~strong:true state_changes;
         ( match props_holder##.data with
         | Unit _ -> ()
@@ -229,8 +232,10 @@ let _of_constructor :
             React.S.stop ~strong:true s1;
             React.E.stop ~strong:true e0;
             React.E.stop ~strong:true e1 );
-        unmount ()
+        user_unmount ();
+        match !user_unmount' with None -> () | Some f -> f ()
       in
+      self##.ftJsMount := Js.wrap_callback mount;
       self##.ftJsUnmount := Js.wrap_callback unmount
     in
 
@@ -270,7 +275,7 @@ let render : jsx Js.t -> Dom_html.element Js.t -> unit =
 *)
 let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4
     ?events:e0 render : 'props construction =
-  let mount = Option.value ~default:(fun () -> ()) mount in
+  let mount = Option.value ~default:(fun () () -> ()) mount in
   let update = Option.value ~default:(fun () -> ()) update in
   let unmount = Option.value ~default:(fun () -> ()) unmount in
   let diffs =

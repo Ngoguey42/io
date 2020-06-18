@@ -245,9 +245,10 @@ let construct_reactjs_article () =
     of_react "Fragment" [ box ]
   in
   let mount () =
-    let ( >|= ) opt f = Js.Opt.iter opt f in
-    ref0##.current >|= fun elt ->
-    elt##querySelector (Js.string "#type0") >|= fun elt -> Misc.highlight_element elt
+    (let ( >|= ) opt f = Js.Opt.iter opt f in
+     ref0##.current >|= fun elt ->
+     elt##querySelector (Js.string "#type0") >|= fun elt -> Misc.highlight_element elt);
+    fun () -> ()
   in
   Reactjs.construct ~mount render
 

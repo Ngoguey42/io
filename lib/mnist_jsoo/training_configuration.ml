@@ -344,5 +344,8 @@ let construct_training_config : _ Reactjs.constructor_ =
     in
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
-  let unmount () = React.S.stop ~strong:true rconf_signal in
+  let unmount () =
+    Printf.printf " $ training_configuration | unmount\n%!";
+    React.S.stop ~strong:true rconf_signal
+  in
   Reactjs.construct ~signal:dconf_signal ~unmount render

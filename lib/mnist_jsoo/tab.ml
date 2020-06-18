@@ -185,5 +185,8 @@ let construct_tab ~s0:signal ~s1:tabshownsignal (tabidx, db, set_signal, fire_to
         [ dashboard (); train true; backend true; net false ] |> of_react "Fragment"
     | Training _ -> [ dashboard (); train false; backend false; net false ] |> of_react "Fragment"
   in
-  let unmount () = React.E.stop ~strong:true events in
+  let unmount () =
+    Printf.printf " $ tab%d | unmount\n%!" tabidx;
+    React.E.stop ~strong:true events
+  in
   Reactjs.construct ~signal ~unmount render

@@ -86,7 +86,10 @@ let construct_article_code filename =
         >> of_tag ~ref:code_ref "code" ~classes:[ "language-ocaml" ]
         >> of_tag "pre"
   in
-  let mount () = Lwt.catch load_code on_error |> ignore in
+  let mount () =
+    Lwt.catch load_code on_error |> ignore;
+    fun () -> ()
+  in
   let update () =
     match code_ref##.current |> Js.Opt.to_option with
     | None -> ()

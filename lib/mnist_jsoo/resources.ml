@@ -279,11 +279,11 @@ let construct_resources_row ~e0:procedure_events entry =
         match byte_count_of_url_opt url with
         | Some size -> fire_size_fetch_event (url, Ok size)
         | None -> Ft_js.size_of_urls [ url ] fire_size_fetch_event)
-      urls
+      urls;
+    fun () -> React.E.stop ~strong:true size_fetch_events
   in
-  let unmount () = React.E.stop ~strong:true size_fetch_events in
 
-  Reactjs.construct ~signal ~signal:size_option_signal ~mount ~unmount render
+  Reactjs.construct ~signal ~signal:size_option_signal ~mount render
 
 let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor_ =
  fun fire_upstream_event ->
@@ -305,8 +305,10 @@ let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Re
   in
 
   let mount () =
-    Printf.printf "$$ resources | mount\n%!";
-    launch ()
+    Printf.printf " $ resources | mount\n%!";
+    launch ();
+    fun () ->
+      Printf.printf " $ resources | unmount\n%!";
+      React.E.stop ~strong:true procedure_events
   in
-  let unmount () = React.E.stop ~strong:true procedure_events in
-  Reactjs.construct ~mount ~unmount render
+  Reactjs.construct ~mount render

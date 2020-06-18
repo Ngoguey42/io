@@ -167,12 +167,15 @@ let construct_mnist_jsoo () =
     |> of_react "Fragment"
   in
 
-  let mount () = favicon_routine signal in
-  let unmount () =
-    React.S.stop ~strong:true signal;
-    unmount_toast ()
+  let mount () =
+    Printf.printf " $ mnist_jsoo | mount\n%!";
+    favicon_routine signal;
+    fun () ->
+      Printf.printf " $ mnist_jsoo | unmount\n%!";
+      React.S.stop ~strong:true signal;
+      unmount_toast ()
   in
-  Reactjs.construct ~signal ~mount ~unmount render
+  Reactjs.construct ~signal ~mount render
 
 let main () =
   let open Lwt.Infix in

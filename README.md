@@ -3,7 +3,6 @@
   - Make first post about fnn
 
 - mnist-jsoo soon
-  1. collect frp primitives in chart
   1. Chart
      - Face improvements
        - Show somewhere the current amount of smoothing and max training points (and total number of training samples)
@@ -38,6 +37,7 @@
      - how many images and epochs it corresponds to
      - how many images and epochs we will reach
 
+
 - mnist-jsoo maybe
    - PR or issue `js_of_ocaml ErrorError##.msg -> ErrorError##.message`
    - PR or issue `owl get_slice [first; start] -> [start; stop[`
@@ -52,3 +52,4 @@
    - Find out why cpu+ww is sometime slow on chrome
    - Use js's WeakMap instead of OCaml's one
    - Add `probabilistic` stats alongside the `top1` ones
+   - Find a better syntax coloring lib

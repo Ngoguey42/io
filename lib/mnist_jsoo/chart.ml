@@ -93,7 +93,7 @@ let listen_afterplot_event elt fire_render_cooled_down =
       [| Js.string "plotly_afterplot" |> inject; Js.wrap_callback on_afterplot |> inject |]
       |> meth_call elt "on")
   in
-  ()
+  fun () -> React.E.stop ~strong:true event
 
 let routine elt tab_shown_signal tabsignal tabevents =
   (* Step 1 - Allocate arrays with ~constant append complexity *)
@@ -153,7 +153,6 @@ let routine elt tab_shown_signal tabsignal tabevents =
     React.E.create ()
     (* collected when `collect` is called *)
   in
-
   let max_sampling_ops, accum_max_sampling =
     React.E.create ()
     (* collected when `collect` is called *)
@@ -236,7 +235,7 @@ let routine elt tab_shown_signal tabsignal tabevents =
   (* Step 5 - Listen to the afterplot events to avoid to debounce rendering
      https://plotly.com/javascript/plotlyjs-events/#afterplot-event
   *)
-  listen_afterplot_event elt fire_render_cooled_down;
+  let collect_afterplot = listen_afterplot_event elt fire_render_cooled_down in
 
   (* Step 6 - Schedule `extendTraces` calls *)
   let on_start_render (_, max_sampling, smoothing) =
@@ -253,4 +252,7 @@ let routine elt tab_shown_signal tabsignal tabevents =
         Lwt.return ())
   in
   start_render_event |> React.E.map on_start_render |> ignore;
-  ()
+  fun () ->
+    collect_afterplot ();
+    React.E.stop ~strong:true render_cooled_down_event;
+    React.E.stop ~strong:true max_sampling_ops

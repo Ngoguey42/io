@@ -252,13 +252,15 @@ let construct_dashboard ~s0:tabsignal ~s1:tabshownsignal ~e0:tabevents
     of_bootstrap "Table" ~classes:[ "smallbox0" ] ~bordered:true ~size:"sm" [ thead; tbody ]
   in
   let mount () =
-    Printf.printf "$$ dashboard | mount\n%!";
-    match plotly_ref##.current |> Js.Opt.to_option with
-    | None -> failwith "unreachable. React.ref failed"
-    | Some elt -> Chart.routine elt tabshownsignal tabsignal tabevents
+    Printf.printf " $ dashboard | mount\n%!";
+    let collect_chart =
+      match plotly_ref##.current |> Js.Opt.to_option with
+      | None -> failwith "unreachable. React.ref failed"
+      | Some elt -> Chart.routine elt tabshownsignal tabsignal tabevents
+    in
+    fun () ->
+      Printf.printf " $ dashboard | unmount\n%!";
+      React.S.stop ~strong:true training_user_status;
+      collect_chart ()
   in
-  let unmount () =
-    Printf.printf "$$ dashboard | unmount\n%!";
-    React.S.stop ~strong:true training_user_status
-  in
-  Reactjs.construct ~signal:routines_signal ~signal:test_set_sample_signal ~mount ~unmount render
+  Reactjs.construct ~signal:routines_signal ~signal:test_set_sample_signal ~mount render

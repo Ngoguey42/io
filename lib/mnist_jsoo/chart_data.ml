@@ -608,7 +608,6 @@ let create_layout first_render raw_data subsampled_raw_data =
             val size = 8
           end
       end
-    (* Sets the domain of this axis (in plot fraction). *)
     val yaxis2 =
       object%js
         val side = Js.string "right"

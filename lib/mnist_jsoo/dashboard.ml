@@ -236,10 +236,9 @@ let construct_dashboard ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents
     let chart =
       let title = of_string "Statistics" >> of_tag "h5" ~style:[ ("textAlign", "center") ] in
       let chart =
-        of_constructor_sse Chart.construct_chart ~s0:tabsignal ~s1:tab_shown_signal
-          ~e0:tabevents ()
+        of_constructor_sse Chart.construct_chart ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents ()
       in
-      of_tag "div"  [ title; chart ]
+      of_tag "div" [ title; chart ]
     in
     let digits =
       match React.S.value test_set_sample_signal with

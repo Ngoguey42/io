@@ -16,54 +16,6 @@ let default_max_sampling = 64
 
 let default_smoothing = `S3
 
-(*
-# Plotly events
-- plotly_afterplot
-  - To be used to avoid spamming redraw when no CPU time available
-- plotly_legendclick, plotly_legenddoubleclick
-  - Save this config globally (watch out for infinite loops)
-- plotly_relayout, plotly_autosize
-  - emits only the xaxis and yaxis ranges which were directly changed by the triggering event
-  - Save this config globally (watch out for infinite loops)
-- plotly_webglcontextlost
-  - TODO: Try to trigger error with large batch size
-  - When crashed, put a button to reload chart
-
-Plotly.newPlot(graphDiv, data, layout, config)
-
-Plotly.relayout(graphDiv, update)
-
-Plotly.makeTemplate(figure)
-  - layout = {template:template}
-
-Plotly.extendTraces(graphDiv, {y: [[rand()]]}, [0])
-
- *)
-
-(* DEBUG *)
-let string_of_rid (a, b) = Printf.sprintf "(%d, %d)" a b
-
-let string_of_smoothing = function
-  | `S0 -> "`S0"
-  | `S1 -> "`S1"
-  | `S2 -> "`S2"
-  | `S3 -> "`S3"
-  | `S4 -> "`S4"
-  | `S5 -> "`S5"
-
-let string_of_ev = function
-  | `Start_render _ -> "`Start_render"
-  | `Plotly_cooled_down -> "`Plotly_cooled_down"
-  | `Smoothing v -> Printf.sprintf "`Smoothing %s" (string_of_smoothing v)
-  | `Max_sampling v -> Printf.sprintf "`Max_sampling %d" v
-
-let string_of_temperature = function `Plotly_hot -> "`Plotly_hot" | `Plotly_cool -> "`Plotly_cool"
-
-let string_of_state (temperature, rid, max_sampling, smoothing) =
-  Printf.sprintf "(%s, %s, %d, %s)"
-    (string_of_temperature temperature)
-    (string_of_rid rid) max_sampling (string_of_smoothing smoothing)
-
 let listen_afterplot_event elt fire_render_cooled_down =
   let afterplot_cooldown_length = 2. in
   let event, fire_event = React.E.create () in
@@ -208,8 +160,6 @@ let construct_chart ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents () =
           | (`Plotly_cool | `Plotly_hot), `Start_render (rid, max_sampling, smoothing) ->
               (`Plotly_hot, rid, max_sampling, smoothing)
         in
-        (* Printf.eprintf "> Fold | s:%35s | ev:%20s | s':%35s\n%!" (string_of_state s) *)
-        (*   (string_of_ev ev) (string_of_state s'); *)
         s'
       in
       React.E.select
@@ -227,35 +177,25 @@ let construct_chart ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents () =
 
   let render () =
     Debug.on_render "chart";
-    let _, (train_points, _), max_sampling, smoothing =
-      React.S.value recursive_signal
-    in
+    let _, (train_points, _), max_sampling, smoothing = React.S.value recursive_signal in
     let max_sampling = min train_points max_sampling in
     let open Reactjs.Jsx in
-    let s = (Smoothing.half_life_image_count smoothing) in
-    let s' =
-      (float_of_int s /. (float_of_int Mnist.train_set_size) *. 100.)
-    in
+    let s = Smoothing.half_life_image_count smoothing in
+    let s' = float_of_int s /. float_of_int Mnist.train_set_size *. 100. in
     let d0 =
       Printf.sprintf "%d/%d training points shown" max_sampling train_points
-      |> of_string
-      >> of_tag "p"
-      >> of_bootstrap "Col" ~md_span:6 ~classes:["text-muted"; "chart-info"; "chart-info-left"]
+      |> of_string >> of_tag "p"
+      >> of_bootstrap "Col" ~md_span:6 ~classes:[ "text-muted"; "chart-info"; "chart-info-left" ]
     in
     let d1 =
       Printf.sprintf "Smoothing half-life at %d images (%.1f%% of an epoch)" s s'
-      |> of_string
-      >> of_tag "p"
-      >> of_bootstrap "Col" ~md_span:6 ~classes:["text-muted"; "chart-info"; "chart-info-right"]
+      |> of_string >> of_tag "p"
+      >> of_bootstrap "Col" ~md_span:6 ~classes:[ "text-muted"; "chart-info"; "chart-info-right" ]
     in
-    let descr =
-      [d0 ; d1]
-      |> of_bootstrap "Row"
-      >> of_bootstrap "Container"
-    in
+    let descr = [ d0; d1 ] |> of_bootstrap "Row" >> of_bootstrap "Container" in
 
     let chart = of_tag "div" ~key:"plotly" ~ref:plotly_ref ~style:[ ("height", "325px") ] [] in
-    [descr; chart] |> of_react "Fragment"
+    [ descr; chart ] |> of_react "Fragment"
   in
   let mount () =
     Debug.on_mount "chart";

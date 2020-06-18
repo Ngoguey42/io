@@ -9,6 +9,30 @@ end
 
 open Types
 
+let t0 =
+  {|
+<p>
+   The <b>recall</b> stat (<a href="https://en.wikipedia.org/wiki/Precision_and_recall">wiki</a>)
+   (<cite>top1 recall</cite> meaned over all 10 digits) and the
+   <b>iou</b> stat (<a href="https://en.wikipedia.org/wiki/Jaccard_index">wiki</a>)
+   (<cite>top1 intersection-over-union</cite> meaned over all 10 digits) are
+   both accuracy measurements derived from an underlying
+   <a href="https://en.wikipedia.org/wiki/Confusion_matrix">confusion matrix</a>.
+<p>
+</p>
+   The <b>loss</b> stat (<a href="https://en.wikipedia.org/wiki/Loss_function">wiki</a>)
+   (<cite>mean negative log-likelihood</cite>
+   (<a href="https://en.wikipedia.org/wiki/Likelihood_function#Log-likelihood">wiki</a>),
+   also known as
+   <cite>categorical cross entropy loss</cite>) is the forward output of the network when
+   training.
+   The mathematical goal of the
+   <a href="https://en.wikipedia.org/wiki/Backpropagation">backward phase</a>
+   that follows the computation of a loss is to update
+   the network's weights in a direction that minimizes that loss.
+</p>
+|}
+
 (* Derive tab's signal and events to a render-friendly signal *)
 let create_routines_signal tabsignal tabevents =
   let training_signal =
@@ -238,7 +262,11 @@ let construct_dashboard ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents
       let chart =
         of_constructor_sse Chart.construct_chart ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents ()
       in
-      of_tag "div" [ title; chart ]
+      let text =
+        of_tag "div" ~inner_html:t0 [] ~style:[ ("fontWeight", "normal") ] ~classes:[ "text-muted" ]
+        >> of_bootstrap "Col" ~sm_span:12 >> of_bootstrap "Row" >> of_bootstrap "Container"
+      in
+      of_tag "div" [ title; chart; text ]
     in
     let digits =
       match React.S.value test_set_sample_signal with

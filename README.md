@@ -2,21 +2,11 @@
 - blog
   - Rename fnn to fann
   - Make first post about fnn
-
-- mnist-jsoo soon
-  1. Chart
-     - Description of individual stats and axes meaning below chart
-
-
-- mnist-jsoo soon (bugs)
-   1. Handle the case of corrupted cache/indexeddb.
-
-
-- mnist-jsoo soon (repo)
-   1. Split the repo. Keep only the Github Pages resources inside this one (through copy and dune build --release). Move the source code to another one where the build directory has been removed from all commits (but keep historic!!).
-   1. Update OCaml libraries and constrain dependencies (with >=)
+- repo
+   - Split the repo. Keep only the Github Pages resources inside this one (through copy and dune build --release). Move the source code to another one where the build directory has been removed from all commits (but keep history!!).
+   - Update OCaml libraries and constrain dependencies (with >=)
       - Update js_of_ocaml for new bigarray conversions
-   1. Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
+   - Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
 
 
 - mnist-jsoo display maybe
@@ -50,3 +40,4 @@
    - Add `probabilistic` stats alongside the `top1` ones
    - Find a better syntax coloring lib
    - Download all js/css in parallel and reorder when inserting in <head>
+   - Handle the case of corrupted cache/indexeddb.

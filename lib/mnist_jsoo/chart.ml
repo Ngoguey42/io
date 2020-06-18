@@ -183,7 +183,7 @@ let construct_chart ~s0:tabsignal ~s1:tab_shown_signal ~e0:tabevents () =
     let s = Smoothing.half_life_image_count smoothing in
     let s' = float_of_int s /. float_of_int Mnist.train_set_size *. 100. in
     let d0 =
-      Printf.sprintf "%d/%d training points shown" max_sampling train_points
+      Printf.sprintf "%d training points currently shown (out of %d) " max_sampling train_points
       |> of_string >> of_tag "p"
       >> of_bootstrap "Col" ~md_span:6 ~classes:[ "text-muted"; "chart-info"; "chart-info-left" ]
     in

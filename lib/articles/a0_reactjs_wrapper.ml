@@ -213,11 +213,9 @@ e1:'e1 React.event ->
 |}
 
 let construct_reactjs_article () =
-  Printf.printf "> Component - reactjs_article | construct\n%!";
   let ref0 = Reactjs.create_ref () in
   let render () =
     let open Reactjs.Jsx in
-    Printf.printf "> Component - reactjs_article | render\n%!";
     let to_table title content =
       let head = of_string title >> of_tag "th" >> of_tag "tr" >> of_tag "thead" in
       let body = content >> of_tag "th" >> of_tag "tr" >> of_tag "tbody" in
@@ -231,7 +229,7 @@ let construct_reactjs_article () =
 
     let box =
       [
-        of_tag "h1" [ of_string "Reactjs wrapper" ];
+        of_tag "h1" [ of_string "Reactjs OCaml wrapper" ];
         of_tag "div" ~inner_html:t0 [];
         to_table "Simple Example: Code" snip_code0;
         to_table "Simple Example: Result" snip_jsx0;

@@ -188,7 +188,7 @@ a layer (e.g. after training). Only then a layer stores some tensor.
   - Create an Fnn.custom_layer class and a `Builder.custom custom_defn ...` function?
   Extensible GADT?
 - Transform `parameter32` to `parameter`?
-- Find a less rigid way to implement the `pshape` lib. Modular implicits?
+- Find a less rigid way to implement the `pshape` lib. Modular implicits (lol)?
 - Rewrite the library without the use of ocaml objects because:
   - Those are impossible to serialize in js
   - Polymorphic variants and top-level functions could provide roughly the same properties:

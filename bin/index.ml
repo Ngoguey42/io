@@ -23,20 +23,26 @@ let cards_data =
       href = "cinquante.html";
       title = "Cinquante";
       description = "JavaScript game based on the <cite>MNIST</cite> dataset.";
-      date = "MAY 15, 2020";
+      date = "MAY 16, 2020";
     };
     {
       href = "reactjs-wrapper.html";
       title = "Reactjs wrapper";
       description =
         "<cite>Js_of_ocaml</cite> wrapper for <cite>Reactjs</cite> using <cite>React</cite>(ml).";
-      date = "JUN 1, 2020";
+      date = "JUN 17, 2020";
     };
     {
       href = "mnist-jsoo.html";
       title = "mnist-jsoo";
       description = "Create, train and compare artificial neural networks on <cite>MNIST<cite>.";
-      date = "JUN 30, 2020";
+      date = "JUN 18, 2020";
+    };
+    {
+      href = "ocann0.html";
+      title = "OCaNN";
+      description = "A computation-agnostic neural network abstraction tailored for OCaml.";
+      date = "JUN 24, 2020";
     };
   ]
 

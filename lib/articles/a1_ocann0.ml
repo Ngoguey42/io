@@ -21,7 +21,7 @@ let t0 =
    deep-learning (DL) framework.
 </p>
 <p>
-   To achieve that goal OCaNN provides on one hand a NN abstraction that is both
+   To achieve that goal OCaNN provides on one hand a common NN abstraction that is both
    framework-agnostic and ocaml-friendly and on the other hand separate individual DL
    framework bindings that makes the necessary tradeoffs to expose their library in an efficient
    and as functional as possible way.
@@ -41,14 +41,12 @@ let t0 =
 First we create the network using the main module.
 <pre><code>
 let nn =
-  let open Ocann.Default.Builder in
-  let open Ocann.Pshape.Size in
-  (* Input shape is (unknown, 784) *)
-  input (Pshape.abs2d_partial U (K (28 * 28))) `Float32
+  let open Ocann.Default.Builder in            (* Exposes the layer constructors *)
+  let open Ocann.Pshape.Size in     (* Exposes the `U` and `K` size constructors *)
+  input (Pshape.abs2d_partial U (K (28 * 28))) `Float32 (* shape: (unknown, 784) *)
   |> dense [ (`Idx 1, 512) ] |> bias |> relu
   |> dense [ (`Idx 1, 10) ] |> bias
-  |> softmax (`Idx 1)
-  (* Output shape is (unknown, 10) *)
+  |> softmax (`Idx 1)                                    (* shape: (unknown, 10) *)
 </code></pre>
 
 We can train this NN using the existing Owl Algodiff (effectful) binding
@@ -97,30 +95,34 @@ let new_nn =
    framework.
    </li><li>
    Clear separation of concerns between the operations that require a computation engine
-   (e.g. number crunching, inference, training) and the rest
+   (i.e. number crunching for inference or training) and the rest
    (e.g. network construction, initialization, modification, storage and analysis).
    </li><li>
    Sharing a common basis between multiple DL framework bindings simplifies:
-   - Writing a new binding for a new fashionable DL framework.
-   - Supporting several frameworks at once (e.g. you may want to use a specialized engine in production while reusing pieces of code from the training phase).
+   - Writing of binding for a DL framework.
+   - Supporting several frameworks at once in one code base (e.g. you may want to use a specialized engine in production while reusing pieces of code from the training phase).
    - Porting a program from one framework to another.
-
    </li></ul>
 </p>
 
 <h2>Frameworks Bindings</h2>
 <p>
-   The ideal binding to a DL framework with OCaNN bypasses everything but the tensor computation engine. Such an engine can be seen as a push-based black-box that can dynamically receive nodes of a computation graph and output tensor promises on certain nodes. A node can either be an input tensor (e.g. image, sound, text, network parameters) or an operation between nodes (e.g. forward-conv, backward-conv-x, backward-conv-w). An output tensor is the output of any node (e.g. predictions, gradients, feature maps, updated network parameters). Binding a framework in such a way offers full flexibility to write an OCaml-friendly binding, but some problems may arise:
+   In order to expose a framework in a functional fashion, the binding should be connected at the lowest level - to the tensor computation engine - and ignore everything else in the framework. The tensor computation engine can be seen as a push-based black box that can dynamically receive computation graph nodes and output tensor promises on certain nodes. A node can either be an input tensor (e.g. image, sound, text, network parameters) or an operation between nodes (e.g. forward-conv, backward-conv-x, backward-conv-w). An output tensor is the output of any node (e.g. predictions, gradients, feature maps, updated network parameters). Binding a framework in such a way offers full flexibility to write an OCaml-friendly binding, but some problems may arise with certain frameworks:
    <ul><li>
-   Not all DL frameworks expose their engine in a low level fashion. In that case a binding has to use a higher-level API (often effectful) (e.g. the TensorFlow.js framework). TODO: What about a specialized engine that does it on purpose for performance.
+   Not all DL frameworks expose their engine in a low level fashion. In that case a binding has to use a higher-level API (often effectful) (e.g. the TensorFlow.js framework).
    </li><li>
    It is often quicker to write a binding that reuses the higher level abstractions of a framework (e.g. the Owl binding uses Algodiff).
    </li><li>
-   Some engines will not natively support certain operations. In that case the binding can either raise an exception or provide an ad-hoc implementation using the framework's constructs. Examples:
+   Some engines will not natively support certain operations (i.e. NN nodes). In that case the binding can either raise an exception or provide an ad-hoc implementation using the framework's constructs. Examples:
    - In the TensorFlow.js binding tensordot is implemented using transpose/reshape/dot.
-   - In the Owl binding tensordot raises an exception unless it can be substituted with a dot.
+   - In the Owl binding tensordot raises an exception unless it can be substituted with a dot operation.
    - Some engines only allow inference and not traning.
    </li></ul>
+   TODO: Not everything should/can be bound (Go to paradigms?)
+   - explicit garbage collection in Tfjs
+   - device selection in tf/torch
+   - training flow (forward, loss, backward, optimization, reset)
+
 </p>
 
 <h2>Paradigms</h2>
@@ -131,7 +133,7 @@ let new_nn =
 
 <h2>Future</h2>
 <p>
-   After writing and using this v0 it feel that some parts should be rewritten:
+   After writing and using OCaNN v0 it feel that some parts should be redesigned:
    <ul><li>
    The API should be based on an existing abstraction (i.e. ONNX, NNEF).
    </li><li>
@@ -145,9 +147,9 @@ let new_nn =
    </li><li>
    The Owl binding should bypass Algodiff to avoid the mutable paradigm.
    </li><li>
-   Some layers store tensors (e.g. parameter32, normalisation), but a design with a global weak dictionnary might be a good alternative.
+   Some layers have to store tensors and they currently store a pointer to it (e.g. parameter32, normalisation). A design with a global weak dictionnary might be a good alternative.
    </li><li>
-   As in all deep learning frameworks the network definition in OCaNN treats the backward phase as a second class citizen. Some powerful use cases involve transforming the gradient tensors from the backward phase with regular forward operations. Those use cases are hard - if not impossible - to define at the network creation time.
+   As in all deep learning frameworks, the network definition in OCaNN treats the backward phase as a second class citizen. Some powerful DL use cases involve transforming the gradient tensors from the backward phase with regular forward operations. Such use cases are hard - if not impossible - to define at the network creation time.
    </li></ul>
 </p>
 <p>
@@ -229,8 +231,8 @@ input (Pshape.sym4d_partial ~n:U ~c:(K 3) ~s0:(K 24) ~s1:(K 24)) `Int32
 - Talk about tensor initialization and RNG (just one sentense for now)
 - Why symbolic shapes (link those libs/articles)
 - What about modular implicits, what will those bring?
-- OCaNN shouldn't be low level enough to avoid feeling like a rigid toybox
-- OCaNN shouldn't be a barrier when the user want to implement a new way of doing deep learning.
+- OCaNN should be low level enough to avoid feeling like a rigid toybox
+- OCaNN shouldn't be a barrier when the user want to implement a new DL techniques
 - OCaNN is not just for inference
 - A network is a list of leaf nodes and everything that is reachable from them (might have disconnected components)
 

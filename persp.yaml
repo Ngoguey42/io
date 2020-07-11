@@ -28,7 +28,7 @@ perspectives:
 
   # root and bin
   "0":
-    - [ ./persp.yaml, ./README.md,    ./build.sh ]
+    - [ ./persp.yaml, ./TODO.md,    ./build.sh ]
     - [ <up>,         ./.ocamlformat, ./dune-project ]
   "01":
     - [ ./index.html,      ./styles.css, ./header.css, ./mnist-jsoo.css ]
@@ -60,4 +60,4 @@ perspectives:
     - [reactjs-wrapper.html, lib/articles/a0_reactjs_wrapper.ml, lib/articles/reactjs_ex1.ml]
     - [lib/articles/reactjs_ex0.ml, <up>, <up>]
   "25":
-    - [fann0.html, lib/articles/a1_fann0.ml]
+    - [ocann0.html, lib/articles/a1_ocann0.ml]

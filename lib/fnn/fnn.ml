@@ -174,6 +174,7 @@ a layer (e.g. after training). Only then a layer stores some tensor.
 ---
 
 # Possible improvements:
+- rename network to node? we could say that `network` == `list of node`
 - rename all `replicate` methods to `update/amend/upgrade/something else`, rename all `copy` methods/function to `replicate`
 - parameter32 takes a shape (and init too)
 - change relu and softmax layer to activation with algorithm = [ `Relu; `Softmax of Pshape.Axis.t ]
@@ -188,6 +189,7 @@ a layer (e.g. after training). Only then a layer stores some tensor.
   - Create an Fnn.custom_layer class and a `Builder.custom custom_defn ...` function?
   Extensible GADT?
 - Transform `parameter32` to `parameter`?
+- What about 1 operation that outputs more than 1 tensor? A cumbersome solution is to define the operation with 2 layers `(X0, ..., Xn)->Yph, Yph->Y0, Yph->Y1` and erase that detail in the binding.
 - Find a less rigid way to implement the `pshape` lib. Modular implicits (lol)?
 - Rewrite the library without the use of ocaml objects because:
   - Those are impossible to serialize in js

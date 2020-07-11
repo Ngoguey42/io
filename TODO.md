@@ -22,9 +22,9 @@
    - PR or issue `owl need an unpack_flt'`
    - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`
    - Download all js/css in parallel and reorder when inserting in <head>
-   - Find a better syntax coloring lib
+   - Find a better syntax coloring lib (Use compiler libs? Might be too unstable)
    - Make articles standalone using module interfaces
-
+   - RSS flux (part of the deployment process when 2 repos?)
 
 - mnist-jsoo display maybe
    - Colorize network code

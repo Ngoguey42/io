@@ -54,18 +54,24 @@ let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
     let sub i j a = Bigarray.Genarray.sub_left a i j in
     match entry with
     | `Train_imgs ->
-        Ft_js.Conv.Uint8.ba_of_ta arr
+        Typed_array.to_genarray arr
+        (* Ft_js.Conv.Uint8.ba_of_ta arr *)
         |> sub 16 (train_set_size * 28 * 28)
         |> Fun.flip Bigarray.reshape [| train_set_size; 28; 28 |]
     | `Train_labs ->
-        Ft_js.Conv.Uint8.ba_of_ta arr |> sub 8 train_set_size
+        Typed_array.to_genarray arr
+       (* Ft_js.Conv.Uint8.ba_of_ta arr *)
+       |> sub 8 train_set_size
         |> Fun.flip Bigarray.reshape [| train_set_size |]
     | `Test_imgs ->
-        Ft_js.Conv.Uint8.ba_of_ta arr
+        Typed_array.to_genarray arr
+        (* Ft_js.Conv.Uint8.ba_of_ta arr *)
         |> sub 16 (test_set_size * 28 * 28)
         |> Fun.flip Bigarray.reshape [| test_set_size; 28; 28 |]
     | `Test_labs ->
-        Ft_js.Conv.Uint8.ba_of_ta arr |> sub 8 test_set_size
+        Typed_array.to_genarray arr
+       (* Ft_js.Conv.Uint8.ba_of_ta arr *)
+       |> sub 8 test_set_size
         |> Fun.flip Bigarray.reshape [| test_set_size |]
   in
   let arr =
@@ -111,7 +117,8 @@ let put_digit_to_canvas img (canvas : Dom_html.canvasElement Js.t) =
     |> (fun x -> Ndarray.reshape x [| 28; 28; 1 |])
     |> (fun x -> Ndarray.repeat x [| 1; 1; 3 |])
     |> Ndarray.pad ~v:255 [ [ 0; 0 ]; [ 0; 0 ]; [ 0; 1 ] ]
-    |> Ft_js.Conv.Uint8.ta_of_ba
+    |> Typed_array.from_genarray
+    (* |> Ft_js.Conv.Uint8.ta_of_ba *)
   in
   canvas##.width := 28;
   canvas##.height := 28;

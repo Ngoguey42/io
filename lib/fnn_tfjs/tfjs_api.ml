@@ -25,11 +25,11 @@ end
 
 (* Types  *************************************************************************************** *)
 
-type uint8_ta = (int, [ `Uint8 ]) Typed_array.typedArray
+type uint8_ta = (int, Bigarray.int8_unsigned_elt) Typed_array.typedArray
 
-type float32_ta = (float, [ `Float32 ]) Typed_array.typedArray
+type float32_ta = (float, Bigarray.float32_elt) Typed_array.typedArray
 
-type int32_ta = (int, [ `Int32 ]) Typed_array.typedArray
+type int32_ta = (int32, Bigarray.int32_elt) Typed_array.typedArray
 
 type float32_ba = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
@@ -579,9 +579,9 @@ let tensor_of_ta : int array -> ('a, 'b) Typed_array.typedArray Js.t -> tensor J
 let tensor_of_ba (type a b) : (a, b, Bigarray.c_layout) Bigarray.Genarray.t -> tensor Js.t =
  fun arr ->
   match Bigarray.Genarray.kind arr with
-  | Bigarray.Float32 -> tensor_of_ta (Bigarray.Genarray.dims arr) (Ft_js.Conv.Float32.ta_of_ba arr)
+  | Bigarray.Float32 -> tensor_of_ta (Bigarray.Genarray.dims arr) (Typed_array.from_genarray arr)
   | Bigarray.Int8_unsigned ->
-      tensor_of_ta (Bigarray.Genarray.dims arr) (Ft_js.Conv.Uint8.ta_of_ba arr)
+      tensor_of_ta (Bigarray.Genarray.dims arr) (Typed_array.from_genarray arr)
   | _ -> failwith "In tensor_of_ta: Unsopported dtype"
 
 let ba_of_tensor (type a b) :
@@ -591,9 +591,9 @@ let ba_of_tensor (type a b) :
   let reshape arr = Bigarray.reshape arr (Js.to_array tensor##.shape) in
   match kind with
   | Bigarray.Float32 ->
-      (tensor_astype "float32")##dataSync_float32 |> Ft_js.Conv.Float32.ba_of_ta |> reshape
+      (tensor_astype "float32")##dataSync_float32 |> Typed_array.to_genarray |> reshape
   | Bigarray.Int32 ->
-      (tensor_astype "int32")##dataSync_int32 |> Ft_js.Conv.Int32.ba_of_ta |> reshape
+      (tensor_astype "int32")##dataSync_int32 |> Typed_array.to_genarray |> reshape
   | _ -> failwith "In ba_of_tensor: Kind not implemented"
 
 let variable :
@@ -684,9 +684,9 @@ module Layers = struct
       | None -> Js.Opt.empty
       | Some (kernel, bias) ->
           let shape = Bigarray.Genarray.dims kernel in
-          let kernel = kernel |> Ft_js.Conv.Float32.ta_of_ba |> tensor_of_ta shape in
+          let kernel = kernel |> Typed_array.from_genarray |> tensor_of_ta shape in
           let shape = Bigarray.Genarray.dims bias in
-          let bias = bias |> Ft_js.Conv.Float32.ta_of_ba |> tensor_of_ta shape in
+          let bias = bias |> Typed_array.from_genarray |> tensor_of_ta shape in
           [| kernel; bias |] |> Js.array |> Js.Opt.return
     in
     let params =

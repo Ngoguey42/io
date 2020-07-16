@@ -8,16 +8,13 @@
 - repo
    - Split the repo. Keep only the Github Pages resources inside this one (through copy and dune build --release). Move the source code to another one where the build directory has been removed from all commits (but keep history!!).
    - Update OCaml libraries and constrain dependencies (with >=)
-      - Update js_of_ocaml for new bigarray conversions
    - Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
 
 - maybe
-   - PR or issue `js_of_ocaml ErrorError##.msg -> ErrorError##.message`
    - PR or issue `owl get_slice [first; start] -> [start; stop[`
       - (60000) [[0; 499]] -> (500)
       - (1, 9, 9, 1) [[0;0];[1;6];[1;6];[0;0]] -> (1, 6, 6, 1) // yes, for real
       - (1, 9, 9, 1) [[]   ;[1;6];[1;6];[]   ] -> (1, 7, 7, 1)
-   - issue `why not WeakMap in js_of_ocaml`
    - PR or issue `owl Algodiff.Arr.shape should use prime' (Same in Algodiff.?.Softmax, theres an unpack_arr)`
    - PR or issue `owl need an unpack_flt'`
    - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`

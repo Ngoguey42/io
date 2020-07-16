@@ -4,7 +4,7 @@ perspectives:
   "+8":
     - [ lib/ft_js/dune,     lib/ft_js/stubs.js ]
     - [ lib/ft_js/ft_js.ml, lib/ft_js/fake_stubs.c ]
-  "8": [[ lib/ft_js/misc.ml, lib/ft_js/conv.ml ]]
+  "8": [[ lib/ft_js/misc.ml ]]
   "9": [[ lib/ft_js/reactjs.ml, lib/ft_js/scripts.ml, lib/ft_js/webworker.ml ]]
   "+9": [[ lib/ft/irmin_mem.ml, lib/ft_js/irmin_indexeddb_js_api.ml, lib/ft_js/irmin_indexeddb_raw_noutf.ml ]]
 

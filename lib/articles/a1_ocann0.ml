@@ -39,18 +39,18 @@ let t0 =
 <h2>Example: Two-Layer Perceptron</h2>
 
 First we create the network using the main module.
-<pre><code>
-let nn =
-  let open Ocann.Default.Builder in            (* Exposes the layer constructors *)
-  let open Ocann.Pshape.Size in     (* Exposes the `U` and `K` size constructors *)
+<pre><code>let nn =
+  let open Ocann.Default.Builder in                     (* Exposes the layer constructors *)
+  let open Ocann.Pshape.Size in                         (* Exposes the `U` and `K` constructors *)
   input (Pshape.abs2d_partial U (K (28 * 28))) `Float32 (* shape: (unknown, 784) *)
   |> dense [ (`Idx 1, 512) ] |> bias |> relu
   |> dense [ (`Idx 1, 10) ] |> bias
-  |> softmax (`Idx 1)                                    (* shape: (unknown, 10) *)
+  |> softmax (`Idx 1)                                   (* shape: (unknown, 10) *)
 </code></pre>
 
-We can train this NN using the existing Owl Algodiff (effectful) binding
-<pre><code>
+We can then train this NN using the existing Owl Algodiff (effectful) binding,
+<pre><code>module Algodiff = Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
+
 let categorical_crossentropy epsilon softmaxed_pred truth =
   let open Algodiff.Maths in
   softmaxed_pred |> max2 (epsilon |> Algodiff.pack_flt)
@@ -59,65 +59,86 @@ let categorical_crossentropy epsilon softmaxed_pred truth =
 let learning_rate = 1e-3
 let new_nn =
   let flattened_images, truths = ... in (* Algodiff tensors *)
+
   let forward, optimizations, pack = Ocann_owl.unpack_for_training nn in
+  (* `forward` mutates the network's weights tensors contained in the closure
+     `optimizations` is a list of functions to call after a call to `reverse_prop` to mutate the
+       network's weights again
+     `pack` transforms the closure back to an OCaNN network *)
+
+  (* Forward pass *)
   let predictions = forward flattened_images in
   let loss = categorical_crossentropy 1e-10 predictions truths in
+
+  (* Backward pass *)
   Algodiff.reverse_prop (Algodiff.pack_flt 1.) loss;
+
+  (* Optimization *)
   Ocann_owl.OptiMap.iter (fun _ optimization -> optimization learning_rate) optimizations;
+
   pack ()
 </code></pre>
 
 or the exising TensorFlow.js (effectful too) binding.
-<pre><code>
-let learning_rate = 1e-3
+<pre><code>let learning_rate = 1e-3
 let new_nn =
   let flattened_images, truths = ... in (* Tfjs tensors *)
   let forward, optimizations, pack = Ocann_tfjs.unpack_for_training nn in
+
+  (* Forward and backward pass *)
   let f () =
     let predictions = forward flattened_images in
     let loss = Tfjs.categorical_crossentropy 1e-10 predictions truths in
     loss
   in
   let loss, grads = Tfjs.variable_grads f in
+
+  (* Optimization *)
   Ocann_tfjs.OptiMap.iter
     (fun name optimization -> optimization learning_rate (Tfjs.Named_tensor_map.find name grads))
     optimizations;
+
   pack ()
 </code></pre>
 
 <h2>Benefits</h2>
 <p>
    There are multiple benefits to OCaNN's approach:
-   <ul><li>
-   Get rid of the awkward feeling of being writing Python in OCaml by tailoring the APIs for OCaml.
-   </li><li>
-   No need to write yet another tensor processing engine which is the most expensive part of a DL
-   framework.
-   </li><li>
-   Clear separation of concerns between the operations that require a computation engine
+   <ul>
+   <li>Get rid of the awkward feeling of being writing Python in OCaml by tailoring the NN APIs for OCaml.</li>
+   <li>No need to write yet another tensor processing engine which - is the most expensive part of a DL
+   framework.</li>
+   <li>Clear separation of concerns between the features that require a computation engine
    (i.e. number crunching for inference or training) and the rest
-   (e.g. network construction, initialization, modification, storage and analysis).
-   </li><li>
+   (e.g. network construction, initialization, modification, storage and analysis).</li>
+   <li>
    Sharing a common basis between multiple DL framework bindings simplifies:
-   - Writing of binding for a DL framework.
-   - Supporting several frameworks at once in one code base (e.g. you may want to use a specialized engine in production while reusing pieces of code from the training phase).
-   - Porting a program from one framework to another.
-   </li></ul>
+   <ul>
+   <li>Writing a binding for a DL framework.</li>
+   <li>Supporting several frameworks at once in one code base (e.g. you may want to use a specialized engine in production while reusing pieces of code from the training phase).</li>
+   <li>Porting a program from one framework to another.</li>
+   </ul>
+   </li>
+   </ul>
 </p>
 
 <h2>Frameworks Bindings</h2>
 <p>
    In order to expose a framework in a functional fashion, the binding should be connected at the lowest level - to the tensor computation engine - and ignore everything else in the framework. The tensor computation engine can be seen as a push-based black box that can dynamically receive computation graph nodes and output tensor promises on certain nodes. A node can either be an input tensor (e.g. image, sound, text, network parameters) or an operation between nodes (e.g. forward-conv, backward-conv-x, backward-conv-w). An output tensor is the output of any node (e.g. predictions, gradients, feature maps, updated network parameters). Binding a framework in such a way offers full flexibility to write an OCaml-friendly binding, but some problems may arise with certain frameworks:
-   <ul><li>
-   Not all DL frameworks expose their engine in a low level fashion. In that case a binding has to use a higher-level API (often effectful) (e.g. the TensorFlow.js framework).
-   </li><li>
-   It is often quicker to write a binding that reuses the higher level abstractions of a framework (e.g. the Owl binding uses Algodiff).
-   </li><li>
-   Some engines will not natively support certain operations (i.e. NN nodes). In that case the binding can either raise an exception or provide an ad-hoc implementation using the framework's constructs. Examples:
-   - In the TensorFlow.js binding tensordot is implemented using transpose/reshape/dot.
-   - In the Owl binding tensordot raises an exception unless it can be substituted with a dot operation.
-   - Some engines only allow inference and not traning.
-   </li></ul>
+   <ul>
+   <li>Not all DL frameworks expose their engine in a low level fashion. In that case a binding has to use a higher-level API (often effectful) (e.g. the TensorFlow.js framework).</li>
+   <li>It is often quicker to write a binding that reuses the higher level abstractions of a framework (e.g. the Owl binding uses Algodiff).</li>
+
+   <li>Some engines will not natively support certain operations (i.e. certain NN layers). In that case the binding can either raise an exception or provide an ad-hoc implementation using the framework's constructs. Examples:
+   <ul>
+   <li>In the TensorFlow.js binding tensordot is implemented using transpose/reshape/dot.</li>
+   <li>In the Owl binding tensordot raises an exception unless it can be substituted with a dot operation.</li>
+   <li>Some frameworks only allow inference and not traning.</li>
+   </ul>
+   </li>
+
+   </ul>
+
    TODO: Not everything should/can be bound (Go to paradigms?)
    - explicit garbage collection in Tfjs
    - device selection in tf/torch
@@ -145,28 +166,33 @@ let new_nn =
    </li><li>
    The Pshape library rely too much on unsafe operations.
    </li><li>
-   The Owl binding should bypass Algodiff to avoid the mutable paradigm.
+   A true functional binding for Owl is possible by bypassing Algodiff.
    </li><li>
    Some layers have to store tensors and they currently store a pointer to it (e.g. parameter32, normalisation). A design with a global weak dictionnary might be a good alternative.
    </li><li>
-   As in all deep learning frameworks, the network definition in OCaNN treats the backward phase as a second class citizen. Some powerful DL use cases involve transforming the gradient tensors from the backward phase with regular forward operations. Such use cases are hard - if not impossible - to define at the network creation time.
+   As in all deep learning frameworks, the network definition in OCaNN treats the backward phase as a second class citizen. Some powerful DL use cases involve transforming the gradient tensors from the backward phase with regular forward operations. Such use cases are hard - if not impossible - to define within the network's architecture.
    </li></ul>
 </p>
 <p>
    Some features are yet to be implemented:
-   - Many basic layers are missing (i.e. ConvTranspose, sqrt).
-   - Some backends are obviously missing (i.e. torch).
-   - Conversions to/from storage formats such as ONNX and NNEF.
-   - Small improvements listed in <a href="">ocann.ml</a>.
+   <ul><li>
+   Many basic layers are missing (i.e. ConvTranspose, sqrt).
+   </li><li>
+   Some backends are obviously missing (i.e. torch).
+   </li><li>
+   Conversions to/from storage formats such as ONNX and NNEF.
+   </li><li>
+   Many smaller improvements listed in <a href="">ocann.ml</a>.
+   </li></ul>
 </p>
 <p>
    If you wish to contribute or discuss about it, e-mail me!
 </p>
 
-<h2>Example: Symbolic Shapes and Residual CNN</h2>
+<h2>One Last Example</h2>
 
-<pre><code>
-let open Ocann.Default.Builder in
+Definition of a residual convolutional NN that uses symbolic shapes.
+<pre><code>let open Ocann.Default.Builder in
 let open Ocann.Pshape.Size in
 
 (* Input shape is {x:24; y:24; c:3; n:unknown} *)
@@ -260,16 +286,34 @@ built on top of the <code>Ocann</code> module.
 |}
 
 let construct_reactjs_article () =
+  let ref = Reactjs.create_ref () in
   let render () =
     let open Reactjs.Jsx in
     let box =
       [ of_tag "h1" [ of_string "OCaNN library" ]; of_tag "div" ~inner_html:t0 [] ]
-      |> of_bootstrap "Col" >> of_bootstrap "Row"
+      |> of_bootstrap ~ref "Col" >> of_bootstrap "Row"
       >> of_bootstrap "Container" ~fluid:true ~classes:[ "bigbox1" ]
     in
     of_react "Fragment" [ box ]
   in
-  Reactjs.construct render
+  let mount () =
+    begin
+      let ( >|= ) opt f = Js.Opt.iter opt f in
+      let tolist all =
+        List.init all##.length (fun i -> all##item i |> Js.Opt.to_option)
+        |> List.filter_map Fun.id
+      in
+      ref##.current >|= fun elt ->
+      Firebug.console##log elt;
+      elt##querySelectorAll (Js.string "pre > code")
+      |> tolist
+      |> List.map Misc.highlight_element
+      |> ignore;
+      (* >|= fun elt -> Misc.highlight_element elt) *)
+    end;
+    fun () -> ()
+  in
+  Reactjs.construct ~mount render
 
 let main () =
   let open Lwt.Infix in

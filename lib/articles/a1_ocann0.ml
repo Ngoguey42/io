@@ -25,11 +25,7 @@ end
    - tfjs training
 
 # 1
--  Motivations
-  1. Let's take advantage of ocaml's features to do DL with less bugs. Let's call that functional NN
-  2. Ok, writing an engine is a bad idea, let's reuse what's out there
-  3. By the way, let's make something generic to allow for advanced use cases
-- Benefits of designing the lib like that
+- Benefits of designing the lib like that way
    - Not python
    - No need to write an engine
    - separation of concerns
@@ -38,8 +34,15 @@ end
    - one binding can be fully ad-hoc if necessary
    - not keras
 
--------------------------------
-
+# 5
+- Nice features of the main module already implemented
+   - Functor for layer id and tensor type
+   - The builder and the RNG
+   - Shape (link to other links articles)
+   - Explosion of layers
+   - A network is a list of leaf nodes and everything that is reachable from them (might have disconnected components)
+   - Weight sharing and kernel weight result of op
+   - APIs are all low level
 
 # 2
 - How to bind a DLF for a functional experience
@@ -50,13 +53,6 @@ end
       - Some operations are not supported by certain frameworks
 
 ----------------------------
-
-# 5
-- Nice features of the main module already implemented
-   - Functor for layer id and tensor type
-   - The builder and the RNG
-   - Shape (link to other links articles)
-   - Explosion of layers
 - Exemple of those features (residual network)
 
 # 6
@@ -66,39 +62,30 @@ end
    - please contact
 
 
+- Implicit
+
 - The library should be as generic as possible.
+  - OCaNN is not just for inference
   - Ex: No asumptions on shape ordering.
   - OCaNN should be low level enough to avoid feeling like a rigid toybox
   - OCaNN shouldn't be a barrier when the user want to implement a new DL techniques
-  - Support advanced use cases
-    - Weight sharing
-    - kernel weight is result of operation (meta learning)
-    - Layers that only affect backward
-    - Gradient tempering, Backward phase first-class
 
 
-- Favor low-level flexible APIs versus the high-level black-box ones
+ - Favor low-level flexible APIs versus the high-level black-box ones
   - encourage user to write his own implementations rather than providing ad-hoc code (No LSTM layer in lib)
   - Ex: No `train` function in the spec modules, everyone that does deep learning know in which order the general operations should take place
-  - interoperability with user's ad-hoc layers
-  - Favor user algorithms implementations in bridge modules
-  - User layers first class (implement all pre-made layers with that technique)
 
 
 - Misc
   - Preserve the network structure at the end of a training, at all cost.
-  - OCaNN is not just for inference
-  - A network is a list of leaf nodes and everything that is reachable from them (might have disconnected components)
   - What about modular implicits, what will those bring?
+
+
 
 - Chunks
    OCaNN takes advantage of the powerful coding paradigms provided by OCaml to
 
    the number of naturally occuring bugs in programs manipulating neural networks (NN).
-
-   The main module provides all the features for NN manipulations that do not
-   require number crunching, and it serves as a basis for all NN framework bindings.
-   This module is all about high-level NN functional reasoning.
 
    A typical Python DL training program is error prone.
    A common situation when training a NN is
@@ -107,7 +94,16 @@ end
    Motivation: OCaml and OCaNN for type safe and functional NNs
 
    We need static and runtime checks when dealing with NNs
+   Those anoying bugs most of the time occur because of the lack of verbosity
+   By bringing more types into the NN programs and by providing new safer ways
+   Bringing types and runtime checks to NN
+on numerical problems
 
+   If we had more types and
+   By having more types and runtime checks in our DL programs we would
+
+   We need those types and runtime checks to face less bugs when writing our
+   DL programs, to spend less time on bugs and more time on numerical problems.
 
    OCaml for Neural Networks
    OCaNN for Neural Networks
@@ -117,6 +113,10 @@ end
    OCaNN's goal is to take advantage of OCaml's type system to unsilence all
    the typical errors that are made when dealing with NNs.
    Everything in that module is about high-level NN reasoning in a functional way
+
+   The main module provides all the features for NN manipulations that do not
+   require number crunching, and it serves as a basis for all NN framework bindings.
+   This module is all about high-level NN functional reasoning.
 
 
 
@@ -138,11 +138,11 @@ let t0 =
 </p>
 <p>
    A first implementation is available
-   <a href="">here</a> (and
-   <a href="">here</a> for the shape abstraction)
+   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/fnn">here</a> (and
+   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/pshape">here</a> for the shape abstraction)
    and two bindings already exist,
-   <a href="">ocann-owl</a> and
-   <a href="">ocann-tfjs</a>.
+   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/fnn_owl">ocann-owl</a> and
+   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/fnn_tfjs">ocann-tfjs</a>.
    All have been used to create the <a href="mnist-jsoo.html">mnist-jsoo</a> page.
 </p>
 
@@ -229,16 +229,49 @@ let new_nn =
    </ul>
 </p>
 
-<h2>APIs Design</h2> <!-- ---------------------------------------------------------------------- -->
+<h2>Motivation for Functional Neural Networks</h2> <!-- ---------------------------------------- -->
 <p>
-   Everyone who as trained a NN at least once has faced the situation where
+   Anyone who as trained a NN at least once has faced the situation where
    the training program is running without errors but the network doesn't seem
    to be learning anything. Either:
    <ul>
-   <li>There is a bug in your code that remained undetected by the static checks, the runtime checks and yourself.</li>
+   <li>There is a bug in your code that remained undetected by the static checks,
+   the runtime checks and yourself.</li>
    <li>Your code is fine but some hyperparameter is wrong, such as the network architecture.</li>
-   <li>Your code and your configurations are fine, your network is currently in a local minima, you just need to wait.</li>
+   <li>Your code and your configurations are fine, your network is currently in a local minima,
+   you just need to wait.</li>
    </ul>
+   This time consuming situation is symtomatic of the lack safety in the programming
+   languages and the DL frameworks widely used today.
+</p>
+<p>
+   To spend less time on debugging code and more time on debugging algorithms, a DL library
+   should allow for more static and runtime checks.
+</p>
+<p>
+   Brinding safety to DL programs is already a concern for many people out there:
+   <ul><li>
+   <a href="https://blog.jle.im/entry/practical-dependent-types-in-haskell-1.html">Type-Safe Neural Networks</a> in Haskell.
+   </li><li>
+   <a href="http://hackage.haskell.org/package/tensor-safe">TensorSafe</a>, one of many Haskell NN library.
+   </li><li>
+   <a href="https://blog.janestreet.com/playing-atari-games-with-ocaml-and-deep-rl/#improving-type-safety">An interesting attempt</a> at typing tensor dimensions in OCaml.
+   </li></ul>
+</p>
+
+<h2>Safeties Alrady Offered by OCaNN</h2> <!-- ------------------------------------------------- -->
+<p>
+   - Immutability of networks
+
+   - Smaller layers
+
+   - Polymorphic shapes that adapt to the situation
+
+   - Runtime checks on dimensions compatibility
+
+   - RNG at NN initialization
+
+   - No general purpose NN conversion in bidings
 </p>
 
 <h2>Binding a Framework</h2> <!-- -------------------------------------------------------------- -->
@@ -290,14 +323,16 @@ let new_nn =
    </li><li>
    Polymorphic variants should be used instead of objects (e.g. <code>val kernel_size_2d : [< `Conv2d | `Maxpool2d ] network -> int * int</code>).
    </li><li>
-   Custom layers should be first class citizens to encourage the user to
-   implement his own abstrations. Both in the common module and in the bindings.
-   </li><li>
    Some features should be streamline to feel less ad-hoc (i.e. optimizer).
    </li><li>
    The Pshape library relies too much on unsafe operations.
    </li><li>
    A true functional binding for Owl is possible by bypassing Algodiff.
+   </li><li>
+   It would be vain to try to include in the library all the NN layers that exists out there.
+   Instead, the user should be able to define his own layers in both the common module and the
+   binding he uses. To make that process painless, the custom layers should be first class
+   citizens.
    </li><li>
    The layers that have to reference tensors currently store a pointer to them
    (e.g. parameter32, normalisation). A design with a global weak dictionnary might be an
@@ -314,11 +349,13 @@ let new_nn =
    <ul><li>
    Many basic layers are missing (i.e. ConvTranspose, sqrt).
    </li><li>
-   Some backends are obviously missing (i.e. torch).
+   Some backends are obviously missing (i.e. torch, tensorflow, owl's opencl backend).
    </li><li>
    Conversions to/from storage formats such as ONNX and NNEF.
    </li><li>
    Many smaller improvements listed in <a href="">ocann.ml</a>.
+   </li><li>
+   New static and runtime checks
    </li></ul>
 </p>
 <p>

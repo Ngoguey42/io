@@ -14,110 +14,46 @@ end
 
 (*
 
-# 0
-- In a few words, what is OCaNN trying to achieve, with what structure
-   - Functional NN to ocaml without writing an engine
-   - 1 main functional abstraction / N dedicated abstractions based on main
-   - Link to current implementations
-- Simple example
-   - Network creaton
-   - algodiff training
-   - tfjs training
+<h2>Binding a Framework</h2> <!-- -------------------------------------------------------------- -->
+<p>
+   In order to expose a framework in a functional fashion, the binding should be
+   connected at the lowest level - to the tensor computation engine - and ignore
+   everything else in the framework.
+</p>
+<p>
+   The tensor computation engine can be seen as a push-based black box that can
+   dynamically receive computation graph nodes and output tensor promises on certain nodes.
+   A node can either be an input tensor (e.g., image, sound, text, network parameters) or
+   an operation between nodes (e.g., forward-conv, backward-conv-x, backward-conv-w).
+   An output tensor is the output of any node
+   (e.g., predictions, gradients, feature maps, updated network parameters).
+</p>
+<p>
+   Binding a framework in such a way offers full flexibility to write an OCaml-friendly
+   binding, but some problems may arise with certain frameworks:
+   <ul>
 
-# 1
-- Benefits of designing the lib like that way
-   - Not python
-   - No need to write an engine
-   - separation of concerns
-   - easier to write a binding for a new framework
-   - easier to support several frameworks at once in 1 code
-   - one binding can be fully ad-hoc if necessary
-   - not keras
+   <li>Not all DL frameworks expose their engine in a low level fashion. In that case
+   a binding has to use a higher-level API, often effectful, that will cause some rigidity
+   (e.g., the TensorFlow.js framework).</li>
 
-# 5
-- Nice features of the main module already implemented
-   - Functor for layer id and tensor type
-   - The builder and the RNG
-   - Shape (link to other links articles)
-   - Explosion of layers
-   - A network is a list of leaf nodes and everything that is reachable from them (might have disconnected components)
-   - Weight sharing and kernel weight result of op
-   - APIs are all low level
+   <li>It is often quicker to write a binding that reuses the higher level abstractions
+   of a framework (e.g., the Owl binding uses Algodiff).</li>
 
-# 2
-- How to bind a DLF for a functional experience
-   - Bind to the engine
-   - Flaws to that strategy
-      - Can't reach the engine
-      - Quicker to not reach the engine
-      - Some operations are not supported by certain frameworks
+   <li>Some engines will not natively support certain operations (i.e., certain NN layers).
+   In that case the binding can either raise an exception or provide an ad-hoc
+   implementation using the framework's constructs. Examples:
+   <ul>
+   <li>In the current TensorFlow.js binding tensordot is implemented using transpose/reshape/dot.</li>
+   <li>In the Owl binding, tensordot raises an exception unless it can be substituted
+   with a simple dot operation.</li>
+   <li>Some frameworks only allow inference and not traning.</li>
+   </ul>
+   </li>
 
-----------------------------
-- Exemple of those features (residual network)
+   </ul>
 
-# 6
-- Future
-   - Redesigns
-   - Additions
-   - please contact
-
-
-- Implicit
-
-- The library should be as generic as possible.
-  - OCaNN is not just for inference
-  - Ex: No asumptions on shape ordering.
-  - OCaNN should be low level enough to avoid feeling like a rigid toybox
-  - OCaNN shouldn't be a barrier when the user want to implement a new DL techniques
-
-
- - Favor low-level flexible APIs versus the high-level black-box ones
-  - encourage user to write his own implementations rather than providing ad-hoc code (No LSTM layer in lib)
-  - Ex: No `train` function in the spec modules, everyone that does deep learning know in which order the general operations should take place
-
-
-- Misc
-  - Preserve the network structure at the end of a training, at all cost.
-  - What about modular implicits, what will those bring?
-
-
-
-- Chunks
-   OCaNN takes advantage of the powerful coding paradigms provided by OCaml to
-
-   the number of naturally occuring bugs in programs manipulating neural networks (NN).
-
-   A typical Python DL training program is error prone.
-   A common situation when training a NN is
-
-   What OCaml has to bring to NN
-   Motivation: OCaml and OCaNN for type safe and functional NNs
-
-   We need static and runtime checks when dealing with NNs
-   Those anoying bugs most of the time occur because of the lack of verbosity
-   By bringing more types into the NN programs and by providing new safer ways
-   Bringing types and runtime checks to NN
-on numerical problems
-
-   If we had more types and
-   By having more types and runtime checks in our DL programs we would
-
-   We need those types and runtime checks to face less bugs when writing our
-   DL programs, to spend less time on bugs and more time on numerical problems.
-
-   OCaml for Neural Networks
-   OCaNN for Neural Networks
-   The common <code>Ocann</code> module
-   OCaNN is an attempt at building such a system.
-   OCaNN's goal is bring type safety and runtime checks to programs manipulating NNs.
-   OCaNN's goal is to take advantage of OCaml's type system to unsilence all
-   the typical errors that are made when dealing with NNs.
-   Everything in that module is about high-level NN reasoning in a functional way
-
-   The main module provides all the features for NN manipulations that do not
-   require number crunching, and it serves as a basis for all NN framework bindings.
-   This module is all about high-level NN functional reasoning.
-
+</p>
 
 
  *)
@@ -215,15 +151,15 @@ let new_nn =
    <li>No need to write yet another tensor processing engine - which is the most
    expensive part of a DL framework.</li>
    <li>Clear separation of concerns between the features that require a computation engine
-   (i.e. number crunching for inference or training) and the rest
-   (e.g. network construction, initialization, modification, storage, graph analysis).</li>
+   (i.e., number crunching for inference or training) and the rest
+   (e.g., network construction, initialization, modification, storage, graph analysis).</li>
    <li>It is quicker to write a new binding for a framework</li>
    <li>By sharing pieces of code between bindings, it is easier for the user to adapt the
-   framework to his needs. (e.g. he may want to use a specialized engine in production while
+   framework used to his needs. (e.g., he may want to use a specialized engine in production while
    reusing pieces of code from the training phase)</li>
    <li>Since a binding is an independent library, very few constrains apply on the design of it
-   (e.g a framework can possess several bindings)
-   (e.g. a binding can be specialized for one specific task).</li>
+   (e.g., a framework can possess several bindings)
+   (e.g., a binding can be specialized for one specific task).</li>
    <li>Compared to a library that gives a single interface to multiple DL frameworks, having
    bindings specialized for their own library allows for more flexibility.</li>
    </ul>
@@ -245,8 +181,8 @@ let new_nn =
    languages and the DL frameworks widely used today.
 </p>
 <p>
-   To spend less time on debugging code and more time on debugging algorithms, a DL library
-   should allow for more static and runtime checks.
+   In order to spend less time on debugging, a DL library should allow for more static
+   and runtime checks.
 </p>
 <p>
    Brinding safety to DL programs is already a concern for many people out there:
@@ -261,69 +197,23 @@ let new_nn =
 
 <h2>Safeties Alrady Offered by OCaNN</h2> <!-- ------------------------------------------------- -->
 <p>
-   - Immutability of networks
-
-   - Smaller layers
-
-   - Polymorphic shapes that adapt to the situation
-
-   - Runtime checks on dimensions compatibility
-
-   - RNG at NN initialization
-
-   - No general purpose NN conversion in bidings
-</p>
-
-<h2>Binding a Framework</h2> <!-- -------------------------------------------------------------- -->
-<p>
-   In order to expose a framework in a functional fashion, the binding should be
-   connected at the lowest level - to the tensor computation engine - and ignore
-   everything else in the framework.
-</p>
-<p>
-   The tensor computation engine can be seen as a push-based black box that can
-   dynamically receive computation graph nodes and output tensor promises on certain nodes.
-   A node can either be an input tensor (e.g. image, sound, text, network parameters) or
-   an operation between nodes (e.g. forward-conv, backward-conv-x, backward-conv-w).
-   An output tensor is the output of any node
-   (e.g. predictions, gradients, feature maps, updated network parameters).
-</p>
-<p>
-   Binding a framework in such a way offers full flexibility to write an OCaml-friendly
-   binding, but some problems may arise with certain frameworks:
-   <ul>
-
-   <li>Not all DL frameworks expose their engine in a low level fashion. In that case
-   a binding has to use a higher-level API, often effectful, that will cause some rigidity
-   (e.g. the TensorFlow.js framework).</li>
-
-   <li>It is often quicker to write a binding that reuses the higher level abstractions
-   of a framework (e.g. the Owl binding uses Algodiff).</li>
-
-   <li>Some engines will not natively support certain operations (i.e. certain NN layers).
-   In that case the binding can either raise an exception or provide an ad-hoc
-   implementation using the framework's constructs. Examples:
-   <ul>
-   <li>In the current TensorFlow.js binding tensordot is implemented using transpose/reshape/dot.</li>
-   <li>In the Owl binding, tensordot raises an exception unless it can be substituted
-   with a simple dot operation.</li>
-   <li>Some frameworks only allow inference and not traning.</li>
-   </ul>
-   </li>
-
-   </ul>
-
+<h3>Immutability of Networks</h3><p>lorem ipsum</p>
+<h3>Smaller Layers</h3><p>lorem ipsum</p>
+<h3>Polymorphic Shapes</h3><p>lorem ipsum</p>
+<h3>Runtime Checks on Dimensions Compatibility</h3><p>lorem ipsum</p>
+<h3>A More Robust Way of Handling RNG at NN Initialization</h3><p>lorem ipsum</p>
+<h3>No General Purpose Bidirectional NN Conversion In Bindings</h3><p>lorem ipsum</p>
 </p>
 
 <h2>Future</h2> <!-- --------------------------------------------------------------------------- -->
 <p>
    After writing and using OCaNN v0 it feel that some parts should be redesigned:
    <ul><li>
-   The APIs should be based on an existing abstraction (i.e. ONNX, NNEF).
+   The APIs should be based on an existing abstraction (e.g., ONNX, NNEF).
    </li><li>
-   Polymorphic variants should be used instead of objects (e.g. <code>val kernel_size_2d : [< `Conv2d | `Maxpool2d ] network -> int * int</code>).
+   Polymorphic variants should be used instead of objects (e.g., <code>val kernel_size_2d : [< `Conv2d | `Maxpool2d ] network -> int * int</code>).
    </li><li>
-   Some features should be streamline to feel less ad-hoc (i.e. optimizer).
+   Some features should be streamline to feel less ad-hoc (e.g., optimizer).
    </li><li>
    The Pshape library relies too much on unsafe operations.
    </li><li>
@@ -332,10 +222,10 @@ let new_nn =
    It would be vain to try to include in the library all the NN layers that exists out there.
    Instead, the user should be able to define his own layers in both the common module and the
    binding he uses. To make that process painless, the custom layers should be first class
-   citizens.
+   citizens in a new design.
    </li><li>
-   The layers that have to reference tensors currently store a pointer to them
-   (e.g. parameter32, normalisation). A design with a global weak dictionnary might be an
+   All the layers that have to reference tensors currently store a pointer to them
+   (e.g., parameter32, normalisation). Another design using a global weak dictionnary might be an
    interesting alternative.
    </li><li>
    As in all deep learning frameworks, the network definition in OCaNN treats the backward phase
@@ -347,15 +237,15 @@ let new_nn =
 <p>
    Some features are yet to be implemented:
    <ul><li>
-   Many basic layers are missing (i.e. ConvTranspose, sqrt).
+   Many basic layers are missing (e.g., ConvTranspose, sqrt).
    </li><li>
-   Some backends are obviously missing (i.e. torch, tensorflow, owl's opencl backend).
+   Some backends are obviously missing (e.g., torch, tensorflow, owl's opencl backend).
    </li><li>
    Conversions to/from storage formats such as ONNX and NNEF.
    </li><li>
    Many smaller improvements listed in <a href="">ocann.ml</a>.
    </li><li>
-   New static and runtime checks
+   New static and runtime checks (e.g., typing shape and data-type of tensors, analysis of the unkonwn dimensions throughout a network).
    </li></ul>
 </p>
 <p>
@@ -419,7 +309,6 @@ let construct_reactjs_article () =
       |> tolist
       |> List.map Misc.highlight_element
       |> ignore;
-      (* >|= fun elt -> Misc.highlight_element elt) *)
     end;
     fun () -> ()
   in

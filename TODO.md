@@ -1,14 +1,18 @@
 # TODO
 - blog
-  - Rename fnn to ocann
-  - Make first post about fnn
-  - Add contact languages in makingof
-  - Rename readme to todo
-  - Move Ocann default network to Default module
+  - Finish OCaNN article
+  - Rename fnn to ocann and move Ocann default network to Default module
+    - update code and blog accordingly
+
+--------------------------------------------------------------------------------
+
 - repo
-   - Split the repo. Keep only the Github Pages resources inside this one (through copy and dune build --release). Move the source code to another one where the build directory has been removed from all commits (but keep history!!).
-   - Update OCaml libraries and constrain dependencies (with >=)
-   - Fix dune build (dev/prod profiles, optimise js_of_ocaml and ocamlc flags even of intermediate files)
+   - Split the repo.
+     - Keep only the Github Pages resources inside this one (through copy and dune build --release).
+     - Move the source code to another one where the build directory has been removed from all commits (but keep history!!).
+   - Constrain OCaml dependencies (with >=)
+
+--------------------------------------------------------------------------------
 
 - maybe
    - PR or issue `owl get_slice [first; start] -> [start; stop[`
@@ -16,12 +20,13 @@
       - (1, 9, 9, 1) [[0;0];[1;6];[1;6];[0;0]] -> (1, 6, 6, 1) // yes, for real
       - (1, 9, 9, 1) [[]   ;[1;6];[1;6];[]   ] -> (1, 7, 7, 1)
    - PR or issue `owl Algodiff.Arr.shape should use prime' (Same in Algodiff.?.Softmax, theres an unpack_arr)`
-   - PR or issue `owl need an unpack_flt'`
    - Find a better pattern than `?signal ?signal ?signal` in `Reactjs`
    - Download all js/css in parallel and reorder when inserting in <head>
    - Find a better syntax coloring lib (Use compiler libs? Might be too unstable)
    - Make articles standalone using module interfaces
    - RSS flux (part of the deployment process when 2 repos?)
+
+--------------------------------------------------------------------------------
 
 - mnist-jsoo display maybe
    - Colorize network code
@@ -37,6 +42,7 @@
      - how many images and epochs we will reach
    - Show both epoch count and image count in x-axis hover
 
+--------------------------------------------------------------------------------
 
 - mnist-jsoo maybe
    - Ensure good propagation of exceptions throughout reactml/reactjs/webworker/lwt

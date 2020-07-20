@@ -17,7 +17,7 @@ end
 type card_data = { href : string; title : string; description : string; date : string }
 
 let cards_data =
-  (* From oldes to newest *)
+  (* From oldest to newest *)
   [
     {
       href = "cinquante.html";
@@ -41,8 +41,8 @@ let cards_data =
     {
       href = "ocann0.html";
       title = "OCaNN";
-      description = "A computation-agnostic neural network abstraction tailored for OCaml.";
-      date = "JUN 24, 2020";
+      description = "A neural network abstraction tailored for OCaml.";
+      date = "JUL 24, 2020";
     };
   ]
 
@@ -66,22 +66,9 @@ let construct_cards () =
     let open Reactjs.Jsx in
     Printf.printf "> Component - cards | render\n%!";
 
-    [
-      (* "Blog" *)
-      (* |> of_string *)
-      (* >> of_tag "h1" *)
-      (* >> of_tag "div" ~classes:["bigbox-title"]; *)
-      [
-        (* "Blog" *)
-        (* |> of_string *)
-        (* >> of_tag "h1"; *)
-        (* of_tag *)
-        List.rev cards_data |> List.map jsx_of_card |> of_bootstrap "Row"
-        >> of_bootstrap "Container";
-      ]
-      |> of_tag "div" ~classes:[ "bigbox1" ];
-    ]
-    |> of_react "Fragment"
+    List.rev cards_data |> List.map jsx_of_card |> of_bootstrap "Row" >> of_bootstrap "Container"
+    >> of_tag "div" ~classes:[ "bigbox1" ]
+    >> of_react "Fragment"
   in
   Reactjs.construct render
 

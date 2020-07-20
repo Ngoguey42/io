@@ -68,10 +68,11 @@ let[@ocamlformat "disable"] create_content () = [%html {|
     computations are offloaded to a <cite>Web Worker</cite> using
     <a href="|} url_ftww {|">this small wrapper</a>
     that helps preserving types between threads.
-  </p>
-
-  <p>
-    TODO: Owl and Ocann (and Tfjs again)
+    The tensors are processed either by
+    <a href="https://www.tensorflow.org/js">TensorFlow.js</a> or
+    <a href="https://ocaml.xyz/">OWL</a>. The
+    <a href="ocann0.html">OCaNN</a> library was created to take care of all the neural network
+    operations.
   </p>
 
   <p>

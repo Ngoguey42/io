@@ -262,7 +262,7 @@ let new_nn =
    </li></ul>
 </p>
 <p>
-   If you wish to contribute to OCaNN or chat it, e-mail me!
+   If you wish to contribute to OCaNN or chat about it, e-mail me!
 </p>
 
 <h2>One Last Example</h2> <!-- ----------------------------------------------------------------- -->

@@ -42,6 +42,8 @@ module type TENSOR = sig
 
   val of_ba : ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> ('a, 'b) t
 
+  val to_ba : ('a, 'b) t -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t
+
   val dimensions : ('a, 'b) t -> int array
 end
 
@@ -62,6 +64,8 @@ module Bigarray_tensor :
   type ('a, 'b) t = ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t
 
   let of_ba x = x
+
+  let to_ba x = x
 
   let dimensions = Bigarray.Genarray.dims
 end

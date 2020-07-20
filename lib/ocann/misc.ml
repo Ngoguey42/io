@@ -52,3 +52,24 @@ module type ID = sig
 
   val compare : t -> t -> int
 end
+
+module type STATE = sig
+  val get_state : unit -> Random.State.t
+end
+
+module Bigarray_tensor :
+  TENSOR with type ('a, 'b) t = ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t = struct
+  type ('a, 'b) t = ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t
+
+  let of_ba x = x
+
+  let dimensions = Bigarray.Genarray.dims
+end
+
+module String_option_id : ID with type t = string option = struct
+  type t = string option
+
+  let create_default () = None
+
+  let compare = compare
+end

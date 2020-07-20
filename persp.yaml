@@ -15,7 +15,7 @@ perspectives:
   "18":
     - [ lib/ocann/dune, lib/ocann/init.ml, lib/ocann/misc.ml ]
     - [ lib/ocann/ocann.ml, <up>, <up> ]
-  "15": [[ lib/ocann/make_ocann.ml, lib/ocann/make_ocann.ml, lib/ocann/patch.ml ]]
+  "15": [[ lib/ocann/sig.ml, lib/ocann/make_ocann.ml, lib/ocann/patch.ml ]]
 
   "19":
     - [ lib/ocann_tfjs/dune, lib/ocann_tfjs/tfjs_api.ml ]

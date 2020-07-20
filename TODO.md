@@ -1,8 +1,6 @@
 # TODO
 - blog
   - Finish OCaNN article
-  - move Ocann default network to Default module
-    - update code and blog accordingly
 
 --------------------------------------------------------------------------------
 

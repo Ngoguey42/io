@@ -1,3 +1,5 @@
+(* Quick and dirty patch from Ocann.Default to provide serialization between web workers *)
+
 type absolute_shape = (Pshape.Length.tag, Pshape.Size.tag, [ `Idx of int ]) Pshape.t
 
 type storable_shape = Pshape.Axis.symbolic list option * absolute_shape

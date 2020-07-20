@@ -208,5 +208,14 @@ a layer (e.g. after training). Only then a layer stores some tensor.
 module Init = Init
 include Misc
 module Make = Make_ocann.Make
-include Make_ocann.Default
-include Patch
+module type NETWORK = Sig.NETWORK
+
+module Default = struct
+  include (
+    Make_ocann.Default :
+      NETWORK
+        with type ('a, 'b) Tensor.t = ('a, 'b) Bigarray_tensor.t
+         and type Id.t = String_option_id.t )
+
+  module Patch = Patch
+end

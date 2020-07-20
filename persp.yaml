@@ -8,23 +8,23 @@ perspectives:
   "9": [[ lib/ft_js/reactjs.ml, lib/ft_js/scripts.ml, lib/ft_js/webworker.ml ]]
   "+9": [[ lib/ft/irmin_mem.ml, lib/ft_js/irmin_indexeddb_js_api.ml, lib/ft_js/irmin_indexeddb_raw_noutf.ml ]]
 
-  # pshape, fnn, fnn_tfjs
+  # pshape, ocann, ocann_tfjs
   "17": [[ lib/pshape/dune, lib/pshape/misc.ml ]]
   "14": [[ lib/pshape/pshape.ml, lib/pshape/pshape_sig.ml ]]
 
   "18":
-    - [ lib/fnn/dune, lib/fnn/init.ml, lib/fnn/misc.ml ]
-    - [ lib/fnn/fnn.ml, <up>, <up> ]
-  "15": [[ lib/fnn/make_fnn.ml, lib/fnn/make_fnn.ml, lib/fnn/patch.ml ]]
+    - [ lib/ocann/dune, lib/ocann/init.ml, lib/ocann/misc.ml ]
+    - [ lib/ocann/ocann.ml, <up>, <up> ]
+  "15": [[ lib/ocann/make_ocann.ml, lib/ocann/make_ocann.ml, lib/ocann/patch.ml ]]
 
   "19":
-    - [ lib/fnn_tfjs/dune, lib/fnn_tfjs/tfjs_api.ml ]
-    - [ lib/fnn_tfjs/fnn_tfjs.ml, <up> ]
-  "16": [[ lib/fnn_tfjs/misc.ml, lib/fnn_tfjs/bridge_train.ml, lib/fnn_tfjs/bridge_eval.ml ]]
+    - [ lib/ocann_tfjs/dune, lib/ocann_tfjs/tfjs_api.ml ]
+    - [ lib/ocann_tfjs/ocann_tfjs.ml, <up> ]
+  "16": [[ lib/ocann_tfjs/misc.ml, lib/ocann_tfjs/bridge_train.ml, lib/ocann_tfjs/bridge_eval.ml ]]
 
   "13":
-    - [ lib/fnn_owl/dune, lib/fnn_owl/bridge_train.ml, lib/fnn_owl/bridge_eval.ml ]
-    - [ lib/fnn_owl/fnn_owl.ml, <up>, <up> ]
+    - [ lib/ocann_owl/dune, lib/ocann_owl/bridge_train.ml, lib/ocann_owl/bridge_eval.ml ]
+    - [ lib/ocann_owl/ocann_owl.ml, <up>, <up> ]
 
   # root and bin
   "0":

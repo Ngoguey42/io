@@ -202,12 +202,15 @@ a layer (e.g. after training). Only then a layer stores some tensor.
         - Maybe this pattern matching can be avoided by giving a proper definition to 'a network
   - It is impossible to create a network ex-nihilo without requiring to a builder function or a
     method. It brings rigidity to some low level use cases.
+- How to reuse a normalization layer in several spots? Higher order layers?
+- How to streamline "optimizer"? Higher order layers?
 
  *)
 
 module Init = Init
 include Misc
 module Make = Make_ocann.Make
+
 module type NETWORK = Sig.NETWORK
 
 module Default = struct

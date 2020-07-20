@@ -94,8 +94,12 @@ First we create the network using the main module.
 </code></pre>
 
 We can then train this NN using the existing Owl Algodiff (effectful) binding,
-<pre><code>module Algodiff = Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
-(* TODO: Adapt for new functor design of owl binding *)
+<pre><code>module Algodiff = struct
+  type ba = Owl_base_algodiff_primal_ops.S.arr
+  type ba_elt = Bigarray.float32_elt
+  include Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
+end
+module Binding = Ocann_owl.Make (Algodiff) (Ocann.Default)
 
 let categorical_crossentropy epsilon softmaxed_pred truth =
   let open Algodiff.Maths in
@@ -105,7 +109,7 @@ let categorical_crossentropy epsilon softmaxed_pred truth =
 let learning_rate = 1e-3
 let new_nn =
   let flattened_images, truths = ... in (* Algodiff tensors *)
-  let forward, optimizations, pack = Ocann_owl.unpack_for_training nn in
+  let forward, optimizations, pack = Binding.unpack_for_training nn in
 
   (* Forward pass *)
   let predictions = forward flattened_images in
@@ -122,9 +126,11 @@ let new_nn =
 
 or the exising TensorFlow.js (effectful too) binding.
 <pre><code>let learning_rate = 1e-3
+module Binding = Ocann_tfjs.Make (Ocann.Default)
+
 let new_nn =
   let flattened_images, truths = ... in (* Tfjs tensors *)
-  let forward, optimizations, pack = Ocann_tfjs.unpack_for_training nn in
+  let forward, optimizations, pack = Binding.unpack_for_training nn in
 
   (* Forward and backward pass *)
   let f () =
@@ -148,7 +154,7 @@ let new_nn =
    <ul>
    <li>Get rid of the awkward feeling of being writing Python in OCaml by tailoring the
    APIs for OCaml.</li>
-   <li>No need to write yet another tensor processing engine - which is the most
+   <li>No need to write yet another tensor processing engine — which is the most
    expensive part of a DL framework.</li>
    <li>Clear separation of concerns between the features that require a computation engine
    (i.e., number crunching for inference or training) and the rest
@@ -218,20 +224,6 @@ let new_nn =
    The Pshape library relies too much on unsafe operations.
    </li><li>
    A true functional binding for Owl is possible by bypassing Algodiff.
-   </li><li>
-   It would be vain to try to include in the library all the NN layers that exists out there.
-   Instead, the user should be able to define his own layers in both the common module and the
-   binding he uses. To make that process painless, the custom layers should be first class
-   citizens in a new design.
-   </li><li>
-   All the layers that have to reference tensors currently store a pointer to them
-   (e.g., parameter32, normalisation). Another design using a global weak dictionnary might be an
-   interesting alternative.
-   </li><li>
-   As in all deep learning frameworks, the network definition in OCaNN treats the backward phase
-   as a second class citizen. Some powerful DL use cases involve transforming the gradient tensors
-   from the backward phase with regular forward operations. Such use cases are hard
-   - if not impossible - to define within the network's architecture.
    </li></ul>
 </p>
 <p>
@@ -244,44 +236,66 @@ let new_nn =
    Conversions to/from storage formats such as ONNX and NNEF.
    </li><li>
    Many smaller improvements listed in <a href="">ocann.ml</a>.
-   </li><li>
-   New static and runtime checks (e.g., typing shape and data-type of tensors, analysis of the unkonwn dimensions throughout a network).
    </li></ul>
 </p>
 <p>
-   If you wish to contribute or discuss about it, e-mail me!
+   And some problems inherent to all DL frameworks are yet to be solved:
+   <ul><li>
+   In a network, the <b>unknown dimensions should be mathematical symbolic variables</b>
+   to allow the detection of inconsistent combinations of unknown dimensions.
+   </li><li>
+   It is vain to try to include in the library all the NN layers that exists out there.
+   Instead, the user should be able to define and implement his own custom layers
+   (in the common module, and in the binding he uses).
+   To make that process painless, the <b>custom layers should be first class citizens</b>
+   in a new design.
+   </li><li>
+   Powerful DL use cases involve transforming the gradient tensors from the backward phase
+   using regular forward operations, but since the definition of a network is rooted on the
+   forward phase, such use cases are impossible to define in a network.
+   It might be possible to overhaul the network definition abstraction in such a way that
+   makes the <b>backward phase a first class citizen</b>.
+   </li><li>
+   Some problems might be solved by allowing <b>higher order layers</b>. More precisely,
+   the edge between two layers currently represents a <code>tensor</code> (i.e. a shape/dtype pair),
+   an edge could then also represent a <code>tensor -> tensor</code>.
+   </li></ul>
+</p>
+<p>
+   If you wish to contribute to OCaNN or chat it, e-mail me!
 </p>
 
 <h2>One Last Example</h2> <!-- ----------------------------------------------------------------- -->
 
-Definition of a residual convolutional NN that uses symbolic shapes.
-<pre><code>let open Ocann.Default.Builder in
-let open Ocann.Pshape.Size in
+Definition of a residual convolutional NN with symbolic shapes.
+<pre><code>let nn =
+  let open Ocann.Default.Builder in
+  let open Ocann.Pshape.Size in
 
-(* Input shape is {x:24; y:24; c:3; n:unknown} *)
-input (Pshape.sym4d_partial ~n:U ~c:(K 3) ~s0:(K 24) ~s1:(K 24)) `Int32
-|> astype `Float32
-|> conv2d ~o (`Full 32) (3, 3) ~s:(2, 2) ~b:`Same
-|> bias
-|> (fun up ->
-     [
-       up |> conv2d ~o (`Full 64) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.downcast
-     ; up |> relu |> conv2d ~o (`Full 64) (3, 3) ~s:(2, 2) ~b:`Same
-       |> bias |> Ocann.downcast
-     ])
-|> sum
-|> (fun up ->
-     [
-       up |> conv2d ~o (`Full 128) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.downcast
-     ; up |> relu |> conv2d ~o (`Full 128) (3, 3) ~s:(2, 2) ~b:`Same
-       |> bias |> Ocann.downcast
-     ])
-|> sum
-|> conv2d ~o (`Full 10) (3, 3) ~b:`Assert_fit
-|> bias
-|> softmax `C
-(* Output shape is {x:1; y:1; c:10; n:unknown} *)
-</code></pre>
+  (* Input shape is {x:24; y:24; c:3; n:unknown} *)
+  input (Pshape.sym4d_partial ~n:U ~c:(K 3) ~s0:(K 24) ~s1:(K 24)) `Int32
+  |> astype `Float32
+  |> conv2d ~o (`Full 32) (3, 3) ~s:(2, 2) ~b:`Same
+  |> bias
+  |> (fun up ->
+       [
+         up |> conv2d ~o (`Full 64) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.Default.downcast
+       ; up |> relu |> conv2d ~o (`Full 64) (3, 3) ~s:(2, 2) ~b:`Same
+         |> bias |> Ocann.Default.downcast
+       ])
+  |> sum
+  |> (fun up ->
+       [
+         up |> conv2d ~o (`Full 128) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.Default.downcast
+       ; up |> relu |> conv2d ~o (`Full 128) (3, 3) ~s:(2, 2) ~b:`Same
+         |> bias |> Ocann.Default.downcast
+       ])
+  |> sum
+  |> conv2d ~o (`Full 10) (3, 3) ~b:`Assert_fit
+  |> bias
+  |> softmax `C
+  (* Output shape is {x:1; y:1; c:10; n:unknown} *)
+  </code></pre>
 
 |}
 
@@ -297,19 +311,14 @@ let construct_reactjs_article () =
     of_react "Fragment" [ box ]
   in
   let mount () =
-    begin
-      let ( >|= ) opt f = Js.Opt.iter opt f in
-      let tolist all =
-        List.init all##.length (fun i -> all##item i |> Js.Opt.to_option)
-        |> List.filter_map Fun.id
-      in
-      ref##.current >|= fun elt ->
-      Firebug.console##log elt;
-      elt##querySelectorAll (Js.string "pre > code")
-      |> tolist
-      |> List.map Misc.highlight_element
-      |> ignore;
-    end;
+    (let ( >|= ) opt f = Js.Opt.iter opt f in
+     let tolist all =
+       List.init all##.length (fun i -> all##item i |> Js.Opt.to_option) |> List.filter_map Fun.id
+     in
+     ref##.current >|= fun elt ->
+     Firebug.console##log elt;
+     elt##querySelectorAll (Js.string "pre > code")
+     |> tolist |> List.map Misc.highlight_element |> ignore);
     fun () -> ()
   in
   Reactjs.construct ~mount render

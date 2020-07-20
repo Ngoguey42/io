@@ -71,7 +71,7 @@ let[@ocamlformat "disable"] create_content () = [%html {|
   </p>
 
   <p>
-    TODO: Owl and Fnn (and Tfjs again)
+    TODO: Owl and Ocann (and Tfjs again)
   </p>
 
   <p>

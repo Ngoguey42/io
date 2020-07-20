@@ -6,25 +6,25 @@ open Misc
 
 type tensor = Algodiff.t
 
-type tensormap = tensor Fnn.Map.t
+type tensormap = tensor Ocann.Map.t
 
 type unpacked_network =
-  | Node01 of { node : Fnn.network; forward : tensormap -> tensor }
-  | Node11 of { node : Fnn.network; up : unpacked_network; forward : tensor -> tensor }
+  | Node01 of { node : Ocann.network; forward : tensormap -> tensor }
+  | Node11 of { node : Ocann.network; up : unpacked_network; forward : tensor -> tensor }
   | Node21 of {
-      node : Fnn.network;
+      node : Ocann.network;
       up0 : unpacked_network;
       up1 : unpacked_network;
       forward : tensor -> tensor -> tensor;
     }
-  | Noden1 of { node : Fnn.network; ups : unpacked_network list; forward : tensor list -> tensor }
+  | Noden1 of { node : Ocann.network; ups : unpacked_network list; forward : tensor list -> tensor }
 
-let _unpack_layer01 (net : Fnn.node01) =
+let _unpack_layer01 (net : Ocann.node01) =
   match net#classify_layer with
   | `Input _ ->
-      let net = (net :> Fnn.network) in
+      let net = (net :> Ocann.network) in
       let forward inputs =
-        let tensor = Fnn.Map.find net inputs in
+        let tensor = Ocann.Map.find net inputs in
         validate_output_tensor net tensor
       in
       forward
@@ -33,7 +33,7 @@ let _unpack_layer01 (net : Fnn.node01) =
       let forward _ = t |> validate_output_tensor net in
       forward
 
-let _unpack_layer11 (net : Fnn.node11) =
+let _unpack_layer11 (net : Ocann.node11) =
   match net#classify_layer with
   | `Relu _ ->
       let forward up = validate_output_tensor net (Algodiff.Maths.relu up) in
@@ -120,7 +120,7 @@ let _unpack_layer11 (net : Fnn.node11) =
       forward
   | `Normalisation _ -> failwith "Not yet implemented"
 
-let _unpack_layer21 (net : Fnn.node21) =
+let _unpack_layer21 (net : Ocann.node21) =
   match net#classify_layer with
   | `Conv2d net ->
       if net#is_grouped then failwith "Grouped conv2d not implemented";
@@ -152,7 +152,7 @@ let _unpack_layer21 (net : Fnn.node21) =
       in
       forward
 
-let _unpack_layern1 (net : Fnn.noden1) =
+let _unpack_layern1 (net : Ocann.noden1) =
   match net#classify_layer with
   | `Sum net ->
       let forward ups =
@@ -183,29 +183,29 @@ let _unpack_layern1 (net : Fnn.noden1) =
       in
       forward
 
-let _unpack_node follow (net : Fnn.network) =
+let _unpack_node follow (net : Ocann.network) =
   match (net#classify_node, List.map follow net#upstreams) with
   | `Node01 node, [] ->
       let forward = _unpack_layer01 node in
-      Node01 { forward; node = (node :> Fnn.network) }
+      Node01 { forward; node = (node :> Ocann.network) }
   | `Node11 node, [ up ] ->
       let forward = _unpack_layer11 node in
-      Node11 { forward; node = (node :> Fnn.network); up }
+      Node11 { forward; node = (node :> Ocann.network); up }
   | `Node21 node, [ up0; up1 ] ->
       let forward = _unpack_layer21 node in
-      Node21 { forward; node = (node :> Fnn.network); up0; up1 }
+      Node21 { forward; node = (node :> Ocann.network); up0; up1 }
   | `Noden1 node, ups ->
       let forward = _unpack_layern1 node in
-      Noden1 { forward; node = (node :> Fnn.network); ups }
+      Noden1 { forward; node = (node :> Ocann.network); ups }
   | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
 
-let unpack_for_evaluation : Fnn.network -> tensormap -> tensor =
+let unpack_for_evaluation : Ocann.network -> tensormap -> tensor =
  (* Transform a `network` to everything that is needed to perform an evaluation with that network
   * using Owl Algodiff:
   * 1. A callable for the forward pass
   *)
  fun net ->
-  let unet = Fnn.memoized_walk_obj _unpack_node net in
+  let unet = Ocann.memoized_walk_obj _unpack_node net in
   let id_of_unet = function
     | Node01 v -> Oo.id v.node
     | Node11 v -> Oo.id v.node
@@ -219,6 +219,6 @@ let unpack_for_evaluation : Fnn.network -> tensormap -> tensor =
       | Node21 v -> v.forward (follow v.up0) (follow v.up1)
       | Noden1 v -> v.forward (List.map follow v.ups)
     in
-    Fnn.memoized_walk id_of_unet forward_node unet
+    Ocann.memoized_walk id_of_unet forward_node unet
   in
   forward

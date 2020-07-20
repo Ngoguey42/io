@@ -1,6 +1,6 @@
 (library
- (public_name fnn)
- (name fnn)
+ (public_name ocann)
+ (name ocann)
 
  (libraries pshape)
  )

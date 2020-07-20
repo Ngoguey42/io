@@ -74,11 +74,11 @@ let t0 =
 </p>
 <p>
    A first implementation is available
-   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/fnn">here</a> (and
+   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/ocann">here</a> (and
    <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/pshape">here</a> for the shape abstraction)
    and two bindings already exist,
-   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/fnn_owl">ocann-owl</a> and
-   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/fnn_tfjs">ocann-tfjs</a>.
+   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/ocann_owl">ocann-owl</a> and
+   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/ocann_tfjs">ocann-tfjs</a>.
    All have been used to create the <a href="mnist-jsoo.html">mnist-jsoo</a> page.
 </p>
 
@@ -265,16 +265,16 @@ input (Pshape.sym4d_partial ~n:U ~c:(K 3) ~s0:(K 24) ~s1:(K 24)) `Int32
 |> bias
 |> (fun up ->
      [
-       up |> conv2d ~o (`Full 64) (1, 1) ~s:(2, 2) ~b:`Same |> Fnn.downcast
+       up |> conv2d ~o (`Full 64) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.downcast
      ; up |> relu |> conv2d ~o (`Full 64) (3, 3) ~s:(2, 2) ~b:`Same
-       |> bias |> Fnn.downcast
+       |> bias |> Ocann.downcast
      ])
 |> sum
 |> (fun up ->
      [
-       up |> conv2d ~o (`Full 128) (1, 1) ~s:(2, 2) ~b:`Same |> Fnn.downcast
+       up |> conv2d ~o (`Full 128) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.downcast
      ; up |> relu |> conv2d ~o (`Full 128) (3, 3) ~s:(2, 2) ~b:`Same
-       |> bias |> Fnn.downcast
+       |> bias |> Ocann.downcast
      ])
 |> sum
 |> conv2d ~o (`Full 10) (3, 3) ~b:`Assert_fit

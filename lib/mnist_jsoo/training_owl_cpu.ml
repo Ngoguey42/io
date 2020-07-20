@@ -24,26 +24,26 @@ let train : Types.training_backend_routine =
  fun ?(verbose = true) ~yield_sleep_length ~fire_event ~instructions ~batch_count ~get_lr ~get_data
      ~encoders ~decoder ->
   let open Lwt.Infix in
-  (* Step 1 - Unpack the Fnn networks using the dedicated module ******************************** *)
+  (* Step 1 - Unpack the Ocann networks using the dedicated module ******************************** *)
   let node0 =
     let open Pshape.Size in
-    Fnn.Builder.input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-    |> Fnn.downcast
+    Ocann.Builder.input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+    |> Ocann.downcast
   in
   let encoders =
     List.map
       (fun net ->
-        let input = Fnn.inputs [ net ] |> List.hd |> Fnn.downcast in
-        Fnn.copy ~sub:[ (input, node0) ] [ net ] |> List.hd)
+        let input = Ocann.inputs [ net ] |> List.hd |> Ocann.downcast in
+        Ocann.copy ~sub:[ (input, node0) ] [ net ] |> List.hd)
       encoders
   in
-  let node0_decoder = Fnn.inputs [ decoder ] |> List.hd |> Fnn.downcast in
+  let node0_decoder = Ocann.inputs [ decoder ] |> List.hd |> Ocann.downcast in
   let forward_encoders, o, pack_encoders =
-    List.map Fnn_owl.unpack_for_training encoders |> Ft.List.split3
+    List.map Ocann_owl.unpack_for_training encoders |> Ft.List.split3
   in
-  let optimizations = Fnn_owl.OptiMap.union_list_exn o in
-  let forward_decoder, o, pack_decoder = Fnn_owl.unpack_for_training decoder in
-  let optimizations = Fnn_owl.OptiMap.union_exn optimizations o in
+  let optimizations = Ocann_owl.OptiMap.union_list_exn o in
+  let forward_decoder, o, pack_decoder = Ocann_owl.unpack_for_training decoder in
+  let optimizations = Ocann_owl.OptiMap.union_exn optimizations o in
 
   let train_on_batch batch_idx =
     (* Step 5 - Fetch and transform batch inputs ************************************************ *)
@@ -59,13 +59,13 @@ let train : Types.training_backend_routine =
     let y_1hot = Owl_snippets._1hot_of_top1 y_top1_uint8 |> Algodiff.pack_arr in
 
     (* Step 6.0 - Forward *********************************************************************** *)
-    let x = Fnn.Map.singleton node0 x in
+    let x = Ocann.Map.singleton node0 x in
     let y' =
       List.map (fun fw -> fw x) forward_encoders
       |> Array.of_list
       |> Algodiff.Maths.concatenate ~axis:3
     in
-    let y' = Fnn.Map.singleton node0_decoder y' in
+    let y' = Ocann.Map.singleton node0_decoder y' in
     let y'_1hot = forward_decoder y' in
     assert (y'_1hot |> Algodiff.primal' |> Algodiff.Arr.shape = [| batch_size; 10 |]);
     let loss = Owl_snippets.categorical_crossentropy 1e-10 y'_1hot y_1hot in
@@ -75,7 +75,7 @@ let train : Types.training_backend_routine =
     Algodiff.reverse_prop (Algodiff.pack_flt 1.) loss;
 
     (* Step 7 - Update networks' weights using gradients already reachable from optimizations *** *)
-    Fnn_tfjs.OptiMap.iter (fun _name optimization -> optimization lr) optimizations;
+    Ocann_tfjs.OptiMap.iter (fun _name optimization -> optimization lr) optimizations;
 
     (* Step 8 - Compute / print stats *********************************************************** *)
     let y'_top1 = Owl_snippets._top1_of_1hot (y'_1hot |> Algodiff.primal' |> Algodiff.unpack_arr) in

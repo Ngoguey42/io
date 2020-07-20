@@ -56,8 +56,8 @@ let _routine { db; encoder; decoder; config = { verbose; batch_size; backend; _ 
 module Webworker_routine = struct
   type parameters = {
     db : db_test;
-    encoder : Fnn.storable_nn;
-    decoder : Fnn.storable_nn;
+    encoder : Ocann.storable_nn;
+    decoder : Ocann.storable_nn;
     config : evaluation_config;
   }
 
@@ -71,15 +71,15 @@ module Webworker_routine = struct
 
   let preprocess_in_msg : _ -> _in_msg = function
     | `Prime Types.{ db; encoder; decoder; config } ->
-        let f = Fnn.storable_of_fnn in
+        let f = Ocann.storable_of_ocann in
         let encoder = f encoder in
         let decoder = f decoder in
         `Prime { db; encoder; decoder; config }
 
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db = imgs, labs; encoder; decoder; config } ->
-        let f : Fnn.storable_nn -> Fnn.network =
-         fun nn -> nn |> repair_storable_nn |> Fnn.fnn_of_storable (module Fnn.Builder : Fnn.BUILDER)
+        let f : Ocann.storable_nn -> Ocann.network =
+         fun nn -> nn |> repair_storable_nn |> Ocann.ocann_of_storable (module Ocann.Builder : Ocann.BUILDER)
         in
         let encoder = f encoder in
         let decoder = f decoder in

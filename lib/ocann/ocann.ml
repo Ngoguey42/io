@@ -1,4 +1,4 @@
-(* Functional Neural Network (fnn)
+(* Functional Neural Network (ocann)
 
 Quick and dirty pieces of documentation.
 
@@ -186,7 +186,7 @@ a layer (e.g. after training). Only then a layer stores some tensor.
 - custom layers:
   - Don't care because user can create its own network objects?
     But what about the variants like classified_layer and layer_type? Make those open / extensible?
-  - Create an Fnn.custom_layer class and a `Builder.custom custom_defn ...` function?
+  - Create an Ocann.custom_layer class and a `Builder.custom custom_defn ...` function?
   Extensible GADT?
 - Transform `parameter32` to `parameter`?
 - What about 1 operation that outputs more than 1 tensor? A cumbersome solution is to define the operation with 2 layers `(X0, ..., Xn)->Yph, Yph->Y0, Yph->Y1` and erase that detail in the binding.
@@ -207,6 +207,6 @@ a layer (e.g. after training). Only then a layer stores some tensor.
 
 module Init = Init
 include Misc
-module Make = Make_fnn.Make
-include Make_fnn.Default
+module Make = Make_ocann.Make
+include Make_ocann.Default
 include Patch

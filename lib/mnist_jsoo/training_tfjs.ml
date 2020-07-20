@@ -3,32 +3,32 @@ open struct
   module Firebug = Js_of_ocaml.Firebug
   module Ndarray = Owl_base_dense_ndarray.S
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
-  module Tfjs = Fnn_tfjs.Tfjs
+  module Tfjs = Ocann_tfjs.Tfjs
 end
 
 let _train verbose yield_sleep_length fire_event instructions batch_count get_lr get_data encoders
     decoder =
   let open Lwt.Infix in
-  (* Step 1 - Unpack the Fnn networks using the dedicated module ******************************** *)
+  (* Step 1 - Unpack the Ocann networks using the dedicated module ******************************** *)
   let node0 =
     let open Pshape.Size in
-    Fnn.Builder.input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-    |> Fnn.downcast
+    Ocann.Builder.input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+    |> Ocann.downcast
   in
   let encoders =
     List.map
       (fun net ->
-        let input = Fnn.inputs [ net ] |> List.hd |> Fnn.downcast in
-        Fnn.copy ~sub:[ (input, node0) ] [ net ] |> List.hd)
+        let input = Ocann.inputs [ net ] |> List.hd |> Ocann.downcast in
+        Ocann.copy ~sub:[ (input, node0) ] [ net ] |> List.hd)
       encoders
   in
-  let node0_decoder = Fnn.inputs [ decoder ] |> List.hd |> Fnn.downcast in
+  let node0_decoder = Ocann.inputs [ decoder ] |> List.hd |> Ocann.downcast in
   let forward_encoders, o, pack_encoders =
-    List.map Fnn_tfjs.unpack_for_training encoders |> Ft.List.split3
+    List.map Ocann_tfjs.unpack_for_training encoders |> Ft.List.split3
   in
-  let optimizations = Fnn_tfjs.OptiMap.union_list_exn o in
-  let forward_decoder, o, pack_decoder = Fnn_tfjs.unpack_for_training decoder in
-  let optimizations = Fnn_tfjs.OptiMap.union_exn optimizations o in
+  let optimizations = Ocann_tfjs.OptiMap.union_list_exn o in
+  let forward_decoder, o, pack_decoder = Ocann_tfjs.unpack_for_training decoder in
+  let optimizations = Ocann_tfjs.OptiMap.union_exn optimizations o in
 
   let train_on_batch batch_idx =
     (* Step 5 - Fetch and transform batch inputs ************************************************ *)
@@ -55,9 +55,9 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
       (* The tfjs models use `execute` both inside `predict` and `train` functions,
        * with a `training: bool` parameter. Using `predict` for training seems ok.
        *)
-      let x = Fnn.Map.singleton node0 x in
+      let x = Ocann.Map.singleton node0 x in
       let y' = List.map (fun fw -> fw x) forward_encoders |> Tfjs.Ops.concat 3 in
-      let y' = Fnn.Map.singleton node0_decoder y' in
+      let y' = Ocann.Map.singleton node0_decoder y' in
       let y' = forward_decoder y' in
       assert (y'##.shape |> Js.to_array = [| batch_size; 10 |]);
       y'_1hot := Tfjs.keep y';
@@ -71,11 +71,11 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
     let y'_1hot = !y'_1hot in
 
     (* Step 7 - Use gradients to update networks' weights *************************************** *)
-    ( match Fnn_tfjs.OptiMap.key_disjunction optimizations grads with
+    ( match Ocann_tfjs.OptiMap.key_disjunction optimizations grads with
     | [], [] -> ()
     | name :: _, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
     | _, name :: _ -> Printf.sprintf "Missing at least the <%s> optimizer" name |> failwith );
-    Fnn_tfjs.OptiMap.iter
+    Ocann_tfjs.OptiMap.iter
       (fun name optimization -> optimization lr (Tfjs.Named_tensor_map.find name grads))
       optimizations;
 

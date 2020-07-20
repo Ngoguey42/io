@@ -10,29 +10,29 @@ module OptiMap = OptiMap
 
 type unpacked_network =
   | Node01 of {
-      node : Fnn.network;
-      forward : tftensor Fnn.Map.t -> tftensor;
-      pack : unit -> Fnn.network;
+      node : Ocann.network;
+      forward : tftensor Ocann.Map.t -> tftensor;
+      pack : unit -> Ocann.network;
       update : (float -> tftensor -> unit) option;
     }
   | Node11 of {
-      node : Fnn.network;
+      node : Ocann.network;
       up : unpacked_network;
       forward : tftensor -> tftensor;
-      pack : Fnn.network -> Fnn.network;
+      pack : Ocann.network -> Ocann.network;
     }
   | Node21 of {
-      node : Fnn.network;
+      node : Ocann.network;
       up0 : unpacked_network;
       up1 : unpacked_network;
       forward : tftensor -> tftensor -> tftensor;
-      pack : Fnn.network -> Fnn.network -> Fnn.network;
+      pack : Ocann.network -> Ocann.network -> Ocann.network;
     }
   | Noden1 of {
-      node : Fnn.network;
+      node : Ocann.network;
       ups : unpacked_network list;
       forward : tftensor list -> tftensor;
-      pack : Fnn.network list -> Fnn.network;
+      pack : Ocann.network list -> Ocann.network;
     }
 
 let _unpack_normalisation_algorithm axes = function
@@ -71,12 +71,12 @@ let _unpack_optimizer optim var =
       in
       (updater#update, pack)
 
-let _unpack_layer01 (net : Fnn.node01) =
+let _unpack_layer01 (net : Ocann.node01) =
   match net#classify_layer with
   | `Input _ ->
-      let net = (net :> Fnn.network) in
+      let net = (net :> Ocann.network) in
       let forward inputs =
-        let tensor = Fnn.Map.find net inputs in
+        let tensor = Ocann.Map.find net inputs in
         validate_output_tensor net tensor
       in
       let pack () = net in
@@ -91,25 +91,25 @@ let _unpack_layer01 (net : Fnn.node01) =
       let pack () =
         let tensor = Tfjs_api.ba_of_tensor Bigarray.Float32 var in
         let optimizer = opti_pack () in
-        (net#replicate ~id:net#id tensor optimizer :> Fnn.network)
+        (net#replicate ~id:net#id tensor optimizer :> Ocann.network)
       in
       (forward, pack, Some update)
 
-let _unpack_layer11 (net : Fnn.node11) =
+let _unpack_layer11 (net : Ocann.node11) =
   match net#classify_layer with
   | `Relu _ ->
       let forward up = validate_output_tensor net (Tfjs_api.Ops.relu up) in
-      let pack up = (net :> Fnn.network)#copy [ up ] in
+      let pack up = (net :> Ocann.network)#copy [ up ] in
       (forward, pack)
   | `Softmax net ->
       let tensor_axis = tensor_axis_of_shape_axis net#upstream#out_shape net#axis in
       let forward up = validate_output_tensor net (Tfjs_api.Ops.softmax tensor_axis up) in
-      let pack up = (net :> Fnn.network)#copy [ up ] in
+      let pack up = (net :> Ocann.network)#copy [ up ] in
       (forward, pack)
   | `Astype net ->
       let dtype = tfdtype_of_dtype net#dtype in
       let forward up = up |> Tfjs_api.Ops.astype dtype |> validate_output_tensor net in
-      let pack up = (net :> Fnn.network)#copy [ up ] in
+      let pack up = (net :> Ocann.network)#copy [ up ] in
       (forward, pack)
   | `Padding net ->
       if net#is_mixed then failwith "Mixed paddings not yet implemented";
@@ -143,7 +143,7 @@ let _unpack_layer11 (net : Fnn.node11) =
           Tfjs_api.Ops.slice per_axis x
       in
       let forward up = up |> f |> validate_output_tensor net in
-      let pack up = (net :> Fnn.network)#copy [ up ] in
+      let pack up = (net :> Ocann.network)#copy [ up ] in
       (forward, pack)
   | `Maxpool2d net ->
       let b =
@@ -158,7 +158,7 @@ let _unpack_layer11 (net : Fnn.node11) =
       let forward up =
         up |> Tfjs_api.Ops.maxpool2d ~s ~b kernel_size |> validate_output_tensor net
       in
-      let pack up = (net :> Fnn.network)#copy [ up ] in
+      let pack up = (net :> Ocann.network)#copy [ up ] in
       (forward, pack)
   | `Transpose net ->
       let tftranspose_axes, dims1_of_dims0 = derive_configuration_of_transpose_layer net in
@@ -168,17 +168,17 @@ let _unpack_layer11 (net : Fnn.node11) =
         |> Tfjs_api.Ops.reshape tfreshape_shape
         |> validate_output_tensor net
       in
-      let pack up = (net :> Fnn.network)#copy [ up ] in
+      let pack up = (net :> Ocann.network)#copy [ up ] in
       (forward, pack)
   | `Normalisation net ->
       let shape = net#upstream#out_shape in
       let axes = List.map (tensor_axis_of_shape_axis shape) net#axes in
       let norm_forward, norm_pack = _unpack_normalisation_algorithm axes net#algorithm in
       let forward up = up |> norm_forward |> validate_output_tensor net in
-      let pack up = (net#replicate (norm_pack ()) up :> Fnn.network) in
+      let pack up = (net#replicate (norm_pack ()) up :> Ocann.network) in
       (forward, pack)
 
-let _unpack_layer21 (net : Fnn.node21) =
+let _unpack_layer21 (net : Ocann.node21) =
   match net#classify_layer with
   | `Conv2d net ->
       if net#is_grouped && not net#is_depthwise then
@@ -195,7 +195,7 @@ let _unpack_layer21 (net : Fnn.node21) =
       let s = net#stride in
       let f = if net#is_depthwise then Tfjs_api.Ops.depthwise_conv2d else Tfjs_api.Ops.conv2d in
       let forward up0 up1 = f ~b ~d ~s up1 up0 |> validate_output_tensor net in
-      let pack up0 up1 = (net :> Fnn.network)#copy [ up0; up1 ] in
+      let pack up0 up1 = (net :> Ocann.network)#copy [ up0; up1 ] in
       (forward, pack)
   | `Tensordot net ->
       let mapping, perm = derive_configuration_of_tensordot_layer net in
@@ -203,10 +203,10 @@ let _unpack_layer21 (net : Fnn.node21) =
         Tfjs_api.Ops.tensordot mapping up0 up1
         |> Tfjs_api.Ops.transpose ~perm |> validate_output_tensor net
       in
-      let pack up0 up1 = (net :> Fnn.network)#copy [ up0; up1 ] in
+      let pack up0 up1 = (net :> Ocann.network)#copy [ up0; up1 ] in
       (forward, pack)
 
-let _unpack_layern1 (net : Fnn.noden1) =
+let _unpack_layern1 (net : Ocann.noden1) =
   match net#classify_layer with
   | `Sum net ->
       (* Could also be implemented with `tf.broadcast` and `tf.addN` *)
@@ -218,7 +218,7 @@ let _unpack_layern1 (net : Fnn.noden1) =
         in
         ups |> aux |> validate_output_tensor net
       in
-      (forward, (net :> Fnn.network)#copy)
+      (forward, (net :> Ocann.network)#copy)
   | `Prod net ->
       let forward ups =
         let rec aux = function
@@ -228,30 +228,30 @@ let _unpack_layern1 (net : Fnn.noden1) =
         in
         ups |> aux |> validate_output_tensor net
       in
-      (forward, (net :> Fnn.network)#copy)
+      (forward, (net :> Ocann.network)#copy)
   | `Concatenate net ->
       let axis = tensor_axis_of_shape_axis net#out_shape net#axis in
       let forward ups = ups |> Tfjs_api.Ops.concat axis |> validate_output_tensor net in
-      (forward, (net :> Fnn.network)#copy)
+      (forward, (net :> Ocann.network)#copy)
 
-let _unpack_node follow (net : Fnn.network) =
+let _unpack_node follow (net : Ocann.network) =
   match (net#classify_node, List.map follow net#upstreams) with
   | `Node01 node, [] ->
       let forward, pack, update = _unpack_layer01 node in
-      Node01 { forward; pack; update; node = (node :> Fnn.network) }
+      Node01 { forward; pack; update; node = (node :> Ocann.network) }
   | `Node11 node, [ up ] ->
       let forward, pack = _unpack_layer11 node in
-      Node11 { forward; pack; node = (node :> Fnn.network); up }
+      Node11 { forward; pack; node = (node :> Ocann.network); up }
   | `Node21 node, [ up0; up1 ] ->
       let forward, pack = _unpack_layer21 node in
-      Node21 { forward; pack; node = (node :> Fnn.network); up0; up1 }
+      Node21 { forward; pack; node = (node :> Ocann.network); up0; up1 }
   | `Noden1 node, ups ->
       let forward, pack = _unpack_layern1 node in
-      Noden1 { forward; pack; node = (node :> Fnn.network); ups }
+      Noden1 { forward; pack; node = (node :> Ocann.network); ups }
   | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
 
 let unpack_for_training :
-    Fnn.network -> (tftensor Fnn.Map.t -> tftensor) * optimization_map * (unit -> Fnn.network) =
+    Ocann.network -> (tftensor Ocann.Map.t -> tftensor) * optimization_map * (unit -> Ocann.network) =
  (* Transform a `network` to everything that is needed to perform a training of that network
   * using tensorflow.js:
   * 1. A callable for the forward pass aware of the upcoming backward pass
@@ -259,7 +259,7 @@ let unpack_for_training :
   * 3. A thunk to be called to pack everything back to a `network` when done with training
   *)
  fun net ->
-  let unet = Fnn.memoized_walk_obj _unpack_node net in
+  let unet = Ocann.memoized_walk_obj _unpack_node net in
   let id_of_unet = function
     | Node01 v -> Oo.id v.node
     | Node11 v -> Oo.id v.node
@@ -273,7 +273,7 @@ let unpack_for_training :
       | Node21 v -> v.forward (follow v.up0) (follow v.up1)
       | Noden1 v -> v.forward (List.map follow v.ups)
     in
-    Fnn.memoized_walk id_of_unet forward_node unet
+    Ocann.memoized_walk id_of_unet forward_node unet
   in
   let pack () =
     let pack_node follow = function
@@ -282,7 +282,7 @@ let unpack_for_training :
       | Node21 v -> v.pack (follow v.up0) (follow v.up1)
       | Noden1 v -> v.pack (List.map follow v.ups)
     in
-    Fnn.memoized_walk id_of_unet pack_node unet
+    Ocann.memoized_walk id_of_unet pack_node unet
   in
   let optimizations =
     let optimizations_of_node follow = function
@@ -293,6 +293,6 @@ let unpack_for_training :
       | Node21 v -> OptiMap.union_silent (follow v.up0) (follow v.up1)
       | Noden1 v -> List.map follow v.ups |> OptiMap.union_list_silent
     in
-    Fnn.memoized_walk id_of_unet optimizations_of_node unet
+    Ocann.memoized_walk id_of_unet optimizations_of_node unet
   in
   (forward, optimizations, pack)

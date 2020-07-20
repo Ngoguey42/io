@@ -62,7 +62,7 @@ let axes_of_shape shape =
 let tensor_axis_of_shape_axis shape ax =
   List.mapi (fun i ax -> (i, ax)) (axes_of_shape shape) |> List.find (fun (_, x) -> x = ax) |> fst
 
-let derive_configuration_of_transpose_layer (net : Fnn.transpose) =
+let derive_configuration_of_transpose_layer (net : Ocann.transpose) =
   let mapping = net#mapping in
   let shape0 = net#upstream#out_shape in
   let axes0 = axes_of_shape shape0 in
@@ -108,7 +108,7 @@ let derive_configuration_of_tensordot_layer net =
   (caxes01, perm)
 
 let validate_output_tensor net tensor =
-  let net = Fnn.downcast net in
+  let net = Ocann.downcast net in
 
   (* Printf.eprintf "output of %s has mean value %.17e\n%!" net#to_string (tofloat tensor); *)
   let out_shape = net#out_shape in

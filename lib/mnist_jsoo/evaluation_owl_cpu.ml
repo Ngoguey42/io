@@ -11,11 +11,11 @@ let eval : Types.evaluation_backend_routine =
  fun ?(verbose = false) ~yield_sleep_length ~fire_event ~batch_size ~db:(eval_imgs, eval_labs)
      ~encoder ~decoder ->
   let open Lwt.Infix in
-  (* Step 1 - Unpack the Fnn networks using the dedicated module ******************************** *)
-  let node0 = Fnn.inputs [ encoder ] |> List.hd |> Fnn.downcast in
-  let node0_decoder = Fnn.inputs [ decoder ] |> List.hd |> Fnn.downcast in
-  let forward_encoder = Fnn_owl.unpack_for_evaluation encoder in
-  let forward_decoder = Fnn_owl.unpack_for_evaluation decoder in
+  (* Step 1 - Unpack the Ocann networks using the dedicated module ******************************** *)
+  let node0 = Ocann.inputs [ encoder ] |> List.hd |> Ocann.downcast in
+  let node0_decoder = Ocann.inputs [ decoder ] |> List.hd |> Ocann.downcast in
+  let forward_encoder = Ocann_owl.unpack_for_evaluation encoder in
+  let forward_decoder = Ocann_owl.unpack_for_evaluation decoder in
   let batch_count = (Mnist.test_set_size + batch_size - 1) / batch_size in
 
   (* Step 2 - Prime the accumulated infos that needs to be returned at the end of training ****** *)
@@ -45,9 +45,9 @@ let eval : Types.evaluation_backend_routine =
     in
 
     (* Step 6 - Forward ************************************************************************* *)
-    let x = Fnn.Map.singleton node0 x in
+    let x = Ocann.Map.singleton node0 x in
     let y' = forward_encoder x in
-    let y' = Fnn.Map.singleton node0_decoder y' in
+    let y' = Ocann.Map.singleton node0_decoder y' in
     let y'_1hot = forward_decoder y' in
     assert (y'_1hot |> Algodiff.primal' |> Algodiff.Arr.shape = [| batch_size; 10 |]);
 

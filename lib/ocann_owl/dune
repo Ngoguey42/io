@@ -1,9 +1,9 @@
 (library
- (public_name fnn_owl)
- (name fnn_owl)
+ (public_name ocann_owl)
+ (name ocann_owl)
 
  (libraries
   owl-base
-  ft ft_js fnn pshape
+  ft ft_js ocann pshape
   )
  )

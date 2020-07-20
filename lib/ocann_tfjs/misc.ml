@@ -62,7 +62,7 @@ let tfdtype_of_dtype = function
 
 let validate_output_tensor net tensor =
   (* TODO: Assert dtype of output tensors *)
-  let net = Fnn.downcast net in
+  let net = Ocann.downcast net in
   let tensor = (tensor :> Tfjs_api.tensor Js.t) in
 
   (* Printf.eprintf "output of %s has mean value %.17e\n%!" net#to_string (Tfjs_api.Ops.mean false tensor |> Tfjs_api.to_float); *)
@@ -104,7 +104,7 @@ let axes_of_shape shape =
 let tensor_axis_of_shape_axis shape ax =
   List.mapi (fun i ax -> (i, ax)) (axes_of_shape shape) |> List.find (fun (_, x) -> x = ax) |> fst
 
-let derive_configuration_of_transpose_layer (net : Fnn.transpose) =
+let derive_configuration_of_transpose_layer (net : Ocann.transpose) =
   let mapping = net#mapping in
   let shape0 = net#upstream#out_shape in
   let axes0 = axes_of_shape shape0 in

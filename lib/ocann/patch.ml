@@ -3,23 +3,23 @@ type absolute_shape = (Pshape.Length.tag, Pshape.Size.tag, [ `Idx of int ]) Psha
 type storable_shape = Pshape.Axis.symbolic list option * absolute_shape
 
 type storable_layer =
-  [ `Input of string option * storable_shape * Make_fnn.Default.dtype
-  | `Astype of string option * Make_fnn.Default.dtype
+  [ `Input of string option * storable_shape * Make_ocann.Default.dtype
+  | `Astype of string option * Make_ocann.Default.dtype
   | `Concatenate of string option * Pshape.Axis.t
-  | `Conv2d of string option * int * (int * int) * (int * int) * Make_fnn.Default.boundary_mode
-  | `Maxpool2d of string option * Make_fnn.Default.boundary_mode * (int * int) * (int * int)
+  | `Conv2d of string option * int * (int * int) * (int * int) * Make_ocann.Default.boundary_mode
+  | `Maxpool2d of string option * Make_ocann.Default.boundary_mode * (int * int) * (int * int)
   | `Parameter32 of
     string option
     * int array
-    * Fnn__.Init.Deterministic.float32
-    * Make_fnn.Default.optimizer_conf
-    * Make_fnn.Default.float32_tensor option
-    * Make_fnn.Default.optimizer32 option
+    * Ocann__.Init.Deterministic.float32
+    * Make_ocann.Default.optimizer_conf
+    * Make_ocann.Default.float32_tensor option
+    * Make_ocann.Default.optimizer32 option
   | `Normalisation of
     string option
     * Pshape.Axis.t list
-    * Make_fnn.Default.normalization_algo_conf
-    * Make_fnn.Default.normalization_algo option
+    * Make_ocann.Default.normalization_algo_conf
+    * Make_ocann.Default.normalization_algo option
   | `Relu of string option
   | `Softmax of string option * Pshape.Axis.t
   | `Sum of string option
@@ -53,7 +53,7 @@ let pshape_of_storable : storable_shape -> Pshape.any =
   let open Pshape in
   match s with None, s -> s |> to_any | Some axs, s -> symbolize axs s |> to_any
 
-let _storable_of_fnn : Make_fnn.Default.network -> storable_layer =
+let _storable_of_ocann : Make_ocann.Default.network -> storable_layer =
  fun nn ->
   match nn#classify_layer with
   | `Input nn -> `Input (nn#id, storable_of_pshape nn#out_shape, nn#out_dtype)
@@ -86,7 +86,7 @@ let _storable_of_fnn : Make_fnn.Default.network -> storable_layer =
             nn#axes )
   | `Tensordot nn -> `Tensordot (nn#id, nn#mapping0, nn#mapping1)
 
-let storable_of_fnn : Make_fnn.Default.network -> storable_nn =
+let storable_of_ocann : Make_ocann.Default.network -> storable_nn =
  fun nn ->
   let ids = ref [] in
   let graph = Hashtbl.create 100 in
@@ -94,16 +94,16 @@ let storable_of_fnn : Make_fnn.Default.network -> storable_nn =
   let aux nn =
     ids := Oo.id nn :: !ids;
     Hashtbl.add graph (Oo.id nn) (List.map Oo.id nn#upstreams);
-    Hashtbl.add layers (Oo.id nn) (_storable_of_fnn nn)
+    Hashtbl.add layers (Oo.id nn) (_storable_of_ocann nn)
   in
-  Make_fnn.Default.iter_top_down aux [ nn ];
+  Make_ocann.Default.iter_top_down aux [ nn ];
   (List.rev !ids, graph, layers)
 
-let _fnn_of_storable builder store upstreams : Make_fnn.Default.network =
-  let module Builder = (val builder : Make_fnn.Default.BUILDER) in
+let _ocann_of_storable builder store upstreams : Make_ocann.Default.network =
+  let module Builder = (val builder : Make_ocann.Default.BUILDER) in
   match (store, upstreams) with
   | `Input (id, shape, dtype), [] ->
-      Builder.input ~id:(repair id) (pshape_of_storable shape) dtype |> Make_fnn.Default.downcast
+      Builder.input ~id:(repair id) (pshape_of_storable shape) dtype |> Make_ocann.Default.downcast
   | `Input _, _ -> failwith "corrupted upstreams"
   | `Parameter32 (id, dimensions, init, o, tensor_opt, optim_opt), [] ->
       let nn = Builder.parameter32 ~id:(repair id) dimensions init o in
@@ -114,52 +114,52 @@ let _fnn_of_storable builder store upstreams : Make_fnn.Default.network =
         | Some tensor, None -> nn#replicate tensor nn#optimizer
         | None, Some optim -> nn#replicate nn#tensor optim
       in
-      nn |> Make_fnn.Default.downcast
+      nn |> Make_ocann.Default.downcast
   | `Parameter32 _, _ -> failwith "corrupted upstreams"
   | `Normalisation (id, axes, algo_conf, algo_opt), [ up ] ->
       let nn = Builder.normalisation ~id:(repair id) axes ~algo_conf up in
       let nn = match algo_opt with None -> nn | Some algo -> nn#replicate algo up in
-      nn |> Make_fnn.Default.downcast
+      nn |> Make_ocann.Default.downcast
   | `Normalisation _, _ -> failwith "corrupted upstreams"
-  | `Sum id, ups -> Builder.sum ~id:(repair id) ups |> Make_fnn.Default.downcast
-  | `Prod id, ups -> Builder.prod ~id:(repair id) ups |> Make_fnn.Default.downcast
+  | `Sum id, ups -> Builder.sum ~id:(repair id) ups |> Make_ocann.Default.downcast
+  | `Prod id, ups -> Builder.prod ~id:(repair id) ups |> Make_ocann.Default.downcast
   | `Concatenate (id, axis), ups ->
-      Builder.concatenate ~id:(repair id) axis ups |> Make_fnn.Default.downcast
+      Builder.concatenate ~id:(repair id) axis ups |> Make_ocann.Default.downcast
   | `Softmax (id, axis), [ up ] ->
-      Builder.softmax ~id:(repair id) axis up |> Make_fnn.Default.downcast
+      Builder.softmax ~id:(repair id) axis up |> Make_ocann.Default.downcast
   | `Softmax _, _ -> failwith "corrupted upstreams"
-  | `Relu id, [ up ] -> Builder.relu ~id:(repair id) up |> Make_fnn.Default.downcast
+  | `Relu id, [ up ] -> Builder.relu ~id:(repair id) up |> Make_ocann.Default.downcast
   | `Relu _, _ -> failwith "corrupted upstreams"
   | `Astype (id, dtype), [ up ] ->
-      Builder.astype ~id:(repair id) dtype up |> Make_fnn.Default.downcast
+      Builder.astype ~id:(repair id) dtype up |> Make_ocann.Default.downcast
   | `Astype _, _ -> failwith "corrupted upstreams"
   | `Conv2d (id, g, s, d, b), [ w; up ] ->
-      Builder.conv2d2 ~id:(repair id) ~g ~s ~d ~b w up |> Make_fnn.Default.downcast
+      Builder.conv2d2 ~id:(repair id) ~g ~s ~d ~b w up |> Make_ocann.Default.downcast
   | `Conv2d _, _ -> failwith "corrupted upstreams"
   | `Transpose (id, ndim, mapping), [ up ] ->
-      Builder.transpose ~id:(repair id) ~ndim ~mapping up |> Make_fnn.Default.downcast
+      Builder.transpose ~id:(repair id) ~ndim ~mapping up |> Make_ocann.Default.downcast
   | `Transpose _, _ -> failwith "corrupted upstreams"
   | `Maxpool2d (id, b, s, k), [ up ] ->
-      Builder.maxpool2d ~id:(repair id) ~b ~s k up |> Make_fnn.Default.downcast
+      Builder.maxpool2d ~id:(repair id) ~b ~s k up |> Make_ocann.Default.downcast
   | `Maxpool2d _, _ -> failwith "corrupted upstreams"
   | `Padding (id, v, l), [ up ] ->
-      Builder.padding ~id:(repair id) ~v l up |> Make_fnn.Default.downcast
+      Builder.padding ~id:(repair id) ~v l up |> Make_ocann.Default.downcast
   | `Padding _, _ -> failwith "corrupted upstreams"
   | `Tensordot (id, l, l'), [ up; up' ] ->
-      Builder.tensordot ~id:(repair id) l l' up up' |> Make_fnn.Default.downcast
+      Builder.tensordot ~id:(repair id) l l' up up' |> Make_ocann.Default.downcast
   | `Tensordot _, _ -> failwith "corrupted upstreams"
 
-let fnn_of_storable : _ -> storable_nn -> Make_fnn.Default.network =
+let ocann_of_storable : _ -> storable_nn -> Make_ocann.Default.network =
  fun builder (ids, graph, layers) ->
   let nns = Hashtbl.create 100 in
   let aux i =
     let upstreams = Hashtbl.find graph i in
     let upstreams = List.map (Hashtbl.find nns) upstreams in
     let nn = Hashtbl.find layers i in
-    let nn = _fnn_of_storable builder nn upstreams in
+    let nn = _ocann_of_storable builder nn upstreams in
     Hashtbl.add nns i nn
   in
   List.iter aux ids;
   Hashtbl.find nns (List.rev ids |> List.hd)
 
-let (_ : _ -> 'a -> 'a) = fun builder s -> fnn_of_storable builder s |> storable_of_fnn
+let (_ : _ -> 'a -> 'a) = fun builder s -> ocann_of_storable builder s |> storable_of_ocann

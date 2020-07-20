@@ -30,7 +30,7 @@ type training_config = {
 
 type training_parameters = {
   db : db_train; [@opaque]
-  networks : Fnn.network list * Fnn.network; [@opaque]
+  networks : Ocann.network list * Ocann.network; [@opaque]
   config : training_config;
 }
 [@@deriving show]
@@ -51,7 +51,7 @@ type training_stats = {
 type training_user_status = [ `Train_to_end | `Early_stop | `Abort ] [@@deriving show]
 
 type training_outcome =
-  [ `End of (Fnn.network list[@opaque]) * (Fnn.network[@opaque]) * (training_stats[@opaque])
+  [ `End of (Ocann.network list[@opaque]) * (Ocann.network[@opaque]) * (training_stats[@opaque])
   | `Abort
   | `Crash of string ]
 [@@deriving show]
@@ -74,8 +74,8 @@ type training_backend_routine =
   batch_count:int ->
   get_lr:(int -> float) ->
   get_data:(int -> uint8_ba * uint8_ba) ->
-  encoders:Fnn.network list ->
-  decoder:Fnn.network ->
+  encoders:Ocann.network list ->
+  decoder:Ocann.network ->
   unit Lwt.t
 
 module type TRAINER = sig
@@ -93,8 +93,8 @@ type evaluation_config = {
 
 type evaluation_parameters = {
   db : db_test; [@opaque]
-  encoder : Fnn.network; [@opaque]
-  decoder : Fnn.network; [@opaque]
+  encoder : Ocann.network; [@opaque]
+  decoder : Ocann.network; [@opaque]
   config : evaluation_config;
 }
 [@@deriving show]
@@ -122,8 +122,8 @@ type evaluation_backend_routine =
   fire_event:(evaluation_routine_event -> unit) ->
   batch_size:int ->
   db:db_test ->
-  encoder:Fnn.network ->
-  decoder:Fnn.network ->
+  encoder:Ocann.network ->
+  decoder:Ocann.network ->
   unit Lwt.t
 
 module type EVALUATOR = sig
@@ -140,16 +140,16 @@ end
 type tab_state =
   | Creating_network
   | Selecting_backend of {
-      encoder : Fnn.network; [@opaque]
-      decoder : Fnn.network; [@opaque]
+      encoder : Ocann.network; [@opaque]
+      decoder : Ocann.network; [@opaque]
       seed : int;
     }
   | Evaluating of {
-      old : (Fnn.network * Fnn.network * int) option; [@opaque]
+      old : (Ocann.network * Ocann.network * int) option; [@opaque]
       (* `old` contains the states from previous `Creating_training` state (if any).
          Necessary to rollback states when eval crashes. *)
-      encoder : Fnn.network; [@opaque]
-      decoder : Fnn.network; [@opaque]
+      encoder : Ocann.network; [@opaque]
+      decoder : Ocann.network; [@opaque]
       seed : int;
       backend : backend;
       from_webworker : bool;
@@ -157,16 +157,16 @@ type tab_state =
       config : evaluation_config; [@opaque]
     }
   | Creating_training of {
-      encoder : Fnn.network; [@opaque]
-      decoder : Fnn.network; [@opaque]
+      encoder : Ocann.network; [@opaque]
+      decoder : Ocann.network; [@opaque]
       seed : int;
       backend : backend;
       from_webworker : bool;
       images_seen : int;
     }
   | Training of {
-      encoder : Fnn.network; [@opaque]
-      decoder : Fnn.network; [@opaque]
+      encoder : Ocann.network; [@opaque]
+      decoder : Ocann.network; [@opaque]
       seed : int;
       backend : backend;
       from_webworker : bool;
@@ -202,7 +202,7 @@ module Tab_state = struct
 end
 
 type tab_event =
-  | Network_made of { encoder : Fnn.network; [@opaque] decoder : Fnn.network; [@opaque] seed : int }
+  | Network_made of { encoder : Ocann.network; [@opaque] decoder : Ocann.network; [@opaque] seed : int }
   | Backend_selected of (backend * bool)
   | Evaluation_event of evaluation_routine_event
   | Training_conf of { lr : lr; batch_size : int; batch_count : int }

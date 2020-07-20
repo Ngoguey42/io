@@ -1,7 +1,8 @@
 (* Encoders ************************************************************************************* *)
 
 module type ENCODER = sig
-  val create : (module Ocann.BUILDER) -> Ocann.optimizer_conf -> int -> Ocann.network
+  val create :
+    (module Ocann.Default.BUILDER) -> Ocann.Default.optimizer_conf -> int -> Ocann.Default.network
 
   val code : int -> string
 
@@ -9,13 +10,13 @@ module type ENCODER = sig
 end
 
 module Fc_encoder : ENCODER = struct
-  let create (module Builder : Ocann.BUILDER) o f : Ocann.network =
+  let create (module Builder : Ocann.Default.BUILDER) o f : Ocann.Default.network =
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-    |> Ocann.downcast
+    |> Ocann.Default.downcast
     |> conv2d ~o (`Full f) (28, 28) ~s:(1, 1) ~b:`Assert_fit
-    |> Ocann.downcast
+    |> Ocann.Default.downcast
 
   let code f =
     Printf.sprintf
@@ -26,12 +27,12 @@ module Fc_encoder : ENCODER = struct
 end
 
 module Oneconv : ENCODER = struct
-  let create (module Builder : Ocann.BUILDER) o f : Ocann.network =
+  let create (module Builder : Ocann.Default.BUILDER) o f : Ocann.Default.network =
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
     |> conv2d ~o (`Full f) (16, 16) ~s:(6, 6) ~b:`Assert_fit
-    |> bias |> relu |> Ocann.downcast
+    |> bias |> relu |> Ocann.Default.downcast
 
   let code f =
     Printf.sprintf "|> conv2d ~o (`Full %d) (16, 16) ~s:(6, 6) ~b:`Assert_fit |> bias |> relu\n" f
@@ -40,14 +41,14 @@ module Oneconv : ENCODER = struct
 end
 
 module Twoconv : ENCODER = struct
-  let create (module Builder : Ocann.BUILDER) o f : Ocann.network =
+  let create (module Builder : Ocann.Default.BUILDER) o f : Ocann.Default.network =
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
     |> conv2d ~o (`Full f) (4, 4) ~s:(3, 3) ~b:`Assert_fit
     |> bias |> relu
     |> conv2d ~o (`Full f) (3, 3) ~s:(3, 3) ~b:`Assert_fit
-    |> bias |> relu |> Ocann.downcast
+    |> bias |> relu |> Ocann.Default.downcast
 
   let code f =
     Printf.sprintf
@@ -59,7 +60,7 @@ module Twoconv : ENCODER = struct
 end
 
 module Threeconv = struct
-  let create (module Builder : Ocann.BUILDER) o f : Ocann.network =
+  let create (module Builder : Ocann.Default.BUILDER) o f : Ocann.Default.network =
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
@@ -68,7 +69,7 @@ module Threeconv = struct
     |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit
     |> bias |> relu
     |> conv2d ~o (`Full f) (4, 4) ~s:(1, 1) ~b:`Assert_fit
-    |> bias |> relu |> Ocann.downcast
+    |> bias |> relu |> Ocann.Default.downcast
 
   let code f =
     Printf.sprintf
@@ -82,7 +83,7 @@ module Threeconv = struct
 end
 
 module Fourconvres : ENCODER = struct
-  let create (module Builder : Ocann.BUILDER) o f : Ocann.network =
+  let create (module Builder : Ocann.Default.BUILDER) o f : Ocann.Default.network =
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
@@ -90,22 +91,28 @@ module Fourconvres : ENCODER = struct
     |> bias
     |> (fun up ->
          [
-           up |> cropping2d [ 1 ] |> Ocann.downcast;
-           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Ocann.downcast;
+           up |> cropping2d [ 1 ] |> Ocann.Default.downcast;
+           up |> relu
+           |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit
+           |> bias |> Ocann.Default.downcast;
          ])
     |> sum
     |> (fun up ->
          [
-           up |> cropping2d [ 1 ] |> Ocann.downcast;
-           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Ocann.downcast;
+           up |> cropping2d [ 1 ] |> Ocann.Default.downcast;
+           up |> relu
+           |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit
+           |> bias |> Ocann.Default.downcast;
          ])
     |> sum
     |> (fun up ->
          [
-           up |> cropping2d [ 1 ] |> Ocann.downcast;
-           up |> relu |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit |> bias |> Ocann.downcast;
+           up |> cropping2d [ 1 ] |> Ocann.Default.downcast;
+           up |> relu
+           |> conv2d ~o (`Full f) (3, 3) ~s:(1, 1) ~b:`Assert_fit
+           |> bias |> Ocann.Default.downcast;
          ])
-    |> sum |> Ocann.downcast
+    |> sum |> Ocann.Default.downcast
 
   let code f =
     Printf.sprintf
@@ -113,23 +120,23 @@ module Fourconvres : ENCODER = struct
 |> bias
 |> (fun up ->
      [
-       up |> cropping2d [ 1 ] |> Ocann.downcast
+       up |> cropping2d [ 1 ] |> Ocann.Default.downcast
      ; up |> relu |> conv2d ~o (`Full %d) (3, 3) ~s:(1, 1) ~b:`Assert_fit
-       |> bias |> Ocann.downcast
+       |> bias |> Ocann.Default.downcast
      ])
 |> sum
 |> (fun up ->
      [
-       up |> cropping2d [ 1 ] |> Ocann.downcast
+       up |> cropping2d [ 1 ] |> Ocann.Default.downcast
      ; up |> relu |> conv2d ~o (`Full %d) (3, 3) ~s:(1, 1) ~b:`Assert_fit
-       |> bias |> Ocann.downcast
+       |> bias |> Ocann.Default.downcast
      ])
 |> sum
 |> (fun up ->
      [
-       up |> cropping2d [ 1 ] |> Ocann.downcast
+       up |> cropping2d [ 1 ] |> Ocann.Default.downcast
      ; up |> relu |> conv2d ~o (`Full %d) (3, 3) ~s:(1, 1) ~b:`Assert_fit
-       |> bias |> Ocann.downcast
+       |> bias |> Ocann.Default.downcast
      ])
 |> sum
 |}
@@ -140,7 +147,12 @@ end
 
 (* Decoders ************************************************************************************* *)
 module type DECODER = sig
-  val create : (module Ocann.BUILDER) -> Ocann.optimizer_conf -> int -> int -> Ocann.network
+  val create :
+    (module Ocann.Default.BUILDER) ->
+    Ocann.Default.optimizer_conf ->
+    int ->
+    int ->
+    Ocann.Default.network
 
   val code : int -> int -> string
 
@@ -148,7 +160,7 @@ module type DECODER = sig
 end
 
 module Maxpool_fc : DECODER = struct
-  let create (module Builder : Ocann.BUILDER) o w f : Ocann.network =
+  let create (module Builder : Ocann.Default.BUILDER) o w f : Ocann.Default.network =
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
@@ -158,7 +170,7 @@ module Maxpool_fc : DECODER = struct
     |> dense ~o [ (`C, 10) ] ~id:(Some "classif")
     |> bias
     |> softmax `C
-    |> Ocann.downcast
+    |> Ocann.Default.downcast
 
   let code w _ =
     Printf.sprintf
@@ -172,7 +184,7 @@ module Maxpool_fc : DECODER = struct
 end
 
 module Fc_decoder : DECODER = struct
-  let create (module Builder : Ocann.BUILDER) o w f : Ocann.network =
+  let create (module Builder : Ocann.Default.BUILDER) o w f : Ocann.Default.network =
     let open Builder in
     let open Pshape.Size in
     input (Pshape.sym4d_partial ~n:U ~c:(K f) ~s0:(K w) ~s1:(K w)) `Float32
@@ -180,7 +192,7 @@ module Fc_decoder : DECODER = struct
     |> dense ~o [ (`C, 10) ] ~id:(Some "classif")
     |> bias
     |> softmax `C
-    |> Ocann.downcast
+    |> Ocann.Default.downcast
 
   let code _ _ =
     {||> transpose ~mapping:[ (`C, `C); (`S0, `C); (`S1, `C) ]

@@ -6,15 +6,16 @@ open struct
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
   module Typed_array = Js_of_ocaml.Typed_array
   module Tfjs = Ocann_tfjs.Tfjs
+  module Binding = Ocann_tfjs.Make (Ocann.Default)
 end
 
 let _eval verbose yield_sleep_length fire_event batch_size (eval_imgs, eval_labs) encoder decoder =
   let open Lwt.Infix in
   (* Step 1 - Unpack the Ocann networks using the dedicated module ******************************** *)
-  let node0 = Ocann.inputs [ encoder ] |> List.hd |> Ocann.downcast in
-  let node0_decoder = Ocann.inputs [ decoder ] |> List.hd |> Ocann.downcast in
-  let forward_encoder = Ocann_tfjs.unpack_for_evaluation encoder in
-  let forward_decoder = Ocann_tfjs.unpack_for_evaluation decoder in
+  let node0 = Ocann.Default.inputs [ encoder ] |> List.hd |> Ocann.Default.downcast in
+  let node0_decoder = Ocann.Default.inputs [ decoder ] |> List.hd |> Ocann.Default.downcast in
+  let forward_encoder = Binding.unpack_for_evaluation encoder in
+  let forward_decoder = Binding.unpack_for_evaluation decoder in
   let batch_count = (Mnist.test_set_size + batch_size - 1) / batch_size in
 
   (* Step 2 - Prime the accumulated infos that needs to be returned at the end of training ****** *)
@@ -45,9 +46,9 @@ let _eval verbose yield_sleep_length fire_event batch_size (eval_imgs, eval_labs
     in
 
     (* Step 6 - Forward ************************************************************************* *)
-    let x = Ocann.Map.singleton node0 x in
+    let x = Ocann.Default.Map.singleton node0 x in
     let y' = forward_encoder x in
-    let y' = Ocann.Map.singleton node0_decoder y' in
+    let y' = Ocann.Default.Map.singleton node0_decoder y' in
     let y' = forward_decoder y' in
     assert (y'##.shape |> Js.to_array = [| batch_size; 10 |]);
     let y'_1hot = y' in

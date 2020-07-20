@@ -31,8 +31,8 @@ type derived_conf = {
   filters : int;
   seed : int;
   optimizer_tag : optimizer_tag;
-  encoder_nn : Ocann.network;
-  decoder_nn : Ocann.network;
+  encoder_nn : Ocann.Default.network;
+  decoder_nn : Ocann.Default.network;
 }
 
 module type ENTRY = sig
@@ -140,7 +140,7 @@ to train but produce better results.
     let module M = (val module_of_tag t) in
     M.code f
 
-  let network_of_tag t b o f : Ocann.network =
+  let network_of_tag t b o f : Ocann.Default.network =
     let module M = (val module_of_tag t) in
     M.create b o f
 end
@@ -182,7 +182,7 @@ layer.
     let module M = (val module_of_tag t) in
     M.code w f
 
-  let network_of_tag t b o w f : Ocann.network =
+  let network_of_tag t b o w f : Ocann.Default.network =
     let module M = (val module_of_tag t) in
     M.create b o w f
 end
@@ -229,10 +229,10 @@ end
 (* ********************************************************************************************** *)
 let tooltip_chunks =
   [|
-    "(* OCaml code to create the Ocann.network object *)\nlet o = ";
+    "(* OCaml code to create the Ocann.Default.network object *)\nlet o = ";
     " in\nlet rng = Random.State.make [| ";
     {| |] in
-let open (val Ocann.create_builder ~rng ()) in
+let open (val Ocann.Default.create_builder ~rng ()) in
 let open Pshape.Size in
 
 input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
@@ -284,7 +284,7 @@ let dconf_of_rconf : raw_conf -> derived_conf =
   let networks_of_filters f =
     let o = Optimizer.optimizer_of_tag conf.optimizer_tag in
     let rng = Random.State.make [| seed |] in
-    let make_builder () = Ocann.create_builder ~rng () in
+    let make_builder () = Ocann.Default.create_builder ~rng () in
     let builder = make_builder () in
     let e = Encoder.network_of_tag conf.encoder_tag builder o f in
     let (Pshape.Size.K w) = Pshape.get e#out_shape `S0 |> Pshape.Size.to_known in
@@ -297,7 +297,9 @@ let dconf_of_rconf : raw_conf -> derived_conf =
   let maxp = 1000000 in
 
   let emin, dmin = networks_of_filters minf in
-  let pmin = Ocann.parameters [ emin; dmin ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0 in
+  let pmin =
+    Ocann.Default.parameters [ emin; dmin ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
+  in
 
   (* Since Ocann doesn't allocate tensors on fresh networks we can search the number of filters by
      bisection.
@@ -321,7 +323,7 @@ let dconf_of_rconf : raw_conf -> derived_conf =
         assert (imid <> iright);
         let emid, dmid = networks_of_filters imid in
         let vmid =
-          Ocann.parameters [ emid; dmid ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
+          Ocann.Default.parameters [ emid; dmid ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
         in
         let mid = (imid, vmid, (emid, dmid)) in
         if vmid >= maxp then find_closest_network left (Some mid)
@@ -334,7 +336,7 @@ let dconf_of_rconf : raw_conf -> derived_conf =
         (* Failsafe for int overflow *)
         let emid, dmid = networks_of_filters imid in
         let vmid =
-          Ocann.parameters [ emid; dmid ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
+          Ocann.Default.parameters [ emid; dmid ] |> List.fold_left (fun acc nn -> acc + nn#numel) 0
         in
         let mid = (imid, vmid, (emid, dmid)) in
         if vmid = vleft then find_closest_network left (Some mid)

@@ -3,7 +3,16 @@ open struct
   module Firebug = Js_of_ocaml.Firebug
   module Ndarray = Owl_base_dense_ndarray.S
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
-  module Algodiff = Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
+
+  module Algodiff = struct
+    type ba = Owl_base_algodiff_primal_ops.S.arr
+
+    type ba_elt = Bigarray.float32_elt
+
+    include Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
+  end
+
+  module Binding = Ocann_owl.Make (Algodiff) (Ocann.Default)
 end
 
 (* For debug *)
@@ -27,23 +36,23 @@ let train : Types.training_backend_routine =
   (* Step 1 - Unpack the Ocann networks using the dedicated module ******************************** *)
   let node0 =
     let open Pshape.Size in
-    Ocann.Builder.input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
-    |> Ocann.downcast
+    Ocann.Default.Builder.input (Pshape.sym4d_partial ~n:U ~c:(K 1) ~s0:(K 28) ~s1:(K 28)) `Float32
+    |> Ocann.Default.downcast
   in
   let encoders =
     List.map
       (fun net ->
-        let input = Ocann.inputs [ net ] |> List.hd |> Ocann.downcast in
-        Ocann.copy ~sub:[ (input, node0) ] [ net ] |> List.hd)
+        let input = Ocann.Default.inputs [ net ] |> List.hd |> Ocann.Default.downcast in
+        Ocann.Default.copy ~sub:[ (input, node0) ] [ net ] |> List.hd)
       encoders
   in
-  let node0_decoder = Ocann.inputs [ decoder ] |> List.hd |> Ocann.downcast in
+  let node0_decoder = Ocann.Default.inputs [ decoder ] |> List.hd |> Ocann.Default.downcast in
   let forward_encoders, o, pack_encoders =
-    List.map Ocann_owl.unpack_for_training encoders |> Ft.List.split3
+    List.map Binding.unpack_for_training encoders |> Ft.List.split3
   in
-  let optimizations = Ocann_owl.OptiMap.union_list_exn o in
-  let forward_decoder, o, pack_decoder = Ocann_owl.unpack_for_training decoder in
-  let optimizations = Ocann_owl.OptiMap.union_exn optimizations o in
+  let optimizations = Binding.OptiMap.union_list_exn o in
+  let forward_decoder, o, pack_decoder = Binding.unpack_for_training decoder in
+  let optimizations = Binding.OptiMap.union_exn optimizations o in
 
   let train_on_batch batch_idx =
     (* Step 5 - Fetch and transform batch inputs ************************************************ *)
@@ -59,13 +68,13 @@ let train : Types.training_backend_routine =
     let y_1hot = Owl_snippets._1hot_of_top1 y_top1_uint8 |> Algodiff.pack_arr in
 
     (* Step 6.0 - Forward *********************************************************************** *)
-    let x = Ocann.Map.singleton node0 x in
+    let x = Ocann.Default.Map.singleton node0 x in
     let y' =
       List.map (fun fw -> fw x) forward_encoders
       |> Array.of_list
       |> Algodiff.Maths.concatenate ~axis:3
     in
-    let y' = Ocann.Map.singleton node0_decoder y' in
+    let y' = Ocann.Default.Map.singleton node0_decoder y' in
     let y'_1hot = forward_decoder y' in
     assert (y'_1hot |> Algodiff.primal' |> Algodiff.Arr.shape = [| batch_size; 10 |]);
     let loss = Owl_snippets.categorical_crossentropy 1e-10 y'_1hot y_1hot in
@@ -75,7 +84,7 @@ let train : Types.training_backend_routine =
     Algodiff.reverse_prop (Algodiff.pack_flt 1.) loss;
 
     (* Step 7 - Update networks' weights using gradients already reachable from optimizations *** *)
-    Ocann_tfjs.OptiMap.iter (fun _name optimization -> optimization lr) optimizations;
+    Binding.OptiMap.iter (fun _name optimization -> optimization lr) optimizations;
 
     (* Step 8 - Compute / print stats *********************************************************** *)
     let y'_top1 = Owl_snippets._top1_of_1hot (y'_1hot |> Algodiff.primal' |> Algodiff.unpack_arr) in

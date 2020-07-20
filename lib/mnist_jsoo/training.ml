@@ -110,14 +110,17 @@ let routine params fire_event instructions =
 module Webworker_routine = struct
   type parameters = {
     db : db_train;
-    networks : Ocann.storable_nn list * Ocann.storable_nn;
+    networks : Ocann.Default.Patch.storable_nn list * Ocann.Default.Patch.storable_nn;
     config : training_config;
   }
 
   type _in_msg = [ `Prime of parameters | training_user_status ]
 
   type outcome =
-    [ `End of Ocann.storable_nn list * Ocann.storable_nn * training_stats | `Abort | `Crash of string ]
+    [ `End of
+      Ocann.Default.Patch.storable_nn list * Ocann.Default.Patch.storable_nn * training_stats
+    | `Abort
+    | `Crash of string ]
 
   type routine_event =
     [ `Init | `Batch_begin of int | `Batch_end of int * training_stats | `Outcome of outcome ]
@@ -126,7 +129,7 @@ module Webworker_routine = struct
 
   let preprocess_in_msg : _ -> _in_msg = function
     | `Prime Types.{ db; networks = encoders, decoder; config } ->
-        let f = Ocann.storable_of_ocann in
+        let f = Ocann.Default.Patch.storable_of_ocann in
         let networks = (List.map f encoders, f decoder) in
         `Prime { networks; db; config }
     | #training_user_status as msg -> msg
@@ -134,7 +137,9 @@ module Webworker_routine = struct
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db = imgs, labs; networks = encoders, decoder; config } ->
         let f nn =
-          nn |> repair_storable_nn |> Ocann.ocann_of_storable (module Ocann.Builder : Ocann.BUILDER)
+          nn |> repair_storable_nn
+          |> Ocann.Default.Patch.ocann_of_storable
+               (module Ocann.Default.Builder : Ocann.Default.BUILDER)
         in
         let networks = (List.map f encoders, f decoder) in
         let imgs = repair_bigarray imgs in
@@ -148,7 +153,7 @@ module Webworker_routine = struct
     | `Batch_end _ as ev -> (ev :> routine_event)
     | (`Outcome (`Crash _) as ev) | (`Outcome `Abort as ev) -> (ev :> routine_event)
     | `Outcome (`End (encoders, decoder, stats)) ->
-        let f = Ocann.storable_of_ocann in
+        let f = Ocann.Default.Patch.storable_of_ocann in
         `Outcome (`End (List.map f encoders, f decoder, stats))
 
   let postprocess_out_msg : _out_msg -> Types.training_routine_event = function
@@ -159,7 +164,9 @@ module Webworker_routine = struct
     | `Outcome `Abort as ev -> (ev :> Types.training_routine_event)
     | `Outcome (`End (encoders, decoder, stats)) ->
         let f nn =
-          nn |> repair_storable_nn |> Ocann.ocann_of_storable (module Ocann.Builder : Ocann.BUILDER)
+          nn |> repair_storable_nn
+          |> Ocann.Default.Patch.ocann_of_storable
+               (module Ocann.Default.Builder : Ocann.Default.BUILDER)
         in
         `Outcome (`End (List.map f encoders, f decoder, stats))
 

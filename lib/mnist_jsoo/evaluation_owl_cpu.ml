@@ -4,7 +4,16 @@ open struct
   module Ndarray = Owl_base_dense_ndarray.S
   module Ndarray_g = Owl_base_dense_ndarray_generic
   module Lwt_js = Js_of_ocaml_lwt.Lwt_js
-  module Algodiff = Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
+
+  module Algodiff = struct
+    type ba = Owl_base_algodiff_primal_ops.S.arr
+
+    type ba_elt = Bigarray.float32_elt
+
+    include Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
+  end
+
+  module Binding = Ocann_owl.Make (Algodiff) (Ocann.Default)
 end
 
 let eval : Types.evaluation_backend_routine =
@@ -12,10 +21,10 @@ let eval : Types.evaluation_backend_routine =
      ~encoder ~decoder ->
   let open Lwt.Infix in
   (* Step 1 - Unpack the Ocann networks using the dedicated module ******************************** *)
-  let node0 = Ocann.inputs [ encoder ] |> List.hd |> Ocann.downcast in
-  let node0_decoder = Ocann.inputs [ decoder ] |> List.hd |> Ocann.downcast in
-  let forward_encoder = Ocann_owl.unpack_for_evaluation encoder in
-  let forward_decoder = Ocann_owl.unpack_for_evaluation decoder in
+  let node0 = Ocann.Default.inputs [ encoder ] |> List.hd |> Ocann.Default.downcast in
+  let node0_decoder = Ocann.Default.inputs [ decoder ] |> List.hd |> Ocann.Default.downcast in
+  let forward_encoder = Binding.unpack_for_evaluation encoder in
+  let forward_decoder = Binding.unpack_for_evaluation decoder in
   let batch_count = (Mnist.test_set_size + batch_size - 1) / batch_size in
 
   (* Step 2 - Prime the accumulated infos that needs to be returned at the end of training ****** *)
@@ -45,9 +54,9 @@ let eval : Types.evaluation_backend_routine =
     in
 
     (* Step 6 - Forward ************************************************************************* *)
-    let x = Ocann.Map.singleton node0 x in
+    let x = Ocann.Default.Map.singleton node0 x in
     let y' = forward_encoder x in
-    let y' = Ocann.Map.singleton node0_decoder y' in
+    let y' = Ocann.Default.Map.singleton node0_decoder y' in
     let y'_1hot = forward_decoder y' in
     assert (y'_1hot |> Algodiff.primal' |> Algodiff.Arr.shape = [| batch_size; 10 |]);
 

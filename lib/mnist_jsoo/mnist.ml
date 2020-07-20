@@ -60,8 +60,8 @@ let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
         |> Fun.flip Bigarray.reshape [| train_set_size; 28; 28 |]
     | `Train_labs ->
         Typed_array.to_genarray arr
-       (* Ft_js.Conv.Uint8.ba_of_ta arr *)
-       |> sub 8 train_set_size
+        (* Ft_js.Conv.Uint8.ba_of_ta arr *)
+        |> sub 8 train_set_size
         |> Fun.flip Bigarray.reshape [| train_set_size |]
     | `Test_imgs ->
         Typed_array.to_genarray arr
@@ -70,8 +70,8 @@ let _entry_data_of_idb : _ -> _ -> (entry * status -> unit) -> unit Lwt.t =
         |> Fun.flip Bigarray.reshape [| test_set_size; 28; 28 |]
     | `Test_labs ->
         Typed_array.to_genarray arr
-       (* Ft_js.Conv.Uint8.ba_of_ta arr *)
-       |> sub 8 test_set_size
+        (* Ft_js.Conv.Uint8.ba_of_ta arr *)
+        |> sub 8 test_set_size
         |> Fun.flip Bigarray.reshape [| test_set_size |]
   in
   let arr =

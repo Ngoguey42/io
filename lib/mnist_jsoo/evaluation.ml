@@ -56,8 +56,8 @@ let _routine { db; encoder; decoder; config = { verbose; batch_size; backend; _ 
 module Webworker_routine = struct
   type parameters = {
     db : db_test;
-    encoder : Ocann.storable_nn;
-    decoder : Ocann.storable_nn;
+    encoder : Ocann.Default.Patch.storable_nn;
+    decoder : Ocann.Default.Patch.storable_nn;
     config : evaluation_config;
   }
 
@@ -71,15 +71,18 @@ module Webworker_routine = struct
 
   let preprocess_in_msg : _ -> _in_msg = function
     | `Prime Types.{ db; encoder; decoder; config } ->
-        let f = Ocann.storable_of_ocann in
+        let f = Ocann.Default.Patch.storable_of_ocann in
         let encoder = f encoder in
         let decoder = f decoder in
         `Prime { db; encoder; decoder; config }
 
   let postprocess_in_msg : _in_msg -> _ = function
     | `Prime { db = imgs, labs; encoder; decoder; config } ->
-        let f : Ocann.storable_nn -> Ocann.network =
-         fun nn -> nn |> repair_storable_nn |> Ocann.ocann_of_storable (module Ocann.Builder : Ocann.BUILDER)
+        let f : Ocann.Default.Patch.storable_nn -> Ocann.Default.network =
+         fun nn ->
+          nn |> repair_storable_nn
+          |> Ocann.Default.Patch.ocann_of_storable
+               (module Ocann.Default.Builder : Ocann.Default.BUILDER)
         in
         let encoder = f encoder in
         let decoder = f decoder in

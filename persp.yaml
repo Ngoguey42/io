@@ -22,9 +22,10 @@ perspectives:
     - [ lib/ocann_tfjs/ocann_tfjs.ml, <up> ]
   "16": [[ lib/ocann_tfjs/misc.ml, lib/ocann_tfjs/bridge_train.ml, lib/ocann_tfjs/bridge_eval.ml ]]
 
+  "12":
+    - [ lib/ocann_owl/dune, lib/ocann_owl/ocann_owl.ml ]
   "13":
-    - [ lib/ocann_owl/dune, lib/ocann_owl/bridge_train.ml, lib/ocann_owl/bridge_eval.ml ]
-    - [ lib/ocann_owl/ocann_owl.ml, <up>, <up> ]
+    - [ lib/ocann_owl/misc.ml, lib/ocann_owl/bridge_train.ml, lib/ocann_owl/bridge_eval.ml ]
 
   # root and bin
   "0":

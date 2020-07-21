@@ -30,7 +30,8 @@ perspectives:
   # root and bin
   "0":
     - [ ./persp.yaml, ./TODO.md,    ./build.sh ]
-    - [ <up>,         ./.ocamlformat, ./dune-project ]
+    - [ <up>,         <up>,         ./dune-project ]
+    - [ <up>,         ./README.md,  ./.ocamlformat ]
   "01":
     - [ ./index.html,      ./styles.css, ./header.css, ./mnist-jsoo.css ]
     - [ ./mnist-jsoo.html, <up>,         <up>,         <up> ]

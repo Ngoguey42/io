@@ -1,4 +1,8 @@
-(* Mostly automatically generated from make_ocann.ml *)
+(* Mostly automatically generated from make_ocann.ml
+
+   I am using {|< classify_layer : [< classified_layer ] ; .. >|} instead of {|'a any|} because it
+   behaves differently with ocamlopt 4.10.0
+*)
 module type NETWORK = sig
   module Tensor : Misc.TENSOR
 
@@ -448,26 +452,33 @@ module type NETWORK = sig
 
   val unclassify : [< classified_layer ] -> network
 
-  val downcast : _ any -> network
+  val downcast : < classify_layer : [< classified_layer ] ; .. > -> network
 
-  val find_ids : ?max_size:int -> Id.t -> _ any list -> network list
+  val find_ids :
+    ?max_size:int -> Id.t -> < classify_layer : [< classified_layer ] ; .. > list -> network list
 
-  val find_id : Id.t -> _ any list -> network
+  val find_id : Id.t -> < classify_layer : [< classified_layer ] ; .. > list -> network
 
-  val find_id_opt : Id.t -> _ any list -> network option
+  val find_id_opt : Id.t -> < classify_layer : [< classified_layer ] ; .. > list -> network option
 
-  val find_nodes : ?max_size:int -> 'a node_type -> _ any list -> 'a list
+  val find_nodes :
+    ?max_size:int -> 'a node_type -> < classify_layer : [< classified_layer ] ; .. > list -> 'a list
 
-  val find_layers : ?max_size:int -> 'a layer_type -> _ any list -> 'a list
+  val find_layers :
+    ?max_size:int ->
+    'a layer_type ->
+    < classify_layer : [< classified_layer ] ; .. > list ->
+    'a list
 
-  val find_layer : 'a layer_type -> _ any list -> 'a
+  val find_layer : 'a layer_type -> < classify_layer : [< classified_layer ] ; .. > list -> 'a
 
-  val find_layer_opt : 'a layer_type -> _ any list -> 'a option
+  val find_layer_opt :
+    'a layer_type -> < classify_layer : [< classified_layer ] ; .. > list -> 'a option
 
-  val inputs : _ any list -> input list
+  val inputs : < classify_layer : [< classified_layer ] ; .. > list -> input list
 
   val parameters :
-    _ any list ->
+    < classify_layer : [< classified_layer ] ; .. > list ->
     < classify_layer : classified_layer
     ; classify_node : classified_node
     ; copy :
@@ -516,24 +527,31 @@ module type NETWORK = sig
 
   val map :
     (network -> [ `Bound of network | `Remove | `Skip | `Unbound of network list -> network ]) ->
-    _ any list ->
+    < classify_layer : [< classified_layer ] ; .. > list ->
     network list
 
   val copy :
-    ?keep:_ any list ->
-    ?skip:_ any list ->
-    ?remove:_ any list ->
-    ?sub:(_ any * _ any) list ->
-    ?bind:(_ any * (network list -> network)) list ->
+    ?keep:< classify_layer : [< classified_layer ] ; .. > list ->
+    ?skip:< classify_layer : [< classified_layer ] ; .. > list ->
+    ?remove:< classify_layer : [< classified_layer ] ; .. > list ->
+    ?sub:
+      ( < classify_layer : [< classified_layer ] ; .. >
+      * < classify_layer : [< classified_layer ] ; .. > )
+      list ->
+    ?bind:(< classify_layer : [< classified_layer ] ; .. > * (network list -> network)) list ->
     ?states:state_copy_strategy ->
     ?rng:Random.State.t ->
-    _ any list ->
+    < classify_layer : [< classified_layer ] ; .. > list ->
     network list
 
   module type STATE = Misc.STATE
 
   module type BUILDER = sig
-    val append : ?head:_ any -> ?tail:_ any -> _ any -> network
+    val append :
+      ?head:< classify_layer : [< classified_layer ] ; .. > ->
+      ?tail:< classify_layer : [< classified_layer ] ; .. > ->
+      < classify_layer : [< classified_layer ] ; .. > ->
+      network
 
     val input :
       ?id:Id.t ->
@@ -549,40 +567,50 @@ module type NETWORK = sig
       [< optimizer_conf ] ->
       parameter32
 
-    val sum : ?id:Id.t -> _ any list -> sum
+    val sum : ?id:Id.t -> < classify_layer : [< classified_layer ] ; .. > list -> sum
 
-    val prod : ?id:Id.t -> _ any list -> prod
+    val prod : ?id:Id.t -> < classify_layer : [< classified_layer ] ; .. > list -> prod
 
-    val concatenate : [< Pshape.Axis.t ] -> ?id:Id.t -> _ any list -> concatenate
+    val concatenate :
+      [< Pshape.Axis.t ] ->
+      ?id:Id.t ->
+      < classify_layer : [< classified_layer ] ; .. > list ->
+      concatenate
 
-    val softmax : Pshape.Axis.t -> ?id:Id.t -> _ any -> softmax
+    val softmax :
+      Pshape.Axis.t -> ?id:Id.t -> < classify_layer : [< classified_layer ] ; .. > -> softmax
 
-    val relu : ?id:Id.t -> _ any -> relu
+    val relu : ?id:Id.t -> < classify_layer : [< classified_layer ] ; .. > -> relu
 
-    val astype : dtype -> ?id:Id.t -> _ any -> astype
+    val astype : dtype -> ?id:Id.t -> < classify_layer : [< classified_layer ] ; .. > -> astype
 
     val normalisation :
       [< Pshape.Axis.t ] list ->
       ?algo_conf:[< normalization_algo_conf ] ->
       ?id:Id.t ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       normalisation
 
     val transpose :
       ?ndim:int ->
       ?mapping:([< Pshape.Axis.t ] * [< Pshape.Axis.t ]) list ->
       ?id:Id.t ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       transpose
 
     val maxpool2d :
-      ?b:[< boundary_mode ] -> ?s:int * int -> int * int -> ?id:Id.t -> _ any -> maxpool2d
+      ?b:[< boundary_mode ] ->
+      ?s:int * int ->
+      int * int ->
+      ?id:Id.t ->
+      < classify_layer : [< classified_layer ] ; .. > ->
+      maxpool2d
 
     val padding :
       ?v:[< `Constant of float | `Reflection | `Replication ] ->
       ([< Pshape.Axis.t ] * int list) list ->
       ?id:Id.t ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       padding
 
     val conv2d2 :
@@ -591,26 +619,27 @@ module type NETWORK = sig
       ?d:int * int ->
       ?b:[< boundary_mode ] ->
       ?id:Id.t ->
-      _ any ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       conv2d
 
     val tensordot :
       ([< Pshape.Axis.t ] * [< Pshape.Axis.t ] option) list ->
       ([< Pshape.Axis.t ] * [< Pshape.Axis.t ] option) list ->
       ?id:Id.t ->
-      _ any ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       tensordot
 
     val padding2d :
       ?v:[< `Constant of float | `Reflection | `Replication ] ->
       int list ->
       ?id:Id.t ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       padding
 
-    val cropping2d : ?id:Id.t -> int list -> _ any -> padding
+    val cropping2d :
+      ?id:Id.t -> int list -> < classify_layer : [< classified_layer ] ; .. > -> padding
 
     val dense :
       ?id:Id.t ->
@@ -618,7 +647,7 @@ module type NETWORK = sig
       ?i:[< Init.float ] ->
       ?o:[< optimizer_conf ] ->
       ?rng:Random.State.t ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       tensordot
 
     val conv2d :
@@ -631,7 +660,7 @@ module type NETWORK = sig
       ?i:[< Init.float ] ->
       ?o:[< optimizer_conf ] ->
       ?rng:Random.State.t ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       conv2d
 
     val bias :
@@ -640,7 +669,7 @@ module type NETWORK = sig
       ?i:[< Init.float ] ->
       ?o:[< optimizer_conf ] ->
       ?rng:Random.State.t ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       sum
 
     val scale :
@@ -649,11 +678,15 @@ module type NETWORK = sig
       ?i:[< Init.float ] ->
       ?o:[< optimizer_conf ] ->
       ?rng:Random.State.t ->
-      _ any ->
+      < classify_layer : [< classified_layer ] ; .. > ->
       prod
 
     val batch_norm :
-      ?id:Id.t -> ?affine:bool -> ?algo_conf:[< normalization_algo_conf ] -> _ any -> network
+      ?id:Id.t ->
+      ?affine:bool ->
+      ?algo_conf:[< normalization_algo_conf ] ->
+      < classify_layer : [< classified_layer ] ; .. > ->
+      network
   end
 
   module Make_builder : functor (State : STATE) -> BUILDER

@@ -1,4 +1,6 @@
+(include ../../dune-env.inc)
 (library
  (public_name pshape)
  (name pshape)
- )
+ (js_of_ocaml (flags --pretty --debug-info --source-map-inline --sourcemap))
+)

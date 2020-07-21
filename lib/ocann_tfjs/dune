@@ -1,7 +1,9 @@
+(include ../../dune-env.inc)
 (library
- (public_name ocann_tfjs)
+ (public_name ocann-tfjs)
  (name ocann_tfjs)
-
- (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt ft ft_js ocann pshape)
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt
+            ft ft-js ocann pshape)
  (preprocess (pps js_of_ocaml-ppx lwt_ppx))
- )
+ (js_of_ocaml (flags --pretty --debug-info --source-map-inline --sourcemap))
+)

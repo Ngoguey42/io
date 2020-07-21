@@ -41,6 +41,7 @@ let put_header from =
   display [%html "<div id='header'>" (blog @ mnist @ [ about ]) "</div>"]
 
 let main () =
+  let i = 42 in
   let open Lwt.Infix in
   (* Printexc.record_backtrace true; *)
   let error exn =

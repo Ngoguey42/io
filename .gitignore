@@ -30,13 +30,6 @@ _opam/
 \#*\#
 .\#*
 
-# ocamlbuild working directory
 _build
-
-# My specific `build/*/bin/*.bc.js` scheme
-build/*
-!build/default
-build/default/*
-!build/default/bin
-build/default/bin/*
-!build/default/bin/*.bc.js
+build
+persp

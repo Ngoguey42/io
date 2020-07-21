@@ -2,9 +2,3 @@
   (dev     (flags (-w +1..3+5..28+30..39+43+46..47+49..57+61..62-40-26 -strict-sequence -strict-formats -short-paths -keep-locs -g)))
   (release (flags (-w +1..3+5..28+30..39+43+46..47+49..57+61..62-40-26 -strict-sequence -strict-formats -short-paths -keep-locs   )))
 )
-(library
- (public_name ft)
- (name ft)
- (libraries irmin)
- (js_of_ocaml (flags --pretty --debug-info --source-map-inline --sourcemap))
-)

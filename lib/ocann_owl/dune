@@ -1,9 +1,10 @@
+(include ../../dune-env.inc)
 (library
- (public_name ocann_owl)
+ (public_name ocann-owl)
  (name ocann_owl)
-
  (libraries
   owl-base
-  ft ft_js ocann pshape
+  ft ft-js ocann pshape
   )
- )
+ (js_of_ocaml (flags --pretty --debug-info --source-map-inline --sourcemap))
+)

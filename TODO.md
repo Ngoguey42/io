@@ -13,6 +13,7 @@
 --------------------------------------------------------------------------------
 
 - maybe
+   - issue on ocamlopt compilation error regarding `_ any` in ocann
    - PR or issue `owl get_slice [first; start] -> [start; stop[`
       - (60000) [[0; 499]] -> (500)
       - (1, 9, 9, 1) [[0;0];[1;6];[1;6];[0;0]] -> (1, 6, 6, 1) // yes, for real

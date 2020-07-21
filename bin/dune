@@ -1,23 +1,19 @@
+; TODO: How to set ocaml flags once globally given profile
+; TODO: How to set jsoo flags once globally given profile
+; TODO: How to constrain, or just remember, the lib versions
+
+(include ../dune-env.inc)
+
 (executable
   (name page_builder)
   (modes js)
 
   (js_of_ocaml
-    (javascript_files
-      ../vendored/irmin-indexeddb-helpers.js
-      ; ../vendored/pako_inflate.min.js
-      ; ../vendored/core.min.js
-      ; ../vendored/sha256.min.js
-      ; ../vendored/sha1.min.js
-      ; ../vendored/tf.js
-      ../lib/ft_js/stubs.js
-    )
-    (flags --pretty --source-map-inline --debug-info)
+    (javascript_files ../vendored/irmin-indexeddb-helpers.js)
+    (flags --pretty --debug-info --source-map-inline --sourcemap)
     ; (flags --opt=3 --no-sourcemap)
   )
 
-  ; Explicitly requiring `digestif.ocaml` because `digestif.c` is automatically
-  ; picked otherwise and makes js crash.
   (libraries
     js_of_ocaml
     js_of_ocaml-tyxml
@@ -25,12 +21,10 @@
     tyxml
     owl-base
     digestif.ocaml
-    ft
-    ft_js
-    mnist_jsoo
-    articles
     lwt_react
     ocamlgraph
+
+    ft ft-js mnist_jsoo articles
   )
   (preprocess (pps js_of_ocaml-ppx tyxml-ppx))
 )

@@ -1,11 +1,11 @@
+(include ../../dune-env.inc)
 (library
  (public_name articles)
  (name articles)
-
  (libraries
-  js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml
-  owl-base
-  ft ft_js ocann ocann_tfjs pshape
+  js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml owl-base
+  ft ft-js ocann ocann-tfjs pshape
   )
  (preprocess (pps tyxml-ppx js_of_ocaml-ppx lwt_ppx ppx_deriving.enum))
- )
+ (js_of_ocaml (flags --pretty --debug-info --source-map-inline --sourcemap))
+)

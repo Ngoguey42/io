@@ -1,7 +1,13 @@
+(include ../../dune-env.inc)
 (library
- (public_name ft_js)
+ (public_name ft-js)
  (name ft_js)
- (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml ft irmin-indexeddb)
+ (libraries js_of_ocaml js_of_ocaml-tyxml js_of_ocaml-lwt tyxml irmin-indexeddb
+            ft)
  (foreign_stubs (language c) (names fake_stubs))
  (preprocess (pps tyxml-ppx js_of_ocaml-ppx))
+ (js_of_ocaml
+   (javascript_files ./stubs.js)
+   (flags --pretty --debug-info --source-map-inline --sourcemap)
  )
+)

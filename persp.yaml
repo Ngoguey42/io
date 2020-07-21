@@ -36,6 +36,12 @@ perspectives:
     - [ ./index.html,      ./styles.css, ./header.css, ./mnist-jsoo.css ]
     - [ ./mnist-jsoo.html, <up>,         <up>,         <up> ]
     - [ ./about.html,      <up>,         <up>,         <up> ]
+  "+0":
+    - [ ./bin/dune  ,  ./lib/ft/dune           ,   ./lib/ocann/dune      ]
+    - [ <up>        ,  ./lib/ft_js/dune        ,   ./lib/ocann_owl/dune  ]
+    - [ <up>        ,  ./lib/articles/dune     ,   ./lib/ocann_tfjs/dune ]
+    - [ dune-env.inc,  ./lib/mnist_jsoo/dune   ,   ./lib/pshape/dune     ]
+
   "02":
     - [ ./cinquante.html, ./cinquante.js, ./cinquante_bis.js ]
   "1": [[ bin/dune, bin/page_builder.ml ]]

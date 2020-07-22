@@ -45,15 +45,15 @@ let construct_article_code filename =
     set_signal `Error;
     Lwt.return ()
   in
-  let raw_gh_url, gh_url =
+  let file_url, gh_url =
     let ( / ) = Filename.concat in
     let origin = Ft_js.origin_of_url (Dom_html.window##.location##.href |> Js.to_string) in
     ( origin / "lib/articles" / filename,
-      "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/articles" / filename )
+      "https://github.com/Ngoguey42/io/blob/master/lib/articles" / filename )
   in
   let load_code () =
     let open Lwt.Infix in
-    Ft_js.blob_of_url raw_gh_url >>= fun blob ->
+    Ft_js.blob_of_url file_url >>= fun blob ->
     Ft_js.js_string_of_blob blob >>= fun txt ->
     let txt = Js.to_string txt in
     let pat =

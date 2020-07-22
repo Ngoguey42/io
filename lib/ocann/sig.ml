@@ -1,7 +1,7 @@
 (* Mostly automatically generated from make_ocann.ml
 
-   I am using {|< classify_layer : [< classified_layer ] ; .. >|} instead of {|'a any|} because it
-   behaves differently with ocamlopt 4.10.0
+   I am using {|< classify_layer : [< classified_layer ] ; .. >|} instead of {|'a any|} because of
+   https://github.com/ocaml/ocaml/issues/9788
 *)
 module type NETWORK = sig
   module Tensor : Misc.TENSOR

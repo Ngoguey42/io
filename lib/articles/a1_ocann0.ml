@@ -74,11 +74,11 @@ let t0 =
 </p>
 <p>
    A first implementation is available
-   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/ocann">here</a> (and
-   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/pshape">here</a> for the shape abstraction)
+   <a href="https://github.com/Ngoguey42/io/tree/master/lib/ocann">here</a> (and
+   <a href="https://github.com/Ngoguey42/io/tree/master/lib/pshape">here</a> for the shape abstraction)
    and two bindings already exist,
-   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/ocann_owl">ocann-owl</a> and
-   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/tree/master/lib/ocann_tfjs">ocann-tfjs</a>.
+   <a href="https://github.com/Ngoguey42/io/tree/master/lib/ocann_owl">ocann-owl</a> and
+   <a href="https://github.com/Ngoguey42/io/tree/master/lib/ocann_tfjs">ocann-tfjs</a>.
    All have been used to create the <a href="mnist-jsoo.html">mnist-jsoo</a> page.
 </p>
 

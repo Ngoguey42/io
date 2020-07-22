@@ -1,18 +1,20 @@
 module Html = Js_of_ocaml_tyxml.Tyxml_js.Html
 
-let url_repo = "https://github.com/ngoguey42/ngoguey42.github.io"
+let url_repo0 = "https://github.com/ngoguey42/ngoguey42.github.io"
 
-let url_bin = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/bin"
+let url_repo1 = "https://github.com/ngoguey42/io"
 
-let url_lib = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib"
+let url_bin = "https://github.com/Ngoguey42/io/blob/master/bin"
+
+let url_lib = "https://github.com/Ngoguey42/io/blob/master/lib"
 
 let url_ftreact =
-  "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/reactjs.ml"
+  "https://github.com/Ngoguey42/io/blob/master/lib/ft_js/reactjs.ml"
 
-let url_ftww = "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/webworker.ml"
+let url_ftww = "https://github.com/Ngoguey42/io/blob/master/lib/ft_js/webworker.ml"
 
 let url_entrypoint =
-  "https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/bin/page_builder.ml"
+  "https://github.com/Ngoguey42/io/blob/master/bin/page_builder.ml"
 
 let url_jsooppx = "https://ocsigen.org/js_of_ocaml/3.1.0/manual/ppx"
 
@@ -27,7 +29,7 @@ let[@ocamlformat "disable"] create_content () = [%html {|
     <a href="https://github.com/ocaml/dune"><cite>dune</cite></a>
     and transpiled from OCaml to JavaScript using
     <a href="https://ocsigen.org/js_of_ocaml"><cite>Js_of_ocaml</cite></a>.
-    The source code is publicly available <a href="|} url_repo {|">here</a>.
+    The source code is publicly available <a href="|} url_repo1 {|">here</a>.
   </p>
 
   <p>
@@ -95,15 +97,19 @@ let[@ocamlformat "disable"] create_content () = [%html {|
   <h3>Code organization</h3>
 
   <p>
-    All the pages share a single entry point:
+    The source code of the website lives in the
+    <a href="|} url_repo1 {|">|} [ Html.txt url_repo1 ] {|</a> repository, but it is compiled
+    and served through the <a href="|} url_repo0 {|">|} [ Html.txt url_repo0 ] {|</a> repository.
+  </p>
+  <p>
+    All pages share a single entry point:
     <a href="|} url_entrypoint {|">bin/page_builder.ml</a>.
     The rest of the code is scattered between the <a href="|} url_bin {|">bin</a>
-    directory and a collection of libraries living in the <a href="|} url_lib {|">lib</a>
-    directory. The entry point and all its OCaml dependencies are transpiled to
-    a single <cite>.js</cite> file living in the <cite>build</cite> directory
-    The generated <cite>.js</cite> file is then commited to the repository and
-    each page of the website owns a small <cite>.html</cite> file that loads the generated
-    file. (TODO: Update for future workflow)
+    directory and a collection of libraries living in the <a href="|} url_lib {|">lib</a>.
+  </p>
+ <p>
+    All the OCaml code, and all the OCaml libraries are transpiled to a single <cite>.js</cite> file
+    that is loaded from the <cite>.html</cite> files.
   </p>
 
   <h2>Author</h2>

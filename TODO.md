@@ -4,16 +4,7 @@
 
 --------------------------------------------------------------------------------
 
-- repo
-   - Split the repo.
-     - Keep only the Github Pages resources inside this one (through copy and dune build --release).
-     - Move the source code to another one where the build directory has been removed from all commits (but keep history!!).
-   - Constrain OCaml dependencies (with >=)
-
---------------------------------------------------------------------------------
-
 - maybe
-   - issue on ocamlopt compilation error regarding `_ any` in ocann
    - PR or issue `owl get_slice [first; start] -> [start; stop[`
       - (60000) [[0; 499]] -> (500)
       - (1, 9, 9, 1) [[0;0];[1;6];[1;6];[0;0]] -> (1, 6, 6, 1) // yes, for real
@@ -35,7 +26,7 @@
      - in network creation be able to choose flops alongside parameter count (one changes the other)
      - In chart, be able to plot by FLOP too
      - Show current FLOPS alongside time left (need forward+backward FLOP on each layer)
-   - Change color in firegrass to use the right red (what about the green?)
+   - Change color in firegrass to use the website's red (what about the green?)
    - in training configuration show
      - how many images and epochs it corresponds to
      - how many images and epochs we will reach
@@ -46,6 +37,5 @@
 - mnist-jsoo maybe
    - Ensure good propagation of exceptions throughout reactml/reactjs/webworker/lwt
    - Find out why cpu+ww is sometime slow on chrome
-   - Use js's WeakMap instead of OCaml's one
-   - Add `probabilistic` stats alongside the `top1` ones
+   - Add `probabilistic` stats alongside the `top1` ones (less nans in those)
    - Handle the case of corrupted cache/indexeddb.

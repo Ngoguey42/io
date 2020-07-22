@@ -15,7 +15,7 @@ end
 let t0 =
   {|
 <p>
-   <a href="https://github.com/Ngoguey42/ngoguey42.github.io/blob/master/lib/ft_js/reactjs.ml">
+   <a href="https://github.com/Ngoguey42/io/blob/master/lib/ft_js/reactjs.ml">
    This small wrapper</a>
    enhances the <a href="https://reactjs.org/"><cite>Reactjs</cite></a> experience in OCaml by
    hiding most of the boilerplate and offering a <cite>functionnal reactive programming</cite>

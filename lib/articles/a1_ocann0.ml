@@ -159,10 +159,10 @@ let new_nn =
    <li>Clear separation of concerns between the features that require a computation engine
    (i.e., number crunching for inference or training) and the rest
    (e.g., network construction, initialization, modification, storage, graph analysis).</li>
-   <li>It is quicker to write a new binding for a framework</li>
+   <li>It is quicker to write a new binding for a framework/</li>
    <li>By sharing pieces of code between bindings, it is easier for the user to adapt the
    framework used to his needs. (e.g., he may want to use a specialized engine in production while
-   reusing pieces of code from the training phase)</li>
+   reusing pieces of code from the training phase).</li>
    <li>Since a binding is an independent library, very few constrains apply on the design of it
    (e.g., a framework can possess several bindings)
    (e.g., a binding can be specialized for one specific task).</li>
@@ -179,7 +179,8 @@ let new_nn =
    <ul>
    <li>There is a bug in your code that remained undetected by the static checks,
    the runtime checks and yourself.</li>
-   <li>Your code is fine but some hyperparameter is wrong, such as the network architecture.</li>
+   <li>Your code is fine but some hyperparameter is wrong, such as the network architecture or the
+   learning rate.</li>
    <li>Your code and your configurations are fine, your network is currently in a local minima,
    you just need to wait.</li>
    </ul>
@@ -191,7 +192,7 @@ let new_nn =
    and runtime checks.
 </p>
 <p>
-   Brinding safety to DL programs is already a concern for many people out there:
+   Bringing safety to DL programs is already a concern for many people out there:
    <ul><li>
    <a href="https://blog.jle.im/entry/practical-dependent-types-in-haskell-1.html">Type-Safe Neural Networks</a> in Haskell.
    </li><li>
@@ -205,7 +206,58 @@ let new_nn =
 <p>
 <h3>Immutability of Networks</h3><p>lorem ipsum</p>
 <h3>Smaller Layers</h3><p>lorem ipsum</p>
-<h3>Polymorphic Shapes</h3><p>lorem ipsum</p>
+
+<h3>Polymorphic Shapes</h3>
+<p>
+In OCaNN the shape type is polymorphic on the number of dimensions (0, 1, 2, 3, ... or a any combination), the type of dimension sizes (known, unknown or any) and the on the way dimensions are denominated (absolute, symbolic or any).
+</p>
+
+<h6>Length</h6>
+<p>
+The number of dimensions is encoded using a polymorphic variant with this upper bound: <code>Length.t = [ `L0 | `L1 | `L2 | `L3 | `L4 | `L5 ]</code>.
+</p>
+
+<h6>Size</h6>
+<p>
+If one knows at compile time that a shape has no unknown dimensions, he can use the <code>[ `K ]</code> type parameter, otherwise he can use the <code>Size.tag = [ `U | `K ]</code> upper bound.
+</p>
+
+<h6>Denomination</h6>
+<p>
+To avoid uncecessary dimension ordering and references to well-known dimensions using ad-hoc indices, OCaNN offers a <i>symbolic</i> shape type where each dimension is identied by a predefined name.
+</p>
+<p>
+The symbolic dimension names are chosen by the library and not by the user:
+<ul><li>
+<code>[ `N ]</code> is the type parameter for a 1d symbolic shape,
+</li><li>
+<code>[ `N | `C ]</code> for 2d,
+</li><li>
+<code>[ `N | `C | `S0 ]</code> for 3d,
+</li><li>
+<code>[ `N | `C | `S0 | `S1 ]</code> for 4d
+</li><li>
+etc...
+</li></ul>
+</p>
+<p>
+A conventional shape in which the dimensions are identified by indices is called <i>absolute</i> and its parameter type is <code>[ `Idx of int ]</code>. The most generic parameter type for a shape that is either <i>symbolic</i> or <i>absolute</i> is <code>Axis.t = [ `N | `C | `S0 | `S1 | `S2 | `Idx of int ]</code>.
+</p>
+<p>
+
+<h6>Examples</h6>
+<ul><li>
+Any shape can be the output of a <code>sqrt</code> layer because it is a simple element-wise operation. The most generic shape type is <code>(Length.tag, Size.tag, Axis.t) t</code>.
+</li><li>
+The output of a <code>conv2d</code> layer is always a 4d tensor with a clearly identified <i>channel</i> dimension: <code>([> `L4 ], Size.tag, [> `N `C `S0 `S1 ]) t</code>.
+</li><li>
+Since the <code>parameter32</code> layer explicitly stores a tensor, its output shape is <code>(Length.tag, [> `K ], [> `Idx of int]) t</code>.
+</li><li>
+In the Pshape library the type of the `nth` function is <code>(_, 'sz, [ `Idx of int ]) t -> int -> 'sz Size.t</code>.
+</li></ul>
+</p>
+
+
 <h3>Runtime Checks on Dimensions Compatibility</h3><p>lorem ipsum</p>
 <h3>A More Robust Way of Handling RNG at NN Initialization</h3><p>lorem ipsum</p>
 <h3>No General Purpose Bidirectional NN Conversion In Bindings</h3><p>lorem ipsum</p>
@@ -229,9 +281,9 @@ let new_nn =
 <p>
    Some features are yet to be implemented:
    <ul><li>
-   Many basic layers are missing (e.g., ConvTranspose, sqrt).
+   Many basic layers are missing (e.g., transpose convolution, sqrt).
    </li><li>
-   Some backends are obviously missing (e.g., torch, tensorflow, owl's opencl backend).
+   Some backends are obviously missing (e.g., torch, tensorflow, owl's OpenCL backend).
    </li><li>
    Conversions to/from storage formats such as ONNX and NNEF.
    </li><li>
@@ -262,7 +314,7 @@ let new_nn =
    </li></ul>
 </p>
 <p>
-   If you wish to contribute to OCaNN or chat about it, e-mail me!
+   If you wish to chat about OCaNN, e-mail me!
 </p>
 
 <h2>One Last Example</h2> <!-- ----------------------------------------------------------------- -->
@@ -272,29 +324,29 @@ Definition of a residual convolutional NN with symbolic shapes.
   let open Ocann.Default.Builder in
   let open Ocann.Pshape.Size in
 
-  (* Input shape is {x:24; y:24; c:3; n:unknown} *)
+  (* Input shape is <x:24; y:24; c:3; n:unknown> *)
   input (Pshape.sym4d_partial ~n:U ~c:(K 3) ~s0:(K 24) ~s1:(K 24)) `Int32
   |> astype `Float32
-  |> conv2d ~o (`Full 32) (3, 3) ~s:(2, 2) ~b:`Same
+  |> conv2d (`Full 32) (3, 3) ~s:(2, 2) ~b:`Same
   |> bias
   |> (fun up ->
        [
-         up |> conv2d ~o (`Full 64) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.Default.downcast
-       ; up |> relu |> conv2d ~o (`Full 64) (3, 3) ~s:(2, 2) ~b:`Same
+         up |> conv2d (`Full 64) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.Default.downcast
+       ; up |> relu |> conv2d (`Full 64) (3, 3) ~s:(2, 2) ~b:`Same
          |> bias |> Ocann.Default.downcast
        ])
   |> sum
   |> (fun up ->
        [
-         up |> conv2d ~o (`Full 128) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.Default.downcast
-       ; up |> relu |> conv2d ~o (`Full 128) (3, 3) ~s:(2, 2) ~b:`Same
+         up |> conv2d (`Full 128) (1, 1) ~s:(2, 2) ~b:`Same |> Ocann.Default.downcast
+       ; up |> relu |> conv2d (`Full 128) (3, 3) ~s:(2, 2) ~b:`Same
          |> bias |> Ocann.Default.downcast
        ])
   |> sum
-  |> conv2d ~o (`Full 10) (3, 3) ~b:`Assert_fit
+  |> conv2d (`Full 10) (3, 3) ~b:`Assert_fit
   |> bias
   |> softmax `C
-  (* Output shape is {x:1; y:1; c:10; n:unknown} *)
+  (* Output shape is <x:1; y:1; c:10; n:unknown> *)
   </code></pre>
 
 |}

@@ -7,6 +7,10 @@ code {
     /* padding: 1px 6px 2px 6px; */
     border-style: solid;
     border-width: 0;
+    white-space: nowrap;
+}
+pre code {
+    white-space: inherit;
 }
 h1 {
     border-bottom: 1px solid black;

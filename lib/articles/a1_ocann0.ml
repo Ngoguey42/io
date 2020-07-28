@@ -84,7 +84,7 @@ let t0 =
 
 <h2>Example: Two-Layer Perceptron</h2> <!-- ---------------------------------------------------- -->
 First we create the network using the main module.
-<pre><code>let nn =
+<pre><code class="language-ocaml">let nn =
   let open Ocann.Default.Builder in                 (* Exposes the layer constructors *)
   let open Ocann.Pshape.Size in               (* Exposes the `U` and `K` constructors *)
   input (Pshape.abs2d_partial U (K (28 * 28))) `Float32      (* shape: (unknown, 784) *)
@@ -94,7 +94,7 @@ First we create the network using the main module.
 </code></pre>
 
 We can then train this NN using the existing Owl Algodiff (effectful) binding,
-<pre><code>module Algodiff = struct
+<pre><code class="language-ocaml">module Algodiff = struct
   type ba = Owl_base_algodiff_primal_ops.S.arr
   type ba_elt = Bigarray.float32_elt
   include Owl_algodiff_generic.Make (Owl_base_algodiff_primal_ops.S)
@@ -125,7 +125,7 @@ let new_nn =
 </code></pre>
 
 or the exising TensorFlow.js (effectful too) binding.
-<pre><code>let learning_rate = 1e-3
+<pre><code class="language-ocaml">let learning_rate = 1e-3
 module Binding = Ocann_tfjs.Make (Ocann.Default)
 
 let new_nn =
@@ -204,12 +204,36 @@ let new_nn =
 
 <h2>Safeties Alrady Offered by OCaNN</h2> <!-- ------------------------------------------------- -->
 <p>
+TODO: What about, no broadcasting, layers have type
+
 <h3>Immutability of Networks</h3><p>lorem ipsum</p>
-<h3>Smaller Layers</h3><p>lorem ipsum</p>
+<h3>Smaller Layers</h3>
+<p>
+Certain NN layers that are usually monolithic have been split in OCaNN to improve the <i>separation of concerns</i>.
+</p>
+<p>
+For example the <code>conv2d</code> layer is split into 6 layers: The kernel application (<code>conv2d</code>), the kernel (<code>parameter32</code>), the bias application (<code>sum</code>), the bias values (<code>parameter32</code>), the conversion of the bias values from an absolute 1d shape to a symbolic 4d shape (<code>transpose</code>) and the activation (e.g., <code>relu</code>).
+</p>
+<p>
+To avoid boilerplate when defining a network, the <code>Builder</code> module exposes the <code>conv2d</code> and <code>bias</code> syntaxic sugars:
+</p>
+
+<pre><code class="language-ocaml">upstream |> conv2d (`Full 32) (3, 3) |> bias |> relu</code></pre>
+<p>
+roughly desugars to:
+</p>
+<pre><code class="language-ocaml">let Pshape.Size.K in_channels = Pshape.get upstream#out_shape `C in
+let p = parameter32 [| 3, 3, in_channels; 32 |] `Tanh `Sgd) in
+let p' =
+  parameter32 [| 32 |] (`Float_constant 0.) `Sgd
+  |> transpose ~ndim:4 [ (`Idx 0, `C) ]
+in
+upstream |> conv2d2 p |> sum p' |> relu
+</code></pre>
 
 <h3>Polymorphic Shapes</h3>
 <p>
-In OCaNN the shape type is polymorphic on the number of dimensions (0, 1, 2, 3, ... or a any combination), the type of dimension sizes (known, unknown or any) and the on the way dimensions are denominated (absolute, symbolic or any).
+In OCaNN the shape type is polymorphic on the number of dimensions (0, 1, 2, 3, ... or a any combination), on the type of dimension sizes (known, unknown or any) and the on the way dimensions are denominated (absolute, symbolic or any).
 </p>
 
 <h6>Length</h6>
@@ -224,7 +248,7 @@ If one knows at compile time that a shape has no unknown dimensions, he can use 
 
 <h6>Denomination</h6>
 <p>
-To avoid uncecessary dimension ordering and references to well-known dimensions using ad-hoc indices, OCaNN offers a <i>symbolic</i> shape type where each dimension is identied by a predefined name.
+To avoid uncecessary dimension ordering and references to well-known dimensions using ad-hoc indices, OCaNN offers a <i>symbolic</i> shape type where each dimension is identified by a predefined name.
 </p>
 <p>
 The symbolic dimension names are chosen by the library and not by the user:
@@ -259,7 +283,53 @@ In the Pshape library the type of the `nth` function is <code>(_, 'sz, [ `Idx of
 
 
 <h3>Runtime Checks on Dimensions Compatibility</h3><p>lorem ipsum</p>
-<h3>A More Robust Way of Handling RNG at NN Initialization</h3><p>lorem ipsum</p>
+<h3>Network Parameters Initialization</h3>
+<p>
+When initilializing a parameter layer in OCaNN, two things are required:
+<ul><li>
+a method of type <code>Init.t</code>, e.g, <code>`Tanh</code>, <code>`Float_constant 0.</code> and
+</li><li>
+a Random Number Generator (RNG) of type <code>Stdlib.Random.State.t</code>.
+</li></ul>
+
+The construction of a parameter layer in OCaNN requires a value <code>init</code> of
+type <code>Init.t</code> that defines how to initilialize the tensor
+(e.g, <code>`Gaussian (mu, sigma)</code>, <code>`Float_constant 0.</code>).
+
+The constructor internally coerce <code>init</code> to a
+<code>Init.Deterministic.t</code> possibly by sampling a seed using a provided
+<code>Stdlib.Random.State.t</code> value.
+
+The construction process will then coerce the <code>Init.t</code> value to a <code>Init.Deterministic.t</code> value by sampling a seed
+
+The RNG can either be passed to the layer when constructing it, or defined inside the <code>Network.Builder</code> module when constructing it with <code>Network.create_builder</code>
+
+
+
+https://github.com/Ngoguey42/io/blob/master/lib/ocann/init.ml
+
+
+<code></code>
+<code></code>
+<code></code>
+When creating a network, the parameters must be initialized. Two things are required, a  and a
+
+When initilializing a parameter layer in OCaNN you may choose
+</p>
+<p>
+
+</p>
+<p>
+
+</p>
+<p>
+
+</p>
+<p>
+
+</p>
+
+
 <h3>No General Purpose Bidirectional NN Conversion In Bindings</h3><p>lorem ipsum</p>
 </p>
 
@@ -320,7 +390,7 @@ In the Pshape library the type of the `nth` function is <code>(_, 'sz, [ `Idx of
 <h2>One Last Example</h2> <!-- ----------------------------------------------------------------- -->
 
 Definition of a residual convolutional NN with symbolic shapes.
-<pre><code>let nn =
+<pre><code class="language-ocaml">let nn =
   let open Ocann.Default.Builder in
   let open Ocann.Pshape.Size in
 

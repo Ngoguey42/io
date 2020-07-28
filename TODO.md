@@ -15,7 +15,7 @@
    - Find a better syntax coloring lib (Use compiler libs? Might be too unstable)
    - Make articles standalone using module interfaces
    - RSS flux (part of the deployment process when 2 repos?)
-
+   - Switch to release versions of js libs (like react) on profile release
 --------------------------------------------------------------------------------
 
 - mnist-jsoo display maybe

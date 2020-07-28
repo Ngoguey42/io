@@ -204,6 +204,9 @@ a layer (e.g. after training). Only then a layer stores some tensor.
     method. It brings rigidity to some low level use cases.
 - How to reuse a normalization layer in several spots? Higher order layers?
 - How to streamline "optimizer"? Higher order layers?
+- Use poly-var on network type to encode shape/dtype? That way a constructor can restrict its input from the type
+- Remove the `unit` in create_builder?
+- Use int list instead of int array everywhere?
 
  *)
 

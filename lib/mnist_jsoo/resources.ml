@@ -70,22 +70,19 @@ let urls_of_entry : Vertex.t -> string list = function
 
 (* Some hard-coded compressed file sizes that I couldn't retrieve through XHR at runtime *)
 let byte_count_of_url_opt : string -> Int64.t option = function
-  | "https://cdn.plot.ly/plotly-latest.min.js" -> Some 960324L
+  | "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/languages/ocaml.min.js" -> Some 687L
+  | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7417L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/core.min.js" -> Some 1463L
+  | "https://unpkg.com/react-dom@16/umd/react-dom.development.js" -> Some 245565L
+  | "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/default.min.css" -> Some 328L
+  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js" -> Some 242498L
+  | "https://cdn.plot.ly/plotly-1.54.3.min.js" -> Some 961404L
+  | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" -> Some 33518L
+  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" -> Some 22555L
+  | "https://unpkg.com/react@16/umd/react.development.js" -> Some 30840L
+  | "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js" -> Some 29936L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha1.min.js" -> Some 700L
   | "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/sha256.min.js" -> Some 830L
-  | "https://unpkg.com/react@16/umd/react.development.js" -> Some 30840L
-  | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" -> Some 22555L
-  | "https://unpkg.com/react-dom@16/umd/react-dom.development.js" -> Some 245565L
-  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js" -> Some 204294L
-  | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" ->
-      Some 33519L
-  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.js" -> Some 554971L
-  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@1.7.3/dist/tf-backend-wasm.min.js"
-    ->
-      Some 11545L
-  | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js" -> Some 242498L
-  | "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.10/pako_inflate.min.js" -> Some 7412L
   | _ -> None
 
 let string_of_byte_count count =

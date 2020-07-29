@@ -83,7 +83,7 @@ let t0 =
 </p>
 
 <h2>Example: Two-Layer Perceptron</h2> <!-- ---------------------------------------------------- -->
-First we create the network using the main module.
+<h6>First we create the network using the main module</h6>
 <pre><code class="language-ocaml">let nn =
   let open Ocann.Default.Builder in                 (* Exposes the layer constructors *)
   let open Ocann.Pshape.Size in               (* Exposes the `U` and `K` constructors *)
@@ -93,7 +93,7 @@ First we create the network using the main module.
   |> softmax (`Idx 1)                                         (* shape: (unknown, 10) *)
 </code></pre>
 
-We can then train this NN using the existing Owl Algodiff (effectful) binding,
+<h6>We can then train this NN using the existing Owl Algodiff (effectful) binding</h6>
 <pre><code class="language-ocaml">module Algodiff = struct
   type ba = Owl_base_algodiff_primal_ops.S.arr
   type ba_elt = Bigarray.float32_elt
@@ -124,7 +124,7 @@ let new_nn =
   pack ()
 </code></pre>
 
-or the exising TensorFlow.js (effectful too) binding.
+<h6>Or use the exising TensorFlow.js (effectful too) binding</h6>
 <pre><code class="language-ocaml">let learning_rate = 1e-3
 module Binding = Ocann_tfjs.Make (Ocann.Default)
 
@@ -194,7 +194,7 @@ let new_nn =
 <p>
    Bringing safety to DL programs is already a concern for many people out there:
    <ul><li>
-   <a href="https://blog.jle.im/entry/practical-dependent-types-in-haskell-1.html">Type-Safe Neural Networks</a> in Haskell.
+   <a href="https://blog.jle.im/entry/practical-dependent-types-in-haskell-1.html">Practical Dependent Types in Haskell: Type-Safe Neural Networks</a>.
    </li><li>
    <a href="http://hackage.haskell.org/package/tensor-safe">TensorSafe</a>, one of many Haskell NN library.
    </li><li>
@@ -202,20 +202,67 @@ let new_nn =
    </li></ul>
 </p>
 
-<h2>Safeties Alrady Offered by OCaNN</h2> <!-- ------------------------------------------------- -->
-<p>
-TODO: What about, no broadcasting, layers have type
+<h2>Safeties Already Offered by OCaNN</h2> <!-- ------------------------------------------------- -->
 
-<h3>Immutability of Networks</h3><p>lorem ipsum</p>
-<h3>Smaller Layers</h3>
+
+
+<h3>1. Immutability of Networks</h3>
 <p>
-Certain NN layers that are usually monolithic have been split in OCaNN to improve the <i>separation of concerns</i>.
+In OCaNN a network is an immutable DAG that is built one layer at a time from forward inputs
+to forward outputs (i.e. from upstream to downstream). This implies that a layer only possess
+pointers to the upstream graph and that to be modified, a layer has to be reinstanciated
+along with all its downstream graph.
 </p>
 <p>
-For example the <code>conv2d</code> layer is split into 6 layers: The kernel application (<code>conv2d</code>), the kernel (<code>parameter32</code>), the bias application (<code>sum</code>), the bias values (<code>parameter32</code>), the conversion of the bias values from an absolute 1d shape to a symbolic 4d shape (<code>transpose</code>) and the activation (e.g., <code>relu</code>).
+Even if this functional definition seem very restrictive, it in no way limits the flexibility
+of NNs compared to an imperative definition. It even simplifies the garbage collection in schemes
+involving reusing a layer multiple times  throughout a network.
 </p>
 <p>
-To avoid boilerplate when defining a network, the <code>Builder</code> module exposes the <code>conv2d</code> and <code>bias</code> syntaxic sugars:
+The <code>copy</code> method available in a <code>Network</code> module can be used for all
+kind of reinstanciation operations, e.g., updating the trainable parameters, appending a network
+to another.
+</p>
+
+
+
+<h3>2. Structural Polymorphism of Layers</h3>
+<p>
+The layers in OCaNN are OCaml objects implementing a common interface that defines:
+<ul><li>
+A list of upstream layers.
+</li><li>
+Informations on the outpout tensor of that layer (i.e. shape and dtype).
+</li><li>
+A generic copy method to change the upstream parents or reinitialize the states.
+</li><li>
+A conversion of the layer to a variant that can be pattern matched to retreive the actual
+subtype of that layer.
+</li><li>
+Several identification methods: <code>to_string</code>, <code>layer_name</code>, <code>id</code>
+</li></ul>
+</p>
+
+
+
+<h3>3. Smaller Layers</h3>
+<p>
+Certain NN layers that are usually monolithic have been split in OCaNN to improve the
+<i>separation of concerns</i>.
+</p>
+<p>
+For example the <code>conv2d</code> layer is split into 6 layers:
+The kernel application (<code>conv2d</code>),
+the kernel (<code>parameter32</code>),
+the bias application (<code>sum</code>),
+the bias values (<code>parameter32</code>),
+the conversion of the bias values from an absolute 1d shape to a symbolic 4d shape
+(<code>transpose</code>) and
+the activation (e.g., <code>relu</code>).
+</p>
+<p>
+To avoid boilerplate when defining a network, the <code>Builder</code> module exposes the
+<code>conv2d</code> and <code>bias</code> syntaxic sugars:
 </p>
 
 <pre><code class="language-ocaml">upstream |> conv2d (`Full 32) (3, 3) |> bias |> relu</code></pre>
@@ -231,24 +278,31 @@ in
 upstream |> conv2d2 p |> sum p' |> relu
 </code></pre>
 
-<h3>Polymorphic Shapes</h3>
-<p>
-In OCaNN the shape type is polymorphic on the number of dimensions (0, 1, 2, 3, ... or a any combination), on the type of dimension sizes (known, unknown or any) and the on the way dimensions are denominated (absolute, symbolic or any).
-</p>
 
+
+
+<h3>4. Polymorphic Shapes</h3>
+<p>
+In OCaNN the shape type is polymorphic on the number of dimensions
+(0, 1, 2, 3, ... or a any combination), on the type of dimension sizes
+(known, unknown or any) and the on the way dimensions are denominated (absolute, symbolic or any).
+</p>
 <h6>Length</h6>
 <p>
-The number of dimensions is encoded using a polymorphic variant with this upper bound: <code>Length.t = [ `L0 | `L1 | `L2 | `L3 | `L4 | `L5 ]</code>.
+The number of dimensions is encoded using a polymorphic variant with this upper bound:
+<code>Length.t = [ `L0 | `L1 | `L2 | `L3 | `L4 | `L5 ]</code>.
 </p>
-
 <h6>Size</h6>
 <p>
-If one knows at compile time that a shape has no unknown dimensions, he can use the <code>[ `K ]</code> type parameter, otherwise he can use the <code>Size.tag = [ `U | `K ]</code> upper bound.
+If one knows at compile time that a shape has no unknown dimensions, he can use the
+<code>[ `K ]</code> type parameter, otherwise he can use the
+<code>Size.tag = [ `U | `K ]</code> upper bound.
 </p>
-
 <h6>Denomination</h6>
 <p>
-To avoid uncecessary dimension ordering and references to well-known dimensions using ad-hoc indices, OCaNN offers a <i>symbolic</i> shape type where each dimension is identified by a predefined name.
+To avoid uncecessary dimension ordering and references to well-known dimensions using
+ad-hoc indices, OCaNN offers a <i>symbolic</i> shape type where each dimension is
+identified by a predefined name.
 </p>
 <p>
 The symbolic dimension names are chosen by the library and not by the user:
@@ -265,25 +319,97 @@ etc...
 </li></ul>
 </p>
 <p>
-A conventional shape in which the dimensions are identified by indices is called <i>absolute</i> and its parameter type is <code>[ `Idx of int ]</code>. The most generic parameter type for a shape that is either <i>symbolic</i> or <i>absolute</i> is <code>Axis.t = [ `N | `C | `S0 | `S1 | `S2 | `Idx of int ]</code>.
+A conventional shape in which the dimensions are identified by indices is called <i>absolute</i>
+and its parameter type is <code>[ `Idx of int ]</code>. The most generic parameter type for a shape
+that is either <i>symbolic</i> or <i>absolute</i> is
+<code>Axis.t = [ `N | `C | `S0 | `S1 | `S2 | `Idx of int ]</code>.
 </p>
 <p>
-
 <h6>Examples</h6>
 <ul><li>
-Any shape can be the output of a <code>sqrt</code> layer because it is a simple element-wise operation. The most generic shape type is <code>(Length.tag, Size.tag, Axis.t) t</code>.
+Any shape can be the output of a <code>sqrt</code> layer because it is a simple element-wise
+operation. The most generic shape type is <code>(Length.tag, Size.tag, Axis.t) t</code>.
 </li><li>
-The output of a <code>conv2d</code> layer is always a 4d tensor with a clearly identified <i>channel</i> dimension: <code>([> `L4 ], Size.tag, [> `N `C `S0 `S1 ]) t</code>.
+The output of a <code>conv2d</code> layer is always a 4d tensor with a clearly identified
+<i>channel</i> dimension: <code>([> `L4 ], Size.tag, [> `N `C `S0 `S1 ]) t</code>.
 </li><li>
-Since the <code>parameter32</code> layer explicitly stores a tensor, its output shape is <code>(Length.tag, [> `K ], [> `Idx of int]) t</code>.
+Since the <code>parameter32</code> layer explicitly stores a tensor, its output shape is
+<code>(Length.tag, [> `K ], [> `Idx of int]) t</code>.
 </li><li>
-In the Pshape library the type of the `nth` function is <code>(_, 'sz, [ `Idx of int ]) t -> int -> 'sz Size.t</code>.
+In the Pshape library the type of the `nth` function is
+<code>(_, 'sz, [ `Idx of int ]) t -> int -> 'sz Size.t</code>.
 </li></ul>
 </p>
 
 
-<h3>Runtime Checks on Dimensions Compatibility</h3><p>lorem ipsum</p>
-<h3>Network Parameters Initialization</h3>
+
+<h3>5. No Implicit Broadcast of Operands</h3>
+<p>
+Broadcasting is a convenient technique that makes possible the
+combination of tensors with heterogeneous shapes. For exemple: to add an image of
+shape <code>(32, 32)</code> to all the images of a tensor of shape <code>(5, 32, 32)</code>,
+the broadcast mechanism will reshape the first image to <code>(1, 32, 32)</code>.
+Let's denote this broadcast <code>(32, 32) * (5, 32, 32) -> Ok (1, 32, 32) * (5, 32, 32)</code>.
+</p>
+<p>
+There are tensors that cannot be combined, even with broadcast:
+<ul><li>
+<code>(5,) * (6,) -> Ko</code>
+</li><li>
+<code>(32, 32) * (32, 32, 5) -> Ko</code>
+</li></ul>
+</p>
+<p>
+And some valid broadcasts are error prone:
+<ul><li>
+<code>(5, 5) * (5) -> Ok (5, 5) * (1, 5)</code>
+</li><li>
+<code>(32, 32) * (32, 32, 32) -> Ok (1, 32, 32) * (32, 32, 32)</code>
+</li><li>
+<code>(5) * (1, 5) -> Ok (1, 5) * (1, 5)</code>
+</li><li>
+<code>(5) * (5, 1) -> Ok (1, 5) * (5, 1)</code>
+</li></ul>
+</p>
+<p>
+In mainsteam tensor libraries like numpy and pytorch, implicit broadcasts are performed on
+all the inputs of all operations:
+<pre><code class="language-python">>>> import numpy as np
+
+# Test 1 - sum without broadcast
+>>> np.ones((2, 2)) + np.arange(2).reshape(1, 2)
+array([[1., 2.],
+       [1., 2.]])
+
+# Test 2 - sum without broadcast
+>>> np.ones((2, 2)) + np.arange(2).reshape(2, 1)
+array([[1., 1.],
+       [2., 2.]])
+
+# Test 3 - sum with implicit broadcast, equivalent to Test 1
+>>> np.ones((2, 2)) + np.arange(2)
+array([[1., 2.],
+       [1., 2.]])
+
+# Test 4 - sum with explicit broadcast, equivalent to Test 1
+>>> np.ones((2, 2)) + np.broadcast_to(np.arange(2), (2, 2))
+array([[1., 2.],
+       [1., 2.]])
+</code></pre>
+</p>
+<p>
+By disabling implicit broadcast in OCaNN, the user is forced to reshape manually and doing so,
+aknowledge the alignment of the dimensions of the operands.
+</p>
+
+
+
+<h3>6. Runtime Checks on Dimensions Compatibility</h3><p>lorem ipsum</p>
+
+
+
+<h3>7. Network Parameters Initialization</h3>
+<!--
 <p>
 When initilializing a parameter layer in OCaNN, two things are required:
 <ul><li>
@@ -328,10 +454,17 @@ When initilializing a parameter layer in OCaNN you may choose
 <p>
 
 </p>
+-->
 
 
-<h3>No General Purpose Bidirectional NN Conversion In Bindings</h3><p>lorem ipsum</p>
-</p>
+
+<h3>8. No General Purpose Bidirectional NN Conversion In Bindings</h3><p>lorem ipsum</p>
+
+
+
+<h3>9. No High-Level Operations</h3><p>lorem ipsum</p>
+
+
 
 <h2>Future</h2> <!-- --------------------------------------------------------------------------- -->
 <p>
@@ -373,7 +506,7 @@ When initilializing a parameter layer in OCaNN you may choose
    in a new design.
    </li><li>
    Powerful DL use cases involve transforming the gradient tensors from the backward phase
-   using regular forward operations, but since the definition of a network is rooted on the
+   using trainable forward operations, but since the definition of a network is rooted on the
    forward phase, such use cases are impossible to define in a network.
    It might be possible to overhaul the network definition abstraction in such a way that
    makes the <b>backward phase a first class citizen</b>.

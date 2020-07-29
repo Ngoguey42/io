@@ -105,7 +105,7 @@ let[@ocamlformat "disable"] create_content () = [%html {|
     All pages share a single entry point:
     <a href="|} url_entrypoint {|">bin/page_builder.ml</a>.
     The rest of the code is scattered between the <a href="|} url_bin {|">bin</a>
-    directory and a collection of libraries living in the <a href="|} url_lib {|">lib</a>.
+    directory and a collection of libraries living in the <a href="|} url_lib {|">lib directory</a>.
   </p>
  <p>
     All the OCaml code, and all the OCaml libraries are transpiled to a single <cite>.js</cite> file

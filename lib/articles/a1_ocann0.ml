@@ -370,29 +370,26 @@ replaced by a <code>repeat</code> or a <code>tile</code> operation with performa
 To add an image of shape <code>(32, 32)</code> to all the images of a tensor
 of shape <code>(5, 32, 32)</code>, the broadcast steps are:
 </p>
-<pre>
-  before step 1  before step 2  output shape
+<pre><code class="language-txt">  before step 1  before step 2  output shape
 a     (32, 32) -> (1, 32, 32) -> (5, 32, 32)
 b  (5, 32, 32) -> (5, 32, 32) -> (5, 32, 32)
-</pre>
+</code></pre>
 <p>
 Or to add a line of shape <code>(5)</code> to all the lines of an image of shape
 <code>(5, 5)</code>:
 </p>
-<pre>
-  before step 1  before step 2  output shape
+<pre><code class="language-txt">  before step 1  before step 2  output shape
 a       (5, 5) ->      (5, 5) ->      (5, 5)
 b          (5) ->      (1, 5) ->      (5, 5)
-</pre>
+</code></pre>
 <p>
 This exemple is error prone because it can be easily mixed up with the operation that adds
 a column.
 </p>
-<pre>
- before reshape  before step 2  output shape
+<pre><code class="language-txt"> before reshape  before step 2  output shape
 a       (5, 5) ->      (5, 5) ->      (5, 5)
 b       (5)    ->      (5, 1) ->      (5, 5)
-</pre>
+</code></pre>
 <h4>In OCaNN</h4>
 <p>
 OCaNN disables the first broadcast step to force the user to reshape manually
@@ -485,9 +482,51 @@ When initilializing a parameter layer in OCaNN you may choose
 
 
 
-<h3>9. No High-Level Operations</h3><p>lorem ipsum</p>
+<h3>9. Avoid Black Boxes</h3>
+<p>
+DL frameworks tend to forget the
+<i><a href="https://en.wikipedia.org/wiki/Worse_is_better">worse is better</a></i>
+philosophy by including a plethora of small algorithms implemented using smaller
+bricks also exposed by the framework.
+Those small algorithms often have subtle input/output domains because there are several ways
+of implementing them and no way to reflect the implementation choices on the types.
+</p>
+<p>
+For example the <code>categorical_crossentropy</code> used in the introduction (and reproduced below)
+is 7 operations long, but it makes 6 assumptions (at runtime) on the input data:
 
+<ul><li>
+<code>epsilon</code> should be comprised in the interval <code>]0; 1[</code>.
+</li><li>
+Both input tensors should have the same shape and dtype.
+</li><li>
+The <i>channel</i> dimension must be last.
+</li><li>
+An element in the <code>truth</code> tensor should be 0 or 1.
+</li><li>
+The <code>softmaxed_pred</code> tensor should be the output of a <code>softmax</code> layer.
+</li><li>
+A <code>NAN</code> in <code>softmaxed_pred</code> will contaminate the result.
+</li></ul>
 
+And makes 2 choices for the output tensor:
+<ul><li>
+The dimensions have all been squeezed (i.e. the number of dimensions is 0 instead of being same as input).
+</li><li>
+All the dimensions have been meaned together at the end.
+</li></ul>
+</p>
+<pre><code class="language-ocaml">let categorical_crossentropy epsilon softmaxed_pred truth =
+  let open Algodiff.Maths in
+  softmaxed_pred |> max2 (epsilon |> Algodiff.pack_flt)
+  |> log |> mul truth |> neg |> sum ~axis:(-1) |> mean
+</code></pre>
+
+<p>
+Other examples of such algorithms are the optimizers, the statistics computations,
+the LSTM layer or the one-liner train function. OCaNN encourage the user to implement
+his own algorithms.
+</p>
 
 <h2>Future</h2> <!-- --------------------------------------------------------------------------- -->
 <p>

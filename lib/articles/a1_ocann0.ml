@@ -214,7 +214,7 @@ pointers to the upstream graph and that to be modified, a layer has to be reinst
 along with all its downstream graph.
 </p>
 <p>
-Even if this functional definition seem very restrictive, it in no way limits the flexibility
+Even if this functional definition seems very restrictive, it in no way limits the flexibility
 of NNs compared to an imperative definition. It even simplifies the garbage collection in schemes
 involving reusing a layer multiple times  throughout a network.
 </p>
@@ -232,7 +232,7 @@ The layers in OCaNN are OCaml objects implementing a common interface that defin
 <ul><li>
 A list of upstream layers.
 </li><li>
-Informations on the outpout tensor of that layer (i.e. shape and dtype).
+Informations on the output tensor of that layer (i.e. shape and dtype).
 </li><li>
 A generic copy method to change the upstream parents or reinitialize the states.
 </li><li>
@@ -283,8 +283,8 @@ upstream |> conv2d2 p |> sum p' |> relu
 <h3>4. Polymorphic Shapes</h3>
 <p>
 In OCaNN the shape type is polymorphic on the number of dimensions
-(0, 1, 2, 3, ... or a any combination), on the type of dimension sizes
-(known, unknown or any) and the on the way dimensions are denominated (absolute, symbolic or any).
+(0, 1, 2, 3, ... or a any combination), on the type of dimensions size
+(known, unknown or any) and on the way dimensions are denominated (absolute, symbolic or any).
 </p>
 <h4>Length</h4>
 <p>
@@ -332,10 +332,10 @@ operation. The most generic shape type is <code>(Length.tag, Size.tag, Axis.t) t
 The output of a <code>conv2d</code> layer is always a 4d tensor with a clearly identified
 <i>channel</i> dimension: <code>([> `L4 ], Size.tag, [> `N `C `S0 `S1 ]) t</code>.
 </li><li>
-Since the <code>parameter32</code> layer explicitly stores a tensor, its output shape is
+Since the <code>parameter32</code> layer explicitly stores a concrete tensor, its output shape is
 <code>(Length.tag, [> `K ], [> `Idx of int]) t</code>.
 </li><li>
-In the Pshape library the type of the `nth` function is
+In the Pshape library the type of the <code>nth</code> function is
 <code>(_, 'sz, [ `Idx of int ]) t -> int -> 'sz Size.t</code>.
 </li></ul>
 </p>
@@ -344,8 +344,8 @@ In the Pshape library the type of the `nth` function is
 
 <h3>5. Restrictions of Broadcasts</h3>
 <p>
-Broadcasting is a convenient technique that makes possible the use of input tensors with
-heterogeneous shapes in operations like sum or product (refer to
+Broadcasting is a convenient but error prone technique that makes possible the use of input
+tensors with heterogeneous shapes in operations like sum or product (refer to
 <a href="https://numpy.org/doc/stable/user/basics.broadcasting.html">numpy's documentation</a>
 for a detailed explanation).
 </p>
@@ -401,7 +401,7 @@ The second broadcast step is less error prone and cannot be removed without affe
 the performances.
 It currently isn't disabled in OCaNN but it would be possible to make it explicit by adding a
 <code>stretch</code> parameter to the constructors where it takes
-place to force the user to aknowledge the expensions.
+place to force the user to aknowledge the stretchings.
 </p>
 
 
@@ -552,14 +552,16 @@ his own algorithms.
    </li><li>
    Conversions to/from storage formats such as ONNX and NNEF.
    </li><li>
-   Many smaller improvements listed in <a href="">ocann.ml</a>.
+   Many smaller improvements listed in
+   <a href="https://github.com/Ngoguey42/io/blob/master/lib/ocann/ocann.ml">ocann.ml</a>.
    </li></ul>
 </p>
 <p>
    And some problems inherent to all DL frameworks are yet to be solved:
    <ul><li>
    In a network, the <b>unknown dimensions should be mathematical symbolic variables</b>
-   to allow the detection of inconsistent combinations of unknown dimensions.
+   to allow the detection of inconsistent combinations of unknown dimensions, and to be able
+   to infer the domain of the unknown dimensions from the operations they are used in.
    </li><li>
    It is vain to try to include in the library all the NN layers that exists out there.
    Instead, the user should be able to define and implement his own custom layers

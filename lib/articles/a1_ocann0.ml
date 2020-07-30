@@ -280,7 +280,6 @@ upstream |> conv2d2 p |> sum p' |> relu
 
 
 
-
 <h3>4. Polymorphic Shapes</h3>
 <p>
 In OCaNN the shape type is polymorphic on the number of dimensions
@@ -342,12 +341,35 @@ In the Pshape library the type of the `nth` function is
 </p>
 
 
-
 <h3>5. No Implicit Broadcast of Operands</h3>
+<h3>5. Limitation of Implicit Broadcasts</h3>
 <p>
-Broadcasting is a convenient technique that makes possible the
-combination of tensors with heterogeneous shapes. For exemple: to add an image of
-shape <code>(32, 32)</code> to all the images of a tensor of shape <code>(5, 32, 32)</code>,
+Broadcasting is a convenient technique that makes possible the use of input tensors with
+heterogeneous shapes in operations like sum or product (refer to
+<a href="https://numpy.org/doc/stable/user/basics.broadcasting.html">numpy's documentation</a>
+for a detailed explanation).
+</p>
+<p>
+This technique can be divided into 2 steps. Firstly the shapes are padded with "1" on
+their lefts to match the size of the longest shape. Secondly the dimensions with size "1" are
+stretched to match the size of their longest homologous dimension.
+
+
+The first step doesn't require to change the memory representation of the tensor and the
+stretching of the second step never really happens because it is optimized away by loops
+inside the arithmetic operations.
+</p>
+
+
+For exemple: to add an image of shape <code>(32, 32)</code> to all the images of a tensor of shape <code>(5, 32, 32)</code>, the steps are:
+<pre>
+^^before step 1^^before step 2^^output shape
+a     (32, 32) -> (1, 32, 32) -> (5, 32, 32)
+b  (5, 32, 32) -> (5, 32, 32) -> (5, 32, 32)
+</pre>
+
+
+
 the broadcast mechanism will reshape the first image to <code>(1, 32, 32)</code>.
 Let's denote this broadcast <code>(32, 32) * (5, 32, 32) -> Ok (1, 32, 32) * (5, 32, 32)</code>.
 </p>
@@ -363,6 +385,12 @@ There are tensors that cannot be combined, even with broadcast:
 And some valid broadcasts are error prone:
 <ul><li>
 <code>(5, 5) * (5) -> Ok (5, 5) * (1, 5)</code>
+
+^^before step 1^^before step 2^^output shape
+a       (5, 5) ->      (5, 5) -> (5, 5)
+b          (5) ->      (1, 5) -> (5, 5)
+
+
 </li><li>
 <code>(32, 32) * (32, 32, 32) -> Ok (1, 32, 32) * (32, 32, 32)</code>
 </li><li>
@@ -404,7 +432,40 @@ aknowledge the alignment of the dimensions of the operands.
 
 
 
-<h3>6. Runtime Checks on Dimensions Compatibility</h3><p>lorem ipsum</p>
+<h3>6. Runtime Checks on Dimensions Compatibility</h3>
+<p>
+When constructing a layer, its output shape is infered from the parameters and especially
+from the output shape of the upstream layers. By doing so, all the shape incompatibilities
+are prevented except those involving unknown dimensions.
+</p>
+
+<h6>Examples<h6>
+<p>
+In the <code>sum</code> constructor, all the input shapes should have the same length
+(i.e. number of dimensions), the same denomination (i.e. symbolic or absolute) and have
+homologous dimensions either equal, or equal to one, or unknown
+(e.g., <code>(U, 5, 1, 6) + (U, 5, 5, U) -> (U, 5, 5, 6)</code>).
+</p>
+<p>
+In the <code>conv2d</code> constructor, the input shape must be 4d, symbolic and the <code>`C</code>
+dimension must be known. In addition to the usual <i>same</i> and <code>valid</code>
+boundary modes, a new <code>assert_fit</code> option can be used to make sure that the known spatial
+dimensions do not require padding.
+</p>
+
+
+ (i.e. padding same, padding valid)
+
+is commonly used
+</p>
+<p>
+</p>
+<p>
+
+</p>
+<p>
+
+</p>
 
 
 

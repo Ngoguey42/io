@@ -207,6 +207,18 @@ a layer (e.g. after training). Only then a layer stores some tensor.
 - Use poly-var on network type to encode shape/dtype? That way a constructor can restrict its input from the type
 - Remove the `unit` in create_builder?
 - Use int list instead of int array everywhere?
+- In bindings, assert that unkown dimensions are right when revealed
+- Should we restrict even more the shape combinations by disallowing the wildcard dimensions of size "1" ? This would:
+   - Allow to infer the output shape of sum [(5); (U)] to be (5).
+   - simplify the `sympy-like unknown dimensions` semantic.
+
+# Possible improvement: Sympy-like unknown dimensions
+- An unknown dimension can be constrained from below
+  - a = <~s0:U, ...>, _ = conv2d (5, 5) ~s:2 ~b:`Assert_fit a => A#s0 % 5 == 0
+  - a = (U), _ = sum [A; (5)] => A = (5) || (1)
+- Two networks with a common unkown ancestor can have incompatible interpretations of that ancestor
+  - a = (U), _ = sum [U; (5)], _ = sum [U; (6)]
+
 
  *)
 

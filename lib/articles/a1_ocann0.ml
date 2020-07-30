@@ -108,7 +108,7 @@ let categorical_crossentropy epsilon softmaxed_pred truth =
 
 let learning_rate = 1e-3
 let new_nn =
-  let flattened_images, truths = ... in (* Algodiff tensors *)
+  let flattened_images, truths = (* Algodiff tensors *) in
   let forward, optimizations, pack = Binding.unpack_for_training nn in
 
   (* Forward pass *)
@@ -125,11 +125,11 @@ let new_nn =
 </code></pre>
 
 <h4>Or use the exising TensorFlow.js (effectful too) binding</h4>
-<pre><code class="language-ocaml">let learning_rate = 1e-3
-module Binding = Ocann_tfjs.Make (Ocann.Default)
+<pre><code class="language-ocaml">module Binding = Ocann_tfjs.Make (Ocann.Default)
 
+let learning_rate = 1e-3
 let new_nn =
-  let flattened_images, truths = ... in (* Tfjs tensors *)
+  let flattened_images, truths = (* Tfjs tensors *) in
   let forward, optimizations, pack = Binding.unpack_for_training nn in
 
   (* Forward and backward pass *)
@@ -159,7 +159,7 @@ let new_nn =
    <li>Clear separation of concerns between the features that require a computation engine
    (i.e., number crunching for inference or training) and the rest
    (e.g., network construction, initialization, modification, storage, graph analysis).</li>
-   <li>It is quicker to write a new binding for a framework/</li>
+   <li>It is quicker to write a new binding for a framework</li>
    <li>By sharing pieces of code between bindings, it is easier for the user to adapt the
    framework used to his needs. (e.g., he may want to use a specialized engine in production while
    reusing pieces of code from the training phase).</li>
@@ -239,7 +239,7 @@ A generic copy method to change the upstream parents or reinitialize the states.
 A conversion of the layer to a variant that can be pattern matched to retreive the actual
 subtype of that layer.
 </li><li>
-Several identification methods: <code>to_string</code>, <code>layer_name</code>, <code>id</code>
+Several identification methods: <code>to_string</code>, <code>layer_name</code>, <code>id</code>.
 </li></ul>
 </p>
 
@@ -341,8 +341,8 @@ In the Pshape library the type of the `nth` function is
 </p>
 
 
-<h3>5. No Implicit Broadcast of Operands</h3>
-<h3>5. Limitation of Implicit Broadcasts</h3>
+
+<h3>5. Restrictions of Broadcasts</h3>
 <p>
 Broadcasting is a convenient technique that makes possible the use of input tensors with
 heterogeneous shapes in operations like sum or product (refer to
@@ -350,95 +350,71 @@ heterogeneous shapes in operations like sum or product (refer to
 for a detailed explanation).
 </p>
 <p>
-This technique can be divided into 2 steps. Firstly the shapes are padded with "1" on
-their lefts to match the size of the longest shape. Secondly the dimensions with size "1" are
-stretched to match the size of their longest homologous dimension.
-
-
-The first step doesn't require to change the memory representation of the tensor and the
-stretching of the second step never really happens because it is optimized away by loops
-inside the arithmetic operations.
+This technique can be divided into 2 steps.
 </p>
-
-
-For exemple: to add an image of shape <code>(32, 32)</code> to all the images of a tensor of shape <code>(5, 32, 32)</code>, the steps are:
+<h4>Alignment step</h4>
+<p>
+Firstly the shapes are padded with "1" on their lefts to match the size of the longest shape.
+This step doesn't require to change the memory representation of the tensor and it can be
+replaced by a <code>reshape</code>, a <code>view</code> or a <code>transpose</code> operation.
+</p>
+<h4>Stretching step</h4>
+<p>
+Secondly the dimensions with size "1" are stretched to match the size of their longest
+homologous dimension. This step require to change the memory representation but in practice
+the stretchings are optimized away by loops inside the arithmetic operations. It can be
+replaced by a <code>repeat</code> or a <code>tile</code> operation with performance loss.
+</p>
+<h4>Examples</h4>
+<p>
+To add an image of shape <code>(32, 32)</code> to all the images of a tensor
+of shape <code>(5, 32, 32)</code>, the broadcast steps are:
+</p>
 <pre>
-^^before step 1^^before step 2^^output shape
+  before step 1  before step 2  output shape
 a     (32, 32) -> (1, 32, 32) -> (5, 32, 32)
 b  (5, 32, 32) -> (5, 32, 32) -> (5, 32, 32)
 </pre>
-
-
-
-the broadcast mechanism will reshape the first image to <code>(1, 32, 32)</code>.
-Let's denote this broadcast <code>(32, 32) * (5, 32, 32) -> Ok (1, 32, 32) * (5, 32, 32)</code>.
-</p>
 <p>
-There are tensors that cannot be combined, even with broadcast:
-<ul><li>
-<code>(5,) * (6,) -> Ko</code>
-</li><li>
-<code>(32, 32) * (32, 32, 5) -> Ko</code>
-</li></ul>
+Or to add a line of shape <code>(5)</code> to all the lines of an image of shape
+<code>(5, 5)</code>:
 </p>
+<pre>
+  before step 1  before step 2  output shape
+a       (5, 5) ->      (5, 5) ->      (5, 5)
+b          (5) ->      (1, 5) ->      (5, 5)
+</pre>
 <p>
-And some valid broadcasts are error prone:
-<ul><li>
-<code>(5, 5) * (5) -> Ok (5, 5) * (1, 5)</code>
-
-^^before step 1^^before step 2^^output shape
-a       (5, 5) ->      (5, 5) -> (5, 5)
-b          (5) ->      (1, 5) -> (5, 5)
-
-
-</li><li>
-<code>(32, 32) * (32, 32, 32) -> Ok (1, 32, 32) * (32, 32, 32)</code>
-</li><li>
-<code>(5) * (1, 5) -> Ok (1, 5) * (1, 5)</code>
-</li><li>
-<code>(5) * (5, 1) -> Ok (1, 5) * (5, 1)</code>
-</li></ul>
+This exemple is error prone because it can be easily mixed up with the operation that adds
+a column.
 </p>
+<pre>
+ before reshape  before step 2  output shape
+a       (5, 5) ->      (5, 5) ->      (5, 5)
+b       (5)    ->      (5, 1) ->      (5, 5)
+</pre>
+<h4>In OCaNN</h4>
 <p>
-In mainsteam tensor libraries like numpy and pytorch, implicit broadcasts are performed on
-all the inputs of all operations:
-<pre><code class="language-python">>>> import numpy as np
-
-# Test 1 - sum without broadcast
->>> np.ones((2, 2)) + np.arange(2).reshape(1, 2)
-array([[1., 2.],
-       [1., 2.]])
-
-# Test 2 - sum without broadcast
->>> np.ones((2, 2)) + np.arange(2).reshape(2, 1)
-array([[1., 1.],
-       [2., 2.]])
-
-# Test 3 - sum with implicit broadcast, equivalent to Test 1
->>> np.ones((2, 2)) + np.arange(2)
-array([[1., 2.],
-       [1., 2.]])
-
-# Test 4 - sum with explicit broadcast, equivalent to Test 1
->>> np.ones((2, 2)) + np.broadcast_to(np.arange(2), (2, 2))
-array([[1., 2.],
-       [1., 2.]])
-</code></pre>
-</p>
-<p>
-By disabling implicit broadcast in OCaNN, the user is forced to reshape manually and doing so,
+OCaNN disables the first broadcast step to force the user to reshape manually
+using the <code>transpose</code> layer. By doing so the user has to
 aknowledge the alignment of the dimensions of the operands.
 </p>
+<p>
+The second broadcast step is less error prone and cannot be removed without affecting
+the performances.
+It currently isn't disabled in OCaNN but it would be possible to make it explicit by adding a
+<code>stretch</code> parameter to the constructors where it takes
+place to force the user to aknowledge the expensions.
+</p>
 
 
 
-<h3>6. Runtime Checks on Dimensions Compatibility</h3>
+<h3>6. Runtime Checks on Shapes Compatibility</h3>
 <p>
 When constructing a layer, its output shape is infered from the parameters and especially
 from the output shape of the upstream layers. By doing so, all the shape incompatibilities
 are prevented except those involving unknown dimensions.
 </p>
-
 <h4>Examples</h4>
 <p>
 In the <code>sum</code> constructor, all the input shapes should have the same length
@@ -448,23 +424,9 @@ homologous dimensions either equal, or equal to one, or unknown
 </p>
 <p>
 In the <code>conv2d</code> constructor, the input shape must be 4d, symbolic and the <code>`C</code>
-dimension must be known. In addition to the usual <i>same</i> and <code>valid</code>
-boundary modes, a new <code>assert_fit</code> option can be used to make sure that the known spatial
+dimension must be known. In addition to the usual <i>same</i> and <i>valid</i>
+boundary modes, a new <i>assert_fit</i> option can be used to make sure that the known spatial
 dimensions do not require padding.
-</p>
-
-
- (i.e. padding same, padding valid)
-
-is commonly used
-</p>
-<p>
-</p>
-<p>
-
-</p>
-<p>
-
 </p>
 
 

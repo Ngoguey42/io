@@ -218,7 +218,7 @@ a layer (e.g. after training). Only then a layer stores some tensor.
   - a = (U), _ = sum [A; (5)] => A = (5) || (1)
 - Two networks with a common unkown ancestor can have incompatible interpretations of that ancestor
   - a = (U), _ = sum [U; (5)], _ = sum [U; (6)]
-
+- Beware of the `reshape` operation, it might not be implementable in this scheme
 
  *)
 

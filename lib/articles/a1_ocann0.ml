@@ -83,7 +83,7 @@ let t0 =
 </p>
 
 <h2>Example: Two-Layer Perceptron</h2> <!-- ---------------------------------------------------- -->
-<h6>First we create the network using the main module</h6>
+<h4>First we create the network using the main module</h4>
 <pre><code class="language-ocaml">let nn =
   let open Ocann.Default.Builder in                 (* Exposes the layer constructors *)
   let open Ocann.Pshape.Size in               (* Exposes the `U` and `K` constructors *)
@@ -93,7 +93,7 @@ let t0 =
   |> softmax (`Idx 1)                                         (* shape: (unknown, 10) *)
 </code></pre>
 
-<h6>We can then train this NN using the existing Owl Algodiff (effectful) binding</h6>
+<h4>We can then train this NN using the existing Owl Algodiff (effectful) binding</h4>
 <pre><code class="language-ocaml">module Algodiff = struct
   type ba = Owl_base_algodiff_primal_ops.S.arr
   type ba_elt = Bigarray.float32_elt
@@ -124,7 +124,7 @@ let new_nn =
   pack ()
 </code></pre>
 
-<h6>Or use the exising TensorFlow.js (effectful too) binding</h6>
+<h4>Or use the exising TensorFlow.js (effectful too) binding</h4>
 <pre><code class="language-ocaml">let learning_rate = 1e-3
 module Binding = Ocann_tfjs.Make (Ocann.Default)
 
@@ -286,18 +286,18 @@ In OCaNN the shape type is polymorphic on the number of dimensions
 (0, 1, 2, 3, ... or a any combination), on the type of dimension sizes
 (known, unknown or any) and the on the way dimensions are denominated (absolute, symbolic or any).
 </p>
-<h6>Length</h6>
+<h4>Length</h4>
 <p>
 The number of dimensions is encoded using a polymorphic variant with this upper bound:
 <code>Length.t = [ `L0 | `L1 | `L2 | `L3 | `L4 | `L5 ]</code>.
 </p>
-<h6>Size</h6>
+<h4>Size</h4>
 <p>
 If one knows at compile time that a shape has no unknown dimensions, he can use the
 <code>[ `K ]</code> type parameter, otherwise he can use the
 <code>Size.tag = [ `U | `K ]</code> upper bound.
 </p>
-<h6>Denomination</h6>
+<h4>Denomination</h4>
 <p>
 To avoid uncecessary dimension ordering and references to well-known dimensions using
 ad-hoc indices, OCaNN offers a <i>symbolic</i> shape type where each dimension is
@@ -324,7 +324,7 @@ that is either <i>symbolic</i> or <i>absolute</i> is
 <code>Axis.t = [ `N | `C | `S0 | `S1 | `S2 | `Idx of int ]</code>.
 </p>
 <p>
-<h6>Examples</h6>
+<h4>Examples</h4>
 <ul><li>
 Any shape can be the output of a <code>sqrt</code> layer because it is a simple element-wise
 operation. The most generic shape type is <code>(Length.tag, Size.tag, Axis.t) t</code>.
@@ -439,7 +439,7 @@ from the output shape of the upstream layers. By doing so, all the shape incompa
 are prevented except those involving unknown dimensions.
 </p>
 
-<h6>Examples<h6>
+<h4>Examples</h4>
 <p>
 In the <code>sum</code> constructor, all the input shapes should have the same length
 (i.e. number of dimensions), the same denomination (i.e. symbolic or absolute) and have

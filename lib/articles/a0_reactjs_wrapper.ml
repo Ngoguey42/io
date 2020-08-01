@@ -18,12 +18,12 @@ let t0 =
    <a href="https://github.com/Ngoguey42/io/blob/master/lib/ft_js/reactjs.ml">
    This small wrapper</a>
    enhances the <a href="https://reactjs.org/"><cite>Reactjs</cite></a> experience in OCaml by
-   hiding most of the boilerplate and offering a <cite>functionnal reactive programming</cite>
+   hiding most of the boilerplate and offering a <cite>functional reactive programming</cite>
    interface through <a href="https://erratique.ch/software/react"><cite>React(ml)</cite></a>.
 </p>
 
 <p>
-   You may copy/modify/distribute this wrapper at will.
+   You may copy/modify/distribute this wrapper at will (ISC License).
 </p>
 
 <h2>React Components</h2>
@@ -37,14 +37,14 @@ let t0 =
    When using the inheritance pattern your component interacts with <cite>Reactjs</cite>
    through the methods and properties of your class (e.g. the <cite>render</cite> method
    is called when a render has to take place) (e.g. you modify the <cite>state</cite>
-   variable to trigger renders). On the other hand when using <cite>Hooks</cite> you only
+   variable to trigger renders). On the other hand, when using <cite>Hooks</cite> you only
    define a render function and access the other features of <cite>Reactjs</cite> by performing
    side effects through the <code>React.use*</code> functions.
 </p>
 
 <p>
    This OCaml wrapper is based on the <code>React.Component</code> class, but when using it
-   it feel a lot like the <cite>Reacjs Hooks</cite>. You define a constructor function
+   it feels a lot like the <cite>Reacjs Hooks</cite>. You define a constructor function
    (much like the <code>constructor</code> method of a <code>React.Component</code>) in which
    you define at least a <code>render</code> function to be returned.
    To access the other features of <cite>Reactjs</cite> you may return more than
@@ -56,7 +56,7 @@ let t0 =
    <li>etc...</li>
    </ul>
 
-   With this approch, the only OCaml-side side effects are hidden behind the <cite>React(ml)</cite>
+   With this approach, the only OCaml-side side effects are hidden behind the <cite>React(ml)</cite>
    primitives.
 </p>
 
@@ -119,7 +119,7 @@ let t0 =
 </p>
 <p>
    In order to ensure the proper typing of <code>props</code> and preserve <cite>Reactjs</cite>'s
-   behavior regarding components' hierarchy, some <cite>magic</cite> is required under the hood.
+   behavior regarding components hierarchy, some <cite>magic</cite> is required under the hood.
 </p>
 
 <h2>Simple Example</h2>
@@ -134,16 +134,16 @@ let t0 =
 <p>
   The one below is a stateful component that defines one signal and a
   render function. <cite>Reactjs</cite> will call the <cite>render</cite> function
-  after construction and everytime the signal's value changes
+  after construction and every time the signal's value changes
   (i.e. after a call to <code>set_signal</code>).
 </p>
 
 <p>
-  Both can be instanciated into <cite>JSX</cite> objects using <code>Reactjs.of_constructor</code>.
+  Both can be instantiated into <cite>JSX</cite> objects using <code>Reactjs.of_constructor</code>.
 </p>
 
 <p>
-   In this exemple a <code>React.event</code> is created and transformed to a
+   In this example a <code>React.event</code> is created and transformed into a
    <code>React.signal</code> using <code>React.S.accum</code>.
    Many other operations are available in <cite>React(ml)</cite>
    to transform and create primitives (i.e. signal / event). Take a look at the documentation
@@ -166,10 +166,10 @@ let t1 =
 <p>
    In the previous example the <code>operation_events</code> value is explicitly collected inside
    the <code>unmount</code> callback.
-   In general when using <cite>React(ml)</cite> with <cite>Js_of_ocaml</cite>, all primitives must
+   In general, when using <cite>React(ml)</cite> with <cite>Js_of_ocaml</cite>, all primitives must
    be explicitly collected.
    The reason is because <cite>React(ml)</cite> internally relies on
-   OCaml's <cite>weak hash tables</cite> to ensure proper garbage collection which is currently
+   OCaml's <cite>weak hash tables</cite> to ensure proper garbage collection, which is currently
    implemented with regular <cite>hash tables</cite> in <cite>Js_of_ocaml</cite>.
 </p>
 <p>
@@ -195,12 +195,12 @@ let t1 =
 
 <h2>GC Example</h2>
 <p>
-   This example highlights a leak occuring inside the
+   This example highlights a leak occurring inside the
    <code>leaking_head (queries, answer)</code> constructor versus the leak-free
    <code>safe_head ~e0:queries answer</code> constructor.
 </p>
 <p>
-   For typing concerns, <code>safe_head</code> has to be instanciated using the
+   For typing concerns, <code>safe_head</code> has to be instantiated using the
    <code>of_constructor_e</code> function. Several other permutations are available such as
    <code>of_constructor_ssee</code> for a constructor with the following type:
 </p>

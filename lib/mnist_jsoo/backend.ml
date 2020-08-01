@@ -4,9 +4,9 @@ let[@ocamlformat "disable"] create : backend -> (module BACKEND) = function
   | `Tfjs_webgl ->
      if not (Ocann_tfjs.Tfjs.has_webgl ()) then (
        if Ft_js.Webworker.is_web_worker then
-         failwith "Tensorflow failed to initialize WebGL from webworker"
+         failwith "Tensorflow failed to initialise WebGL from webworker"
        else
-         failwith "Tensorflow failed to initialize WebGL"
+         failwith "Tensorflow failed to initialise WebGL"
      )
      else
        (module struct

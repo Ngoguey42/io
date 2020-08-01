@@ -119,10 +119,10 @@ them deterministically is kept. A tensor is stored inside a layer only after cal
 method.
 
 For example, when constructing a `parameter32` layer, the `init` parameter of type `Init.t`
-will be internally converted to a `Init.Deterministic.t` by sampling an initialization seed using
+will be internally converted to a `Init.Deterministic.t` by sampling an initialisation seed using
 `Builder.state`. When calling `#tensor` on that layer, the tensor will be deterministically computed
 and returned (but not stored, remember that the layers are immutable). After calling `#replicate` on
-that layer, `#tensor` will return the tensor passed to `#replicate` instead of initializing a new
+that layer, `#tensor` will return the tensor passed to `#replicate` instead of initialising a new
 tensor.
 
 This features makes the newly created networks very light.
@@ -135,7 +135,7 @@ This library avoids making dimension ordering assumptions when unnecessary (such
 `channel-last`). Although the axes still requires to be designated. Depending on the context
 you can either use an absolute or a symbolic designation.
 
-For exemple:
+For example:
 - Absolute designation is not reliable to locate the `channel` dimension:
   - the axes of a 4d channel-first tensor would be {| [`Idx 0; `Idx 1; `Idx 2; `Idx 3] |},
   - the axes of a 4d channel-last tensor would be  {| [`Idx 0; `Idx 1; `Idx 2; `Idx 3] |}.
@@ -156,16 +156,16 @@ The Pshape (Polymorphic shape) library provides that abstraction.
 ---
 
 # Determinism and Init.t
-When creating a new network some randomness is required to initialize specific components like
+When creating a new network some randomness is required to initialise specific components like
 convolution kernels, fully-connected weights or dropout layers. The Builder module
-can be instanciated using an `rng` parameter that will be used to sample a unique seed for each
-individual component that depends on randomness. This way, an instanciated network, is always fully
+can be instantiated using an `rng` parameter that will be used to sample a unique seed for each
+individual component that depends on randomness. This way, an instantiated network, is always fully
 determined.
 
 More specifically, when the user passes a `Init.t` value to build a layer, the layer will
 convert it right away to a `Init.Deterministic.t` by sampling a seed if necessary.
 
-In a newly created network, the statful tensors are not instanciated right away in order to keep
+In a newly created network, the statful tensors are not instantiated right away in order to keep
 the network as light as possible for as long as possible. The first times a stateful tensor is
 fetched, it is deterministically computed using it's associated `Init.Deterministic.t` value.
 Using the `replicate` methods, the user can manually store a new version of a stateful tensor inside
@@ -202,7 +202,7 @@ a layer (e.g. after training). Only then a layer stores some tensor.
         - Maybe this pattern matching can be avoided by giving a proper definition to 'a network
   - It is impossible to create a network ex-nihilo without requiring to a builder function or a
     method. It brings rigidity to some low level use cases.
-- How to reuse a normalization layer in several spots? Higher order layers?
+- How to reuse a normalisation layer in several spots? Higher order layers?
 - How to streamline "optimizer"? Higher order layers?
 - Use poly-var on network type to encode shape/dtype? That way a constructor can restrict its input from the type
 - Remove the `unit` in create_builder?

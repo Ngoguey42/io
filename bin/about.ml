@@ -24,7 +24,7 @@ let[@ocamlformat "disable"] create_content () = [%html {|
   <h2>This website</h2>
 
   <p>
-    This website is hosted and statically served by <cite>github</cite>,
+    This website is hosted and statically served by <cite>GitHub</cite>,
     written with OCaml, built using
     <a href="https://github.com/ocaml/dune"><cite>dune</cite></a>
     and transpiled from OCaml to JavaScript using
@@ -69,7 +69,7 @@ let[@ocamlformat "disable"] create_content () = [%html {|
     <a href="https://plotly.com/javascript/"><cite>plotly</cite></a> for plots. The heavy
     computations are offloaded to a <cite>Web Worker</cite> using
     <a href="|} url_ftww {|">this small wrapper</a>
-    that helps preserving types between threads.
+    that helps preserve types between threads.
     The tensors are processed either by
     <a href="https://www.tensorflow.org/js">TensorFlow.js</a> or
     <a href="https://ocaml.xyz/">OWL</a>. The
@@ -79,13 +79,13 @@ let[@ocamlformat "disable"] create_content () = [%html {|
 
   <p>
     The <cite>Cinquante</cite> game is fully written with JavaScript using those libraries:
-    <a href="http://piqnt.com/planck.js/"><cite>Planck.js</cite></a> for the physical engine,
+    <a href="http://piqnt.com/planck.js/"><cite>Planck.js</cite></a> for the physics engine,
     <a href="https://mourner.github.io/simplify-js/"><cite>Simplify.js</cite></a>
     for polygon simplification and
     <a href="https://github.com/mapbox/earcut"><cite>Earcut</cite></a> for polygon tessellation. The
     10 digits used in the game are pre-computed with a python script. This game is a proof of concept
     preceding an end-to-end implementation with <cite>Js_of_ocaml</cite> where the game could either
-    be played by a human or by a <cite>Reinforcement Learning</cite> bot trained by the human in the
+    be played by a human or, by a <cite>Reinforcement Learning</cite> bot trained by the human in the
     same webpage (possibly using <cite>DeepMind</cite>'s
     <a href="https://arxiv.org/abs/1911.08265"><cite>MuZero</cite></a>). This POC revealed that the
     current physical engine would most likely be too slow to simulate a sufficient amount of game,
@@ -94,7 +94,7 @@ let[@ocamlformat "disable"] create_content () = [%html {|
     might offer better performances.
   </p>
 
-  <h3>Code organization</h3>
+  <h3>Code organisation</h3>
 
   <p>
     The source code of the website lives in the

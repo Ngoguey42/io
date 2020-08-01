@@ -488,10 +488,10 @@ module Jsx = struct
       - the props taken by that constructor and its render function.
 
      Constructor is called with `props`, `render` is also called with `props` too because React
-     doesn't re-instanciate the component when `props` changes. Three design patterns can be adopted:
+     doesn't re-instantiate the component when `props` changes. Three design patterns can be adopted:
      - Don't perform render conditionned on props. Use signals.
      - Perform render conditionned on constructor's props. To do so, use a new `key` in parent's
-       `of_constructor` call to trigger re-instanciations
+       `of_constructor` call to trigger re-instantiations
        (a.k.a. Fully uncontrolled component with a key).
      - Perform render conditionned on render's props. To do so, ignore the mutable props passed to
        construct and read them from `render`.

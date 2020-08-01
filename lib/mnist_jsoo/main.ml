@@ -21,7 +21,7 @@ let t0 =
    As soon as the resources downloaded themselves you may start creating, training and comparing
    your
    <a href="https://en.wikipedia.org/wiki/Artificial_neural_network"><cite>
-   Artificial Neural Networks</cite></a> on the task of handwritten digits
+   Artificial Neural Networks</cite></a> on the task of handwritten digit
    <a href="https://en.wikipedia.org/wiki/Statistical_classification">classification</a> using the
    famous <a href="https://en.wikipedia.org/wiki/MNIST_database"><cite>MNIST</cite></a> dataset. <cite>Firefox</cite> or <cite>Chrome</cite> navigator recommended. It should work on your phone too.
 </p>

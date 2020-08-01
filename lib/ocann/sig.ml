@@ -21,14 +21,14 @@ module type NETWORK = sig
 
   type optimizer_conf = [ `Adam of float * float * float | `Sgd ]
 
-  type normalization_algo =
+  type normalisation_algo =
     [ `Exp_moving32 of float * float * float32_tensor * float32_tensor
     | `Exp_moving64 of float * float * float64_tensor * float64_tensor
     | `Global32 of float * int * float32_tensor * float32_tensor
     | `Global64 of float * int * float64_tensor * float64_tensor
     | `Local of float ]
 
-  type normalization_algo_conf =
+  type normalisation_algo_conf =
     [ `Exp_moving of float * float | `Global of float | `Local of float ]
 
   type boundary_mode = [ `Assert_fit | `Pad_fit | `Same | `Valid ]
@@ -270,9 +270,9 @@ module type NETWORK = sig
     ; upstreams : network list >
 
   and normalisation =
-    < algorithm : normalization_algo
-    ; algorithm_conf : normalization_algo_conf
-    ; algorithm_opt : normalization_algo option
+    < algorithm : normalisation_algo
+    ; algorithm_conf : normalisation_algo_conf
+    ; algorithm_opt : normalisation_algo option
     ; axes : Pshape.Axis.t list
     ; classify_layer : [ `Normalisation of normalisation ]
     ; classify_node : [ `Node11 of normalisation ]
@@ -290,7 +290,7 @@ module type NETWORK = sig
     ; layer_name : string
     ; out_dtype : float_dtype
     ; out_shape : Pshape.any
-    ; replicate : ?id:Id.t -> normalization_algo -> network -> normalisation
+    ; replicate : ?id:Id.t -> normalisation_algo -> network -> normalisation
     ; stateful : bool
     ; to_string : string
     ; upstream : network
@@ -586,7 +586,7 @@ module type NETWORK = sig
 
     val normalisation :
       [< Pshape.Axis.t ] list ->
-      ?algo_conf:[< normalization_algo_conf ] ->
+      ?algo_conf:[< normalisation_algo_conf ] ->
       ?id:Id.t ->
       < classify_layer : [< classified_layer ] ; .. > ->
       normalisation
@@ -684,7 +684,7 @@ module type NETWORK = sig
     val batch_norm :
       ?id:Id.t ->
       ?affine:bool ->
-      ?algo_conf:[< normalization_algo_conf ] ->
+      ?algo_conf:[< normalisation_algo_conf ] ->
       < classify_layer : [< classified_layer ] ; .. > ->
       network
   end

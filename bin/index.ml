@@ -42,7 +42,7 @@ let cards_data =
       href = "ocann0.html";
       title = "OCaNN";
       description = "A neural network abstraction tailored for OCaml.";
-      date = "JUL 24, 2020";
+      date = "AUG 01, 2020";
     };
   ]
 

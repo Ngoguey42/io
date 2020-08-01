@@ -50,9 +50,9 @@ let train : Types.training_backend_routine =
   let forward_encoders, o, pack_encoders =
     List.map Binding.unpack_for_training encoders |> Ft.List.split3
   in
-  let optimizations = Binding.OptiMap.union_list_exn o in
+  let optimisations = Binding.OptiMap.union_list_exn o in
   let forward_decoder, o, pack_decoder = Binding.unpack_for_training decoder in
-  let optimizations = Binding.OptiMap.union_exn optimizations o in
+  let optimisations = Binding.OptiMap.union_exn optimisations o in
 
   let train_on_batch batch_idx =
     (* Step 5 - Fetch and transform batch inputs ************************************************ *)
@@ -83,8 +83,8 @@ let train : Types.training_backend_routine =
     (* Step 6.1 - Backward ********************************************************************** *)
     Algodiff.reverse_prop (Algodiff.pack_flt 1.) loss;
 
-    (* Step 7 - Update networks' weights using gradients already reachable from optimizations *** *)
-    Binding.OptiMap.iter (fun _name optimization -> optimization lr) optimizations;
+    (* Step 7 - Update networks' weights using gradients already reachable from optimisations *** *)
+    Binding.OptiMap.iter (fun _name optimisation -> optimisation lr) optimisations;
 
     (* Step 8 - Compute / print stats *********************************************************** *)
     let y'_top1 = Owl_snippets._top1_of_1hot (y'_1hot |> Algodiff.primal' |> Algodiff.unpack_arr) in

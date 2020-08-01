@@ -270,7 +270,7 @@ module Make (Nn : Ocann.NETWORK) = struct
     | _, _ -> failwith "Corrupted network. A node has an unexpected number of upstream parents"
 
   let unpack_for_training :
-      Nn.network -> (tftensor Nn.Map.t -> tftensor) * optimization_map * (unit -> Nn.network) =
+      Nn.network -> (tftensor Nn.Map.t -> tftensor) * optimisation_map * (unit -> Nn.network) =
    (* Transform a `network` to everything that is needed to perform a training of that network
     * using tensorflow.js:
     * 1. A callable for the forward pass aware of the upcoming backward pass
@@ -303,8 +303,8 @@ module Make (Nn : Ocann.NETWORK) = struct
       in
       Ocann.memoized_walk id_of_unet pack_node unet
     in
-    let optimizations =
-      let optimizations_of_node follow = function
+    let optimisations =
+      let optimisations_of_node follow = function
         | Node01 { update = None; _ } -> OptiMap.empty
         | Node01 { update = Some update; node; _ } ->
             OptiMap.singleton (string_of_int (Oo.id node)) update
@@ -312,7 +312,7 @@ module Make (Nn : Ocann.NETWORK) = struct
         | Node21 v -> OptiMap.union_silent (follow v.up0) (follow v.up1)
         | Noden1 v -> List.map follow v.ups |> OptiMap.union_list_silent
       in
-      Ocann.memoized_walk id_of_unet optimizations_of_node unet
+      Ocann.memoized_walk id_of_unet optimisations_of_node unet
     in
-    (forward, optimizations, pack)
+    (forward, optimisations, pack)
 end

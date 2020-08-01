@@ -1187,7 +1187,7 @@ let disposeVariables : unit -> unit =
 let engine_reset : unit -> unit =
  fun () ->
   (* Seems to be the only reliable way to fully get rid of all the `tensor` memory leaks, when no
-   * scoping was used. But it should not be called too often because the webgl initialization
+   * scoping was used. But it should not be called too often because the webgl initialisation
    * takes ~3 seconds *)
   let open Js.Unsafe in
   let e = fun_call global##.tf##.engine [||] in

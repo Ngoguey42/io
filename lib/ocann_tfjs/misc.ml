@@ -8,16 +8,16 @@ end
 module Make (Nn : Ocann.NETWORK) = struct
   type tftensor = Tfjs_api.tensor Js.t
 
-  type optimization = float -> tftensor -> unit
+  type optimisation = float -> tftensor -> unit
 
   module OptiMap = struct
     include Map.Make (Stdlib.String)
     module StringSet = Set.Make (Stdlib.String)
 
-    let union_exn : optimization t -> optimization t -> optimization t =
+    let union_exn : optimisation t -> optimisation t -> optimisation t =
       union (fun name _ _ -> Printf.sprintf "variable name clash: <%s>" name |> failwith)
 
-    let union_silent : optimization t -> optimization t -> optimization t =
+    let union_silent : optimisation t -> optimisation t -> optimisation t =
       union (fun _ a _ -> Some a)
 
     let union_list_exn l = List.fold_left union_exn empty l
@@ -31,7 +31,7 @@ module Make (Nn : Ocann.NETWORK) = struct
         StringSet.diff keys' keys |> StringSet.elements )
   end
 
-  type optimization_map = optimization OptiMap.t
+  type optimisation_map = optimisation OptiMap.t
 
   type tflayer = Tfjs_api.layer Js.t
 

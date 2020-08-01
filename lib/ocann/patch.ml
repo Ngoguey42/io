@@ -20,8 +20,8 @@ type storable_layer =
   | `Normalisation of
     string option
     * Pshape.Axis.t list
-    * Make_ocann.Default.normalization_algo_conf
-    * Make_ocann.Default.normalization_algo option
+    * Make_ocann.Default.normalisation_algo_conf
+    * Make_ocann.Default.normalisation_algo option
   | `Relu of string option
   | `Softmax of string option * Pshape.Axis.t
   | `Sum of string option

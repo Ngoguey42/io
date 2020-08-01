@@ -17,14 +17,14 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
   type optimizer_conf = [ `Sgd | `Adam of float * float * float ]
 
-  type normalization_algo =
+  type normalisation_algo =
     [ `Local of float
     | `Global32 of float * int * float32_tensor * float32_tensor
     | `Exp_moving32 of float * float * float32_tensor * float32_tensor
     | `Global64 of float * int * float64_tensor * float64_tensor
     | `Exp_moving64 of float * float * float64_tensor * float64_tensor ]
 
-  type normalization_algo_conf =
+  type normalisation_algo_conf =
     [ `Local of float | `Global of float | `Exp_moving of float * float ]
 
   type boundary_mode = [ `Same | `Valid | `Pad_fit | `Assert_fit ]
@@ -287,15 +287,15 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         ?rng:Random.State.t ->
         network list ->
         normalisation
-    ; replicate : ?id:Id.t -> normalization_algo -> network -> normalisation
+    ; replicate : ?id:Id.t -> normalisation_algo -> network -> normalisation
     ; id : Id.t
     ; layer_name : string
     ; to_string : string
     ; upstream : network
     ; axes : Pshape.Axis.t list
-    ; algorithm_conf : normalization_algo_conf
-    ; algorithm : normalization_algo
-    ; algorithm_opt : normalization_algo option
+    ; algorithm_conf : normalisation_algo_conf
+    ; algorithm : normalisation_algo
+    ; algorithm_opt : normalisation_algo option
     ; is_batch_norm : bool
     ; is_layer_norm : bool
     ; is_instance_norm : bool
@@ -762,7 +762,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     val normalisation :
       [< Pshape.Axis.t ] list ->
-      ?algo_conf:[< normalization_algo_conf ] ->
+      ?algo_conf:[< normalisation_algo_conf ] ->
       ?id:Id.t ->
       _ any ->
       normalisation
@@ -889,7 +889,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       ]} *)
 
     val batch_norm :
-      ?id:Id.t -> ?affine:bool -> ?algo_conf:[< normalization_algo_conf ] -> _ any -> network
+      ?id:Id.t -> ?affine:bool -> ?algo_conf:[< normalisation_algo_conf ] -> _ any -> network
   end
 
   module Make_builder (State : STATE) : BUILDER = struct
@@ -977,7 +977,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
     let input ?id shape dtype =
       let shape = Pshape.to_any shape in
-      let rec instanciate id =
+      let rec instantiate id =
         let id = match id with None -> Id.create_default () | Some id -> id in
         object (self : input)
           method upstreams = []
@@ -994,7 +994,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             if List.length upstreams <> 0 then invalid_arg "input#copy takes 0 upstreams";
-            instanciate (Some id)
+            instantiate (Some id)
 
           method id = id
 
@@ -1003,7 +1003,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method to_string = Printf.sprintf "<input %s>" (Pshape.to_string shape)
         end
       in
-      instanciate id
+      instantiate id
 
     let parameter32 ?id ?(rng = State.get_state ()) dimensions init optimizer_conf =
       let init = (init :> Init.float32) in
@@ -1018,7 +1018,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           if beta2 <= 0. || beta2 >= 1. then
             invalid_arg "In parameter32: beta2 should be between 0 and 1 (excluded)";
           () );
-      let rec instanciate ?id dimensions init optimizer_conf tensor_opt optim_opt =
+      let rec instantiate ?id dimensions init optimizer_conf tensor_opt optim_opt =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let get_tensor () =
           match tensor_opt with
@@ -1057,12 +1057,12 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method copy ?(id = self#id) ?(states = `Keep) ?(rng = State.get_state ()) upstreams =
             if List.length upstreams <> 0 then invalid_arg "parameter32#copy takes 0 upstreams";
             match states with
-            | `Keep -> instanciate ~id dimensions init optimizer_conf tensor_opt optim_opt
-            | `Scratch -> instanciate ~id dimensions init optimizer_conf None None
+            | `Keep -> instantiate ~id dimensions init optimizer_conf tensor_opt optim_opt
+            | `Scratch -> instantiate ~id dimensions init optimizer_conf None None
             | `Reinit ->
                 let init = Init.unseed_float32 init in
                 let init = Init.float32_to_deterministic ~rng init in
-                instanciate ~id dimensions init optimizer_conf None None
+                instantiate ~id dimensions init optimizer_conf None None
 
           method replicate ?(id = self#id) tensor optim =
             let newdims = Tensor.dimensions tensor in
@@ -1078,7 +1078,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
               | `Sgd -> `Sgd
               | `Adam (epsilon, beta1, beta2, _, _, _) -> `Adam (epsilon, beta1, beta2)
             in
-            instanciate ~id newdims init optimizer_conf (Some tensor) (Some optim)
+            instantiate ~id newdims init optimizer_conf (Some tensor) (Some optim)
 
           method id = id
 
@@ -1103,10 +1103,10 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
             n
         end
       in
-      instanciate ?id dimensions init optimizer_conf None None
+      instantiate ?id dimensions init optimizer_conf None None
 
     let sum =
-      let rec instanciate id upstreams =
+      let rec instantiate id upstreams =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype =
           match List.sort_uniq compare (List.map (fun up -> up#out_dtype) upstreams) with
@@ -1129,7 +1129,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instanciate (Some id) upstreams
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instantiate (Some id) upstreams
 
           method id = id
 
@@ -1141,10 +1141,10 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
                  (List.map (fun up -> Printf.sprintf "%s:%d" up#layer_name (Oo.id up)) upstreams))
         end
       in
-      fun ?id upstreams -> instanciate id (List.map downcast upstreams)
+      fun ?id upstreams -> instantiate id (List.map downcast upstreams)
 
     let prod =
-      let rec instanciate id upstreams =
+      let rec instantiate id upstreams =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype =
           match List.sort_uniq compare (List.map (fun up -> up#out_dtype) upstreams) with
@@ -1167,7 +1167,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instanciate (Some id) upstreams
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instantiate (Some id) upstreams
 
           method id = id
 
@@ -1179,11 +1179,11 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
                  (List.map (fun up -> Printf.sprintf "%s:%d" up#layer_name (Oo.id up)) upstreams))
         end
       in
-      fun ?id upstreams -> instanciate id (List.map downcast upstreams)
+      fun ?id upstreams -> instantiate id (List.map downcast upstreams)
 
     let concatenate axis =
       let axis = (axis :> Pshape.Axis.t) in
-      let rec instanciate id upstreams =
+      let rec instantiate id upstreams =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype =
           match List.sort_uniq compare (List.map (fun up -> up#out_dtype) upstreams) with
@@ -1206,7 +1206,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method stateful = false
 
-          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instanciate (Some id) upstreams
+          method copy ?(id = self#id) ?states:_ ?rng:_ upstreams = instantiate (Some id) upstreams
 
           method id = id
 
@@ -1221,10 +1221,10 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method axis = axis
         end
       in
-      fun ?id upstreams -> instanciate id (List.map downcast upstreams)
+      fun ?id upstreams -> instantiate id (List.map downcast upstreams)
 
     let softmax axis =
-      let rec instanciate id upstream =
+      let rec instantiate id upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype =
           match upstream#out_dtype with
@@ -1251,7 +1251,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
-            | [ up ] -> instanciate (Some id) up
+            | [ up ] -> instantiate (Some id) up
             | _ -> invalid_arg "softmax#copy takes 1 upstream"
 
           method id = id
@@ -1267,10 +1267,10 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method axis = axis
         end
       in
-      fun ?id upstream -> instanciate id (downcast upstream)
+      fun ?id upstream -> instantiate id (downcast upstream)
 
     let relu =
-      let rec instanciate id upstream =
+      let rec instantiate id upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype = upstream#out_dtype in
         let shape = upstream#out_shape in
@@ -1289,7 +1289,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
-            | [ up ] -> instanciate (Some id) up
+            | [ up ] -> instantiate (Some id) up
             | _ -> invalid_arg "relu#copy takes 1 upstream"
 
           method id = id
@@ -1301,13 +1301,13 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method upstream = upstream
         end
       in
-      fun ?id upstream -> instanciate id (downcast upstream)
+      fun ?id upstream -> instantiate id (downcast upstream)
 
     let normalisation axes ?algo_conf =
       let algo_conf =
         Option.value
           ~default:(`Exp_moving (1e-5, 0.99))
-          (algo_conf :> normalization_algo_conf option)
+          (algo_conf :> normalisation_algo_conf option)
       in
       let axes = (axes :> Pshape.Axis.t list) in
 
@@ -1327,7 +1327,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           if momentum <= 0. || momentum >= 1. then
             invalid_arg "In normalisation: momentum should be > 0 and < 1" );
 
-      let rec instanciate ?id algo_conf algo_opt upstream =
+      let rec instantiate ?id algo_conf algo_opt upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype =
           match upstream#out_dtype with
@@ -1423,8 +1423,8 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?(states = `Keep) ?rng:_ upstreams =
             match (upstreams, states) with
-            | [ up ], `Keep -> instanciate ~id algo_conf algo_opt up
-            | [ up ], `Scratch | [ up ], `Reinit -> instanciate ~id algo_conf None up
+            | [ up ], `Keep -> instantiate ~id algo_conf algo_opt up
+            | [ up ], `Scratch | [ up ], `Reinit -> instantiate ~id algo_conf None up
             | _ -> invalid_arg "normalisation#copy takes 1 upstream"
 
           method replicate ?(id = self#id) algorithm upstream =
@@ -1435,7 +1435,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
               | `Exp_moving32 (epsilon, momentum, _, _) | `Exp_moving64 (epsilon, momentum, _, _) ->
                   `Exp_moving (epsilon, momentum)
             in
-            instanciate ~id algo_conf (Some algorithm) upstream
+            instantiate ~id algo_conf (Some algorithm) upstream
 
           method id = id
 
@@ -1462,10 +1462,10 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method is_group_norm = match axes with [ `N; `C ] | [ `C; `N ] -> true | _ -> false
         end
       in
-      fun ?id upstream -> instanciate ?id algo_conf None (downcast upstream)
+      fun ?id upstream -> instantiate ?id algo_conf None (downcast upstream)
 
     let transpose ?ndim ?mapping =
-      let rec instanciate id upstream =
+      let rec instantiate id upstream =
         let mapping =
           match mapping with
           | Some mapping ->
@@ -1496,7 +1496,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
-            | [ up ] -> instanciate (Some id) up
+            | [ up ] -> instantiate (Some id) up
             | _ -> invalid_arg "transpose#copy takes 1 upstream"
 
           method id = id
@@ -1513,7 +1513,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method mapping = mapping
         end
       in
-      fun ?id upstream -> instanciate id (downcast upstream)
+      fun ?id upstream -> instantiate id (downcast upstream)
 
     let maxpool2d ?b:boundary_mode ?s:stride kernel_size =
       let boundary_mode = Option.value ~default:`Same (boundary_mode :> boundary_mode option) in
@@ -1523,7 +1523,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         invalid_arg "In maxpool2d: kernel_size should be >= 1";
       if fst stride <= 0 || snd stride <= 0 then invalid_arg "In maxpool2d: stride should be >= 1";
 
-      let rec instanciate id upstream =
+      let rec instantiate id upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype =
           match upstream#out_dtype with
@@ -1562,7 +1562,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
-            | [ up ] -> instanciate (Some id) up
+            | [ up ] -> instantiate (Some id) up
             | _ -> invalid_arg "maxpool2d#copy takes 1 upstream"
 
           method id = id
@@ -1595,7 +1595,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method boundary_lost = (lost_s1, lost_s0)
         end
       in
-      fun ?id upstream -> instanciate id (downcast upstream)
+      fun ?id upstream -> instantiate id (downcast upstream)
 
     let padding ?v:value paddings_per_axis =
       let paddings_per_axis = (paddings_per_axis :> (Pshape.Axis.t * int list) list) in
@@ -1618,7 +1618,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
         |> List.split
       in
 
-      let rec instanciate id upstream =
+      let rec instantiate id upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let dtype = upstream#out_dtype in
         let out_shape = upstream#out_shape in
@@ -1654,7 +1654,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
-            | [ up ] -> instanciate (Some id) up
+            | [ up ] -> instantiate (Some id) up
             | _ -> invalid_arg "padding#copy takes 1 upstream"
 
           method id = id
@@ -1701,10 +1701,10 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method is_noop = self#is_padding = true && self#is_cropping = true
         end
       in
-      fun ?id upstream -> instanciate id (downcast upstream)
+      fun ?id upstream -> instantiate id (downcast upstream)
 
     let astype dtype =
-      let rec instanciate id upstream =
+      let rec instantiate id upstream =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let shape = upstream#out_shape in
         object (self : astype)
@@ -1722,7 +1722,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
-            | [ up ] -> instanciate (Some id) up
+            | [ up ] -> instantiate (Some id) up
             | _ -> invalid_arg "astype#copy takes 1 upstream"
 
           method id = id
@@ -1736,7 +1736,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method dtype = dtype
         end
       in
-      fun ?id upstream -> instanciate id (downcast upstream)
+      fun ?id upstream -> instantiate id (downcast upstream)
 
     let conv2d2 ?g:(group_count = 1) ?s:(stride = (1, 1)) ?d:(dilation = (1, 1)) ?b:boundary_mode =
       let boundary_mode = Option.value ~default:`Same (boundary_mode :> boundary_mode option) in
@@ -1745,7 +1745,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       if fst stride <= 0 || snd stride <= 0 then invalid_arg "In conv2d2: stride should be >= 1";
       if fst dilation <= 0 || snd dilation <= 0 then
         invalid_arg "In conv2d2: dilation should be >= 1";
-      let rec instanciate id weights x =
+      let rec instantiate id weights x =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let wshape =
           weights#out_shape |> Pshape.Open.to_layout Pshape.Layout.Abs4d |> Pshape.to_total
@@ -1803,7 +1803,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
-            | [ weights; x ] -> instanciate (Some id) weights x
+            | [ weights; x ] -> instantiate (Some id) weights x
             | _ -> invalid_arg "conv2d#copy takes 2 upstreams"
 
           method id = id
@@ -1881,7 +1881,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           method boundary_lost = (lost_s1, lost_s0)
         end
       in
-      fun ?id weights x -> instanciate id (downcast weights) (downcast x)
+      fun ?id weights x -> instantiate id (downcast weights) (downcast x)
 
     let tensordot mapping0 mapping1 =
       let mapping0 = (mapping0 :> (Pshape.Axis.t * Pshape.Axis.t option) list) in
@@ -1897,7 +1897,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
           (fun (ax, opt) -> match opt with None -> Some ax | Some _ -> None)
           mapping1
       in
-      let rec instanciate id x0 x1 =
+      let rec instantiate id x0 x1 =
         let id = match id with None -> Id.create_default () | Some id -> id in
         let shape0, shape1 = (x0#out_shape, x1#out_shape) in
         let shape = Pshape.contract mapping0 mapping1 shape0 shape1 in
@@ -1924,7 +1924,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
 
           method copy ?(id = self#id) ?states:_ ?rng:_ upstreams =
             match upstreams with
-            | [ x0; x1 ] -> instanciate (Some id) x0 x1
+            | [ x0; x1 ] -> instantiate (Some id) x0 x1
             | _ -> invalid_arg "tensordot#copy takes 1 upstream"
 
           method id = id
@@ -1970,7 +1970,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
                     |> invalid_arg )
         end
       in
-      fun ?id x0 x1 -> instanciate id (downcast x0) (downcast x1)
+      fun ?id x0 x1 -> instantiate id (downcast x0) (downcast x1)
 
     (* 3. Syntaxic sugars ************************************************************************ *)
 
@@ -2165,7 +2165,7 @@ module Make (Tensor : TENSOR) (Id : ID) = struct
       let algo_conf =
         Option.value
           ~default:(`Exp_moving (1e-5, 0.99))
-          (algo_conf :> normalization_algo_conf option)
+          (algo_conf :> normalisation_algo_conf option)
       in
 
       let upstream = downcast upstream in

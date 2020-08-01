@@ -77,7 +77,7 @@ module Seed = struct
   let name = "Seed"
 
   let description =
-    "PRNG seed to initialize the network's weights and order the images during training."
+    "PRNG seed to initialise the network's weights and order the images during training."
 end
 
 module Parameters = struct
@@ -122,7 +122,7 @@ module Encoder = struct
   let description =
     {|
 First part of the network. Takes a batch of 28x28 grayscale float32 images. Deep networks are hard
-to train but produce better results.
+to train, but produce better results.
 |}
 
   let module_of_tag : t -> (module Network_architectures.ENCODER) = function
@@ -214,7 +214,7 @@ module Optimizer = struct
 
   let description =
     {|
-Algorithm used to update a parameter given the gradient of that parameter.
+The algorithm used to update a parameter given the gradient of that parameter.
 <a href='https://en.wikipedia.org/wiki/Stochastic_gradient_descent#Adam'><cite>ADAM</cite></a>
 is known to perform better, but
 <a href='https://en.wikipedia.org/wiki/Stochastic_gradient_descent'><cite>SGD</cite></a> is enough

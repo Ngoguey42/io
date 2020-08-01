@@ -56,15 +56,69 @@ end
 </p>
 
 
+
+<h3>7. Network Parameters Initialisation</h3>
+<!--
+<p>
+When initilializing a parameter layer in OCaNN, two things are required:
+<ul><li>
+a method of type <code>Init.t</code>, e.g, <code>`Tanh</code>, <code>`Float_constant 0.</code> and
+</li><li>
+a Random Number Generator (RNG) of type <code>Stdlib.Random.State.t</code>.
+</li></ul>
+
+The construction of a parameter layer in OCaNN requires a value <code>init</code> of
+type <code>Init.t</code> that defines how to initilialize the tensor
+(e.g, <code>`Gaussian (mu, sigma)</code>, <code>`Float_constant 0.</code>).
+
+The constructor internally coerce <code>init</code> to a
+<code>Init.Deterministic.t</code> possibly by sampling a seed using a provided
+<code>Stdlib.Random.State.t</code> value.
+
+The construction process will then coerce the <code>Init.t</code> value to a <code>Init.Deterministic.t</code> value by sampling a seed
+
+The RNG can either be passed to the layer when constructing it, or defined inside the <code>Network.Builder</code> module when constructing it with <code>Network.create_builder</code>
+
+
+
+https://github.com/Ngoguey42/io/blob/master/lib/ocann/init.ml
+
+
+<code></code>
+<code></code>
+<code></code>
+When creating a network, the parameters must be initialised. Two things are required, a  and a
+
+When initilializing a parameter layer in OCaNN you may choose
+</p>
+<p>
+
+</p>
+<p>
+
+</p>
+<p>
+
+</p>
+<p>
+
+</p>
+-->
+
+
+
+<h3>8. No General Purpose Bidirectional NN Conversion In Bindings</h3><p>lorem ipsum</p>
+
+
+
  *)
 
 let t0 =
   {|
-<h3>WORK IN PROGRESS!</h3>
 <p>
-   OCaNN's ambition is to bring to OCaml a functional neural networks (NN) semantic
-   without actualy writing a tensor processing engine nor depending on one specific external
-   deep-learning (DL) framework.
+   OCaNN is an attempt to bring to OCaml a functional Neural Network (NN) semantic
+   without actually writing a tensor processing engine nor depending on one specific external
+   Deep-Learning (DL) framework.
 </p>
 <p>
    To achieve that goal OCaNN provides on one hand a common NN abstraction that is both
@@ -83,7 +137,7 @@ let t0 =
 </p>
 
 <h2>Example: Two-Layer Perceptron</h2> <!-- ---------------------------------------------------- -->
-<h4>First we create the network using the main module</h4>
+<h4>First, we create the network using the main module</h4>
 <pre><code class="language-ocaml">let nn =
   let open Ocann.Default.Builder in                 (* Exposes the layer constructors *)
   let open Ocann.Pshape.Size in               (* Exposes the `U` and `K` constructors *)
@@ -109,7 +163,7 @@ let categorical_crossentropy epsilon softmaxed_pred truth =
 let learning_rate = 1e-3
 let new_nn =
   let flattened_images, truths = (* Algodiff tensors *) in
-  let forward, optimizations, pack = Binding.unpack_for_training nn in
+  let forward, optimisations, pack = Binding.unpack_for_training nn in
 
   (* Forward pass *)
   let predictions = forward flattened_images in
@@ -118,19 +172,19 @@ let new_nn =
   (* Backward pass *)
   Algodiff.reverse_prop (Algodiff.pack_flt 1.) loss;
 
-  (* Optimization *)
-  Ocann_owl.OptiMap.iter (fun _ opti -> opti learning_rate) optimizations;
+  (* Optimisation *)
+  Ocann_owl.OptiMap.iter (fun _ opti -> opti learning_rate) optimisations;
 
   pack ()
 </code></pre>
 
-<h4>Or use the exising TensorFlow.js (effectful too) binding</h4>
+<h4>Or use the existing TensorFlow.js (effectful too) binding</h4>
 <pre><code class="language-ocaml">module Binding = Ocann_tfjs.Make (Ocann.Default)
 
 let learning_rate = 1e-3
 let new_nn =
   let flattened_images, truths = (* Tfjs tensors *) in
-  let forward, optimizations, pack = Binding.unpack_for_training nn in
+  let forward, optimisations, pack = Binding.unpack_for_training nn in
 
   (* Forward and backward pass *)
   let f () =
@@ -140,10 +194,10 @@ let new_nn =
   in
   let loss, gradients = Tfjs.variable_grads f in
 
-  (* Optimization *)
+  (* Optimisation *)
   Ocann_tfjs.OptiMap.iter
     (fun name opti -> opti learning_rate (Tfjs.Named_tensor_map.find name gradients))
-    optimizations;
+    optimisations;
 
   pack ()
 </code></pre>
@@ -158,12 +212,12 @@ let new_nn =
    expensive part of a DL framework.</li>
    <li>Clear separation of concerns between the features that require a computation engine
    (i.e., number crunching for inference or training) and the rest
-   (e.g., network construction, initialization, modification, storage, graph analysis).</li>
+   (e.g., network construction, initialisation, modification, storage, graph analysis).</li>
    <li>It is quicker to write a new binding for a framework</li>
    <li>By sharing pieces of code between bindings, it is easier for the user to adapt the
-   framework used to his needs. (e.g., he may want to use a specialized engine in production while
+   framework used to his needs (e.g., he may want to use a specialized engine in production while
    reusing pieces of code from the training phase).</li>
-   <li>Since a binding is an independent library, very few constrains apply on the design of it
+   <li>Since a binding is an independent library, very few constraints apply in the design of it
    (e.g., a framework can possess several bindings)
    (e.g., a binding can be specialized for one specific task).</li>
    <li>Compared to a library that gives a single interface to multiple DL frameworks, having
@@ -174,17 +228,17 @@ let new_nn =
 <h2>Motivation for Functional Neural Networks</h2> <!-- ---------------------------------------- -->
 <p>
    Anyone who as trained a NN at least once has faced the situation where
-   the training program is running without errors but the network doesn't seem
+   the training program is running without errors, but the network doesn't seem
    to be learning anything. Either:
    <ul>
    <li>There is a bug in your code that remained undetected by the static checks,
    the runtime checks and yourself.</li>
-   <li>Your code is fine but some hyperparameter is wrong, such as the network architecture or the
+   <li>Your code is fine, but some hyperparameter is wrong, such as the network architecture or the
    learning rate.</li>
    <li>Your code and your configurations are fine, your network is currently in a local minima,
    you just need to wait.</li>
    </ul>
-   This time consuming situation is symtomatic of the lack safety in the programming
+   This time consuming situation is symptomatic of the lack safety in the programming
    languages and the DL frameworks widely used today.
 </p>
 <p>
@@ -210,7 +264,7 @@ let new_nn =
 <p>
 In OCaNN a network is an immutable DAG that is built one layer at a time from forward inputs
 to forward outputs (i.e. from upstream to downstream). This implies that a layer only possess
-pointers to the upstream graph and that to be modified, a layer has to be reinstanciated
+pointers to the upstream graph and that to be modified, a layer has to be reinstantiated
 along with all its downstream graph.
 </p>
 <p>
@@ -220,7 +274,7 @@ involving reusing a layer multiple times  throughout a network.
 </p>
 <p>
 The <code>copy</code> method available in a <code>Network</code> module can be used for all
-kind of reinstanciation operations, e.g., updating the trainable parameters, appending a network
+kinds of reinstantiation operations, e.g., updating the trainable parameters, appending a network
 to another.
 </p>
 
@@ -234,9 +288,9 @@ A list of upstream layers.
 </li><li>
 Informations on the output tensor of that layer (i.e. shape and dtype).
 </li><li>
-A generic copy method to change the upstream parents or reinitialize the states.
+A generic copy method to change the upstream parents or reinitialise the states.
 </li><li>
-A conversion of the layer to a variant that can be pattern matched to retreive the actual
+A conversion of the layer to a variant that can be pattern matched to retrieve the actual
 subtype of that layer.
 </li><li>
 Several identification methods: <code>to_string</code>, <code>layer_name</code>, <code>id</code>.
@@ -262,7 +316,7 @@ the activation (e.g., <code>relu</code>).
 </p>
 <p>
 To avoid boilerplate when defining a network, the <code>Builder</code> module exposes the
-<code>conv2d</code> and <code>bias</code> syntaxic sugars:
+<code>conv2d</code> and <code>bias</code> syntactic sugars:
 </p>
 
 <pre><code class="language-ocaml">upstream |> conv2d (`Full 32) (3, 3) |> bias |> relu</code></pre>
@@ -283,7 +337,7 @@ upstream |> conv2d2 p |> sum p' |> relu
 <h3>4. Polymorphic Shapes</h3>
 <p>
 In OCaNN the shape type is polymorphic on the number of dimensions
-(0, 1, 2, 3, ... or a any combination), on the type of dimensions size
+(0, 1, 2, 3, ... or a any combination), on the type of dimension sizes
 (known, unknown or any) and on the way dimensions are denominated (absolute, symbolic or any).
 </p>
 <h4>Length</h4>
@@ -299,7 +353,7 @@ If one knows at compile time that a shape has no unknown dimensions, he can use 
 </p>
 <h4>Denomination</h4>
 <p>
-To avoid uncecessary dimension ordering and references to well-known dimensions using
+To avoid unnecessary dimension ordering and references to well-known dimensions using
 ad-hoc indices, OCaNN offers a <i>symbolic</i> shape type where each dimension is
 identified by a predefined name.
 </p>
@@ -355,13 +409,13 @@ This technique can be divided into 2 steps.
 <h4>Alignment step</h4>
 <p>
 Firstly the shapes are padded with "1" on their lefts to match the size of the longest shape.
-This step doesn't require to change the memory representation of the tensor and it can be
+This step doesn't change the memory representation of the tensor and it can be
 replaced by a <code>reshape</code>, a <code>view</code> or a <code>transpose</code> operation.
 </p>
 <h4>Stretching step</h4>
 <p>
 Secondly the dimensions with size "1" are stretched to match the size of their longest
-homologous dimension. This step require to change the memory representation but in practice
+homologous dimension. This step require to change the memory representation, but in practice
 the stretchings are optimized away by loops inside the arithmetic operations. It can be
 replaced by a <code>repeat</code> or a <code>tile</code> operation with performance loss.
 </p>
@@ -383,7 +437,7 @@ a       (5, 5) ->      (5, 5) ->      (5, 5)
 b          (5) ->      (1, 5) ->      (5, 5)
 </code></pre>
 <p>
-This exemple is error prone because it can be easily mixed up with the operation that adds
+This example is error prone because it can be easily mixed up with the operation that adds
 a column.
 </p>
 <pre><code class="language-txt"> before reshape  before step 2  output shape
@@ -394,21 +448,21 @@ b       (5)    ->      (5, 1) ->      (5, 5)
 <p>
 OCaNN disables the first broadcast step to force the user to reshape manually
 using the <code>transpose</code> layer. By doing so the user has to
-aknowledge the alignment of the dimensions of the operands.
+acknowledge the alignment of the dimensions of the operands.
 </p>
 <p>
 The second broadcast step is less error prone and cannot be removed without affecting
 the performances.
 It currently isn't disabled in OCaNN but it would be possible to make it explicit by adding a
 <code>stretch</code> parameter to the constructors where it takes
-place to force the user to aknowledge the stretchings.
+place to force the user to acknowledge the stretchings.
 </p>
 
 
 
 <h3>6. Runtime Checks on Shapes Compatibility</h3>
 <p>
-When constructing a layer, its output shape is infered from the parameters and especially
+When constructing a layer, its output shape is inferred from the parameters and especially
 from the output shape of the upstream layers. By doing so, all the shape incompatibilities
 are prevented except those involving unknown dimensions.
 </p>
@@ -428,61 +482,7 @@ dimensions do not require padding.
 
 
 
-<h3>7. Network Parameters Initialization</h3>
-<!--
-<p>
-When initilializing a parameter layer in OCaNN, two things are required:
-<ul><li>
-a method of type <code>Init.t</code>, e.g, <code>`Tanh</code>, <code>`Float_constant 0.</code> and
-</li><li>
-a Random Number Generator (RNG) of type <code>Stdlib.Random.State.t</code>.
-</li></ul>
-
-The construction of a parameter layer in OCaNN requires a value <code>init</code> of
-type <code>Init.t</code> that defines how to initilialize the tensor
-(e.g, <code>`Gaussian (mu, sigma)</code>, <code>`Float_constant 0.</code>).
-
-The constructor internally coerce <code>init</code> to a
-<code>Init.Deterministic.t</code> possibly by sampling a seed using a provided
-<code>Stdlib.Random.State.t</code> value.
-
-The construction process will then coerce the <code>Init.t</code> value to a <code>Init.Deterministic.t</code> value by sampling a seed
-
-The RNG can either be passed to the layer when constructing it, or defined inside the <code>Network.Builder</code> module when constructing it with <code>Network.create_builder</code>
-
-
-
-https://github.com/Ngoguey42/io/blob/master/lib/ocann/init.ml
-
-
-<code></code>
-<code></code>
-<code></code>
-When creating a network, the parameters must be initialized. Two things are required, a  and a
-
-When initilializing a parameter layer in OCaNN you may choose
-</p>
-<p>
-
-</p>
-<p>
-
-</p>
-<p>
-
-</p>
-<p>
-
-</p>
--->
-
-
-
-<h3>8. No General Purpose Bidirectional NN Conversion In Bindings</h3><p>lorem ipsum</p>
-
-
-
-<h3>9. Avoid Black Boxes</h3>
+<h3>7. Avoid Black Boxes</h3>
 <p>
 DL frameworks tend to forget the
 <i><a href="https://en.wikipedia.org/wiki/Worse_is_better">worse is better</a></i>
@@ -536,7 +536,7 @@ his own algorithms.
    </li><li>
    Polymorphic variants should be used instead of objects (e.g., <code>val kernel_size_2d : [< `Conv2d | `Maxpool2d ] network -> int * int</code>).
    </li><li>
-   Some features should be streamline to feel less ad-hoc (e.g., optimizer).
+   Some features should be streamlined to feel less ad-hoc (e.g., optimizer).
    </li><li>
    The Pshape library relies too much on unsafe operations.
    </li><li>
@@ -613,9 +613,7 @@ Definition of a residual convolutional NN with symbolic shapes.
   |> conv2d (`Full 10) (3, 3) ~b:`Assert_fit
   |> bias
   |> softmax `C
-  (* Output shape is <x:1; y:1; c:10; n:unknown> *)
-  </code></pre>
-
+  (* Output shape is <x:1; y:1; c:10; n:unknown> *)</code></pre>
 |}
 
 let construct_reactjs_article () =

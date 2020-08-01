@@ -75,7 +75,7 @@ module Batch_size = struct
 
   let description =
     {|
-Number of images inside a training batch. Use:
+Number of images in a training batch. Use:
 <ul>
 <li><code>1</code> for <cite>Stochastic Gradient Descent</cite>,</li>
 <li><code>60000</code> (the size of the dataset) for <cite>Gradient Descent</cite>,</li>

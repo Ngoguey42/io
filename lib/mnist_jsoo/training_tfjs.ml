@@ -27,9 +27,9 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
   let forward_encoders, o, pack_encoders =
     List.map Binding.unpack_for_training encoders |> Ft.List.split3
   in
-  let optimizations = Binding.OptiMap.union_list_exn o in
+  let optimisations = Binding.OptiMap.union_list_exn o in
   let forward_decoder, o, pack_decoder = Binding.unpack_for_training decoder in
-  let optimizations = Binding.OptiMap.union_exn optimizations o in
+  let optimisations = Binding.OptiMap.union_exn optimisations o in
 
   let train_on_batch batch_idx =
     (* Step 5 - Fetch and transform batch inputs ************************************************ *)
@@ -50,7 +50,7 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
 
     (* Step 6 - Forward and backward ************************************************************ *)
     (* Need to prolongate the life of `y'_1hot` to compute the stats at the end.
-       ref is initialized with garbage *)
+       ref is initialised with garbage *)
     let y'_1hot = ref y_1hot in
     let forward () =
       (* The tfjs models use `execute` both inside `predict` and `train` functions,
@@ -72,13 +72,13 @@ let _train verbose yield_sleep_length fire_event instructions batch_count get_lr
     let y'_1hot = !y'_1hot in
 
     (* Step 7 - Use gradients to update networks' weights *************************************** *)
-    ( match Binding.OptiMap.key_disjunction optimizations grads with
+    ( match Binding.OptiMap.key_disjunction optimisations grads with
     | [], [] -> ()
     | name :: _, _ -> Printf.sprintf "Missing at least the <%s> gradient" name |> failwith
     | _, name :: _ -> Printf.sprintf "Missing at least the <%s> optimizer" name |> failwith );
     Binding.OptiMap.iter
-      (fun name optimization -> optimization lr (Tfjs.Named_tensor_map.find name grads))
-      optimizations;
+      (fun name optimisation -> optimisation lr (Tfjs.Named_tensor_map.find name grads))
+      optimisations;
 
     (* Step 8 - Compute / print stats *********************************************************** *)
     let loss = Tfjs.to_float loss in

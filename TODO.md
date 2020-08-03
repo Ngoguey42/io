@@ -1,6 +1,3 @@
-# TODO
-- blog
-  - Finish OCaNN article
 
 --------------------------------------------------------------------------------
 
@@ -16,6 +13,8 @@
    - Make articles standalone using module interfaces
    - RSS flux (part of the deployment process when 2 repos?)
    - Switch to release versions of js libs (like react) on profile release
+   - Need to statically distribute some(all) pages to allow anchors
+   - How to get referenced? (dynamic website)
 --------------------------------------------------------------------------------
 
 - mnist-jsoo display maybe

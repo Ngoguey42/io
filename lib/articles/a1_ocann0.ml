@@ -139,12 +139,12 @@ let t0 =
 <h2>Example: Two-Layer Perceptron</h2> <!-- ---------------------------------------------------- -->
 <h4>First, we create the network using the main module</h4>
 <pre><code class="language-ocaml">let nn =
-  let open Ocann.Default.Builder in                 (* Exposes the layer constructors *)
-  let open Ocann.Pshape.Size in               (* Exposes the `U` and `K` constructors *)
-  input (Pshape.abs2d_partial U (K (28 * 28))) `Float32      (* shape: (unknown, 784) *)
+  let open Ocann.Default.Builder in                    (* Exposes the layer constructors *)
+  let open Ocann.Pshape.Size in                  (* Exposes the `U` and `K` constructors *)
+  input (Pshape.abs2d_partial U (K (28 * 28))) `Float32 (* Input shape is (unknown, 784) *)
   |> dense [ (`Idx 1, 512) ] |> bias |> relu
   |> dense [ (`Idx 1, 10) ] |> bias
-  |> softmax (`Idx 1)                                         (* shape: (unknown, 10) *)
+  |> softmax (`Idx 1)                                   (* Output shape is (unknown, 10) *)
 </code></pre>
 
 <h4>We can then train this NN using the existing Owl Algodiff (effectful) binding</h4>
@@ -269,8 +269,8 @@ along with all its downstream graph.
 </p>
 <p>
 Even if this functional definition seems very restrictive, it in no way limits the flexibility
-of NNs compared to an imperative definition. It even simplifies the garbage collection in schemes
-involving reusing a layer multiple times  throughout a network.
+of NNs compared to an imperative definition. It even simplifies the schemes
+involving reusing a layer multiple times throughout a network.
 </p>
 <p>
 The <code>copy</code> method available in a <code>Network</code> module can be used for all
@@ -295,6 +295,10 @@ subtype of that layer.
 </li><li>
 Several identification methods: <code>to_string</code>, <code>layer_name</code>, <code>id</code>.
 </li></ul>
+Each layer also possess specific methods, e.g, a <code>kernel_size : int * int</code> in the
+<code>conv2d</code> and <code>maxpool2d</code> layers, an <code>upstream : network</code> method
+in all the layers that may only possess 1 upstream parent.
+
 </p>
 
 
@@ -310,8 +314,8 @@ The kernel application (<code>conv2d</code>),
 the kernel (<code>parameter32</code>),
 the bias application (<code>sum</code>),
 the bias values (<code>parameter32</code>),
-the conversion of the bias values from an absolute 1d shape to a symbolic 4d shape
-(<code>transpose</code>) and
+the conversion of the bias values from an <i>absolute 1d shape</i> to a <i>symbolic 4d shape</i>
+(<code>transpose</code>, more on that below) and
 the activation (e.g., <code>relu</code>).
 </p>
 <p>
@@ -338,7 +342,7 @@ upstream |> conv2d2 p |> sum p' |> relu
 <p>
 In OCaNN the shape type is polymorphic on the number of dimensions
 (0, 1, 2, 3, ... or a any combination), on the type of dimension sizes
-(known, unknown or any) and on the way dimensions are denominated (absolute, symbolic or any).
+(known, unknown or any) and on the way dimensions are denominated (<i>absolute</i>, <i>symbolic</i> or any).
 </p>
 <h4>Length</h4>
 <p>
@@ -358,9 +362,9 @@ ad-hoc indices, OCaNN offers a <i>symbolic</i> shape type where each dimension i
 identified by a predefined name.
 </p>
 <p>
-The symbolic dimension names are chosen by the library and not by the user:
+The <i>symbolic</i> dimension names are chosen by the library and not by the user:
 <ul><li>
-<code>[ `N ]</code> is the type parameter for a 1d symbolic shape,
+<code>[ `N ]</code> is the type parameter for a 1d <i>symbolic</i> shape,
 </li><li>
 <code>[ `N | `C ]</code> for 2d,
 </li><li>
@@ -437,10 +441,10 @@ a       (5, 5) ->      (5, 5) ->      (5, 5)
 b          (5) ->      (1, 5) ->      (5, 5)
 </code></pre>
 <p>
-This example is error prone because it can be easily mixed up with the operation that adds
-a column.
+The above example is error prone because it can be easily mixed up with the operation that adds
+a column:
 </p>
-<pre><code class="language-txt"> before reshape  before step 2  output shape
+<pre><code class="language-txt"> before <b>reshape</b>  before step 2  output shape
 a       (5, 5) ->      (5, 5) ->      (5, 5)
 b       (5)    ->      (5, 1) ->      (5, 5)
 </code></pre>
@@ -476,7 +480,7 @@ homologous dimensions either equal, or equal to one, or unknown
 <p>
 In the <code>conv2d</code> constructor, the input shape must be 4d, symbolic and the <code>`C</code>
 dimension must be known. In addition to the usual <i>same</i> and <i>valid</i>
-boundary modes, a new <i>assert_fit</i> option can be used to make sure that the known spatial
+boundary modes, a new <i>assert_fit</i> option can be used to make sure (at runtime) that the known spatial
 dimensions do not require padding.
 </p>
 
@@ -557,7 +561,7 @@ his own algorithms.
    </li></ul>
 </p>
 <p>
-   And some problems inherent to all DL frameworks are yet to be solved:
+   And some problems inherent to all DL frameworks are yet to be resolved:
    <ul><li>
    In a network, the <b>unknown dimensions should be mathematical symbolic variables</b>
    to allow the detection of inconsistent combinations of unknown dimensions, and to be able
@@ -591,7 +595,7 @@ Definition of a residual convolutional NN with symbolic shapes.
   let open Ocann.Default.Builder in
   let open Ocann.Pshape.Size in
 
-  (* Input shape is <x:24; y:24; c:3; n:unknown> *)
+  (* Input shape is &lt;x:24; y:24; c:3; n:unknown&gt; *)
   input (Pshape.sym4d_partial ~n:U ~c:(K 3) ~s0:(K 24) ~s1:(K 24)) `Int32
   |> astype `Float32
   |> conv2d (`Full 32) (3, 3) ~s:(2, 2) ~b:`Same
@@ -613,7 +617,7 @@ Definition of a residual convolutional NN with symbolic shapes.
   |> conv2d (`Full 10) (3, 3) ~b:`Assert_fit
   |> bias
   |> softmax `C
-  (* Output shape is <x:1; y:1; c:10; n:unknown> *)</code></pre>
+  (* Output shape is &lt;x:1; y:1; c:10; n:unknown&gt; *)</code></pre>
 |}
 
 let construct_reactjs_article () =

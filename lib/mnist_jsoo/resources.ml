@@ -77,7 +77,8 @@ let byte_count_of_url_opt : string -> Int64.t option = function
   | "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/default.min.css" -> Some 328L
   | "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js" -> Some 242498L
   | "https://cdn.plot.ly/plotly-1.54.3.min.js" -> Some 961404L
-  | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" -> Some 33518L
+  | "https://cdnjs.cloudflare.com/ajax/libs/react-bootstrap/1.0.1/react-bootstrap.min.js" ->
+      Some 33518L
   | "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" -> Some 22555L
   | "https://unpkg.com/react@16/umd/react.development.js" -> Some 30840L
   | "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js" -> Some 29936L
@@ -282,7 +283,7 @@ let construct_resources_row ~e0:procedure_events entry =
 
   Reactjs.construct ~signal ~signal:size_option_signal ~mount render
 
-let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor_ =
+let construct_resources : (uint8_ba * uint8_ba * uint8_ba * uint8_ba -> unit) Reactjs.constructor =
  fun fire_upstream_event ->
   Debug.on_construct "resources";
   let procedure_events, launch = create_download_procedure fire_upstream_event in

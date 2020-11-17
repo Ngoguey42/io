@@ -8,13 +8,11 @@ let url_bin = "https://github.com/Ngoguey42/io/blob/master/bin"
 
 let url_lib = "https://github.com/Ngoguey42/io/blob/master/lib"
 
-let url_ftreact =
-  "https://github.com/Ngoguey42/io/blob/master/lib/ft_js/reactjs.ml"
+let url_ftreact = "https://github.com/Ngoguey42/io/blob/master/lib/ft_js/reactjs.ml"
 
 let url_ftww = "https://github.com/Ngoguey42/io/blob/master/lib/ft_js/webworker.ml"
 
-let url_entrypoint =
-  "https://github.com/Ngoguey42/io/blob/master/bin/page_builder.ml"
+let url_entrypoint = "https://github.com/Ngoguey42/io/blob/master/bin/page_builder.ml"
 
 let url_jsooppx = "https://ocsigen.org/js_of_ocaml/3.1.0/manual/ppx"
 

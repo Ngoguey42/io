@@ -287,7 +287,7 @@ let construct_select :
   in
   Reactjs.construct ~signal render
 
-let construct_training_config : _ Reactjs.constructor_ =
+let construct_training_config : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
   Debug.on_construct "training_configuration";
   let rconf_signal, update_rconf =

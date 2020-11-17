@@ -17,7 +17,7 @@ class type ref_ =
     method current : Dom_html.element Js.t Js.Opt.t Js.readonly_prop
   end
 
-class type jsx = object end
+class type element = object end
 
 class type component_class = object end
 
@@ -28,23 +28,77 @@ class type constructor_as_obj =
     method name : Js.js_string Js.t Js.optdef_prop
   end
 
+type instanciator =
+  ?active_key:string ->
+  ?animation_bool:bool ->
+  ?animation_string:string ->
+  ?as_:string ->
+  ?bordered:bool ->
+  ?classes:string list ->
+  ?colspan:string ->
+  ?custom:bool ->
+  ?default_active_key:string ->
+  ?default_value:string ->
+  ?disabled:bool ->
+  ?event_key:string ->
+  ?fluid:bool ->
+  ?href:string ->
+  ?id:string ->
+  ?inline:bool ->
+  ?inner_html:string ->
+  ?key:string ->
+  ?label:string ->
+  ?min:float ->
+  ?name:string ->
+  ?no_gutters:bool ->
+  ?on_change:(Dom_html.inputElement Js.t event Js.t -> unit) ->
+  ?on_click:(Dom_html.buttonElement Js.t event Js.t -> unit) ->
+  ?on_close:(unit -> unit) ->
+  ?on_select:(Js.js_string Js.t -> Dom_html.anchorElement Js.t event Js.t -> unit) ->
+  ?overlay:element Js.t ->
+  ?placeholder:string ->
+  ?placement:string ->
+  ?ref:ref_ Js.t ->
+  ?size:string ->
+  ?src:string ->
+  ?step:float ->
+  ?style:(string * string) list ->
+  ?title:string ->
+  ?title_jsx:element Js.t ->
+  ?transition:bool ->
+  ?type_:string ->
+  ?value:string ->
+  ?variant:string ->
+  ?lg_order:int ->
+  ?lg_span:int ->
+  ?md_order:int ->
+  ?md_span:int ->
+  ?sm_order:int ->
+  ?sm_span:int ->
+  ?xl_order:int ->
+  ?xl_span:int ->
+  ?xs_order:int ->
+  ?xs_span:int ->
+  element Js.t list ->
+  element Js.t
+
 (* User's component types *********************************************************************** *)
-type 'main_props render = 'main_props -> jsx Js.t
+type 'main_props render = 'main_props -> element Js.t
 
 type 'main_props construction =
   'main_props render * (unit -> unit -> unit) * (unit -> unit) * (unit -> unit) * unit React.event
 
-(* 0 Primitives *)
-type 'main_props constructor_ = 'main_props -> 'main_props construction
+(* 0 primitives *)
+type 'main_props constructor = 'main_props -> 'main_props construction
 
-(* 1 Primitive *)
+(* 1 primitive *)
 type ('main_props, 's0_prop) constructor_s =
   s0:'s0_prop React.signal -> 'main_props -> 'main_props construction
 
 type ('main_props, 'e0_prop) constructor_e =
   e0:'e0_prop React.event -> 'main_props -> 'main_props construction
 
-(* 2 Primitives *)
+(* 2 primitives *)
 type ('main_props, 's0_prop, 's1_prop) constructor_ss =
   s0:'s0_prop React.signal -> s1:'s1_prop React.signal -> 'main_props -> 'main_props construction
 
@@ -54,7 +108,7 @@ type ('main_props, 's0_prop, 'e0_prop) constructor_se =
 type ('main_props, 'e0_prop, 'e1_prop) constructor_ee =
   e0:'e0_prop React.event -> e1:'e1_prop React.event -> 'main_props -> 'main_props construction
 
-(* 3 Primitives *)
+(* 3 primitives *)
 type ('main_props, 's0_prop, 's1_prop, 'e0_prop) constructor_sse =
   s0:'s0_prop React.signal ->
   s1:'s1_prop React.signal ->
@@ -69,7 +123,7 @@ type ('main_props, 's0_prop, 'e0_prop, 'e1_prop) constructor_see =
   'main_props ->
   'main_props construction
 
-(* 4 Primitives *)
+(* 4 primitives *)
 type ('main_props, 's0_prop, 's1_prop, 'e0_prop, 'e1_prop) constructor_ssee =
   s0:'s0_prop React.signal ->
   s1:'s1_prop React.signal ->
@@ -79,7 +133,7 @@ type ('main_props, 's0_prop, 's1_prop, 'e0_prop, 'e1_prop) constructor_ssee =
   'main_props construction
 
 type ('main, 's0, 's1, 'e0, 'e1, 'constructor) props_package =
-  | Unit : 'main -> ('main, _, _, _, _, 'main constructor_) props_package
+  | Unit : 'main -> ('main, _, _, _, _, 'main constructor) props_package
   | S :
       ('main * 's0 React.signal)
       -> ('main, 's0, _, _, _, ('main, 's0) constructor_s) props_package
@@ -113,7 +167,7 @@ class type ['main, 's0, 's1, 'e0, 'e1, 'constructor, 'key] component =
     method props :
       ('main, 's0, 's1, 'e0, 'e1, 'constructor, 'key) props_holder Js.t Js.readonly_prop
 
-    method ftJsRender : (unit -> jsx Js.t) Js.callback Js.writeonly_prop
+    method ftJsRender : (unit -> element Js.t) Js.callback Js.writeonly_prop
 
     method ftJsMount : (unit -> unit) Js.callback Js.writeonly_prop
 
@@ -126,18 +180,14 @@ class type ['main, 's0, 's1, 'e0, 'e1, 'constructor, 'key] component =
 let _name_of_function : 'constructor -> string option =
  fun f -> Js.Unsafe.get f (Js.string "name") |> Js.Optdef.to_option |> Option.map Js.to_string
 
-let component_class_of_constructor :
+let _component_class_of_constructor :
     'constructor -> (unit -> component_class Js.t) -> component_class Js.t =
  fun constructor build_class ->
-  (* let n = _name_of_function constructor |> Option.value ~default:"noname" in *)
   let constructor : constructor_as_obj Js.t = Obj.magic constructor in
 
   match constructor##.component_class |> Js.Optdef.to_option with
-  | Some cls ->
-      (* Printf.eprintf "> component_class_of_constructor | Cache hit on %s\n%!" n; *)
-      cls
+  | Some cls -> cls
   | None ->
-      (* Printf.eprintf "> component_class_of_constructor | Cache miss on %s\n%!" n; *)
       let cls = build_class () in
       constructor##.component_class := cls;
       cls
@@ -152,7 +202,7 @@ external _create_component_class :
 
 let _of_constructor :
     type main s0 s1 e0 e1 constructor.
-    constructor -> (main, s0, s1, e0, e1, constructor, 'key) props_holder Js.t -> jsx Js.t =
+    constructor -> (main, s0, s1, e0, e1, constructor, 'key) props_holder Js.t -> element Js.t =
  fun constructor ->
   let build_class_on_cache_miss () =
     let prime_react_component :
@@ -160,7 +210,7 @@ let _of_constructor :
         (main, s0, s1, e0, e1, constructor, 'key) props_holder Js.t ->
         unit =
      fun self props_holder ->
-      (* call user's constructor *)
+      (* Call user's constructor *)
       let render, user_mount, update, user_unmount, state_changes =
         match props_holder##.data with
         | Unit main -> constructor main
@@ -172,7 +222,7 @@ let _of_constructor :
       in
       self##.ftJsUpdate := Js.wrap_callback update;
 
-      (* wrap user's constructor. render's props taken from self *)
+      (* Wrap user's render *)
       let render () =
         match self##.props##.data with
         | Unit main -> render main
@@ -184,7 +234,7 @@ let _of_constructor :
       in
       self##.ftJsRender := Js.wrap_callback render;
 
-      (* bind react primitives to reactjs states (they were all mapped to a single unit React.event
+      (* Bind react primitives to reactjs states (they were all mapped to a single unit React.event
          in `construct`.
 
          Each time a primitive changes we don't update the component's state right away in order to
@@ -246,35 +296,19 @@ let _of_constructor :
     in
     _create_component_class (Js.wrap_callback prime_react_component) display_name
   in
-  let cls = component_class_of_constructor constructor build_class_on_cache_miss in
+  let cls = _component_class_of_constructor constructor build_class_on_cache_miss in
   fun props_holder ->
     let open Js.Unsafe in
     fun_call global##._React##.createElement [| inject cls; inject props_holder |]
 
 (* Functions ************************************************************************************ *)
 
-(** https://reactjs.org/docs/react-dom.html#render *)
-let render : jsx Js.t -> Dom_html.element Js.t -> unit =
- fun elt container ->
+let render elt container =
   let open Js.Unsafe in
   fun_call global##._ReactDOM##.render [| inject elt; inject container |]
 
-(** To be called at the end of a constructor.
-
-    OCaml piece of code | React.Component class equivalent
-    ------------------------------------------------------
-    construct caller    | .constructor
-    ~mount              | .componentDidMount
-    ~update             | .componentDidUpdate
-    ~unmount            | .componentDidMount
-    ~signal             | .state
-    ~events             | .state
-    render              | .render
-
-    How to improve the {| ?signal -> ?signal -> ?signal |} trick?
-*)
 let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s3 ?signal:s4
-    ?events:e0 render : 'props construction =
+    ?events:e0 render =
   let mount = Option.value ~default:(fun () () -> ()) mount in
   let update = Option.value ~default:(fun () -> ()) update in
   let unmount = Option.value ~default:(fun () -> ()) unmount in
@@ -291,75 +325,19 @@ let construct ?mount ?update ?unmount ?signal:s0 ?signal:s1 ?signal:s2 ?signal:s
   in
   (render, mount, update, unmount, diffs)
 
-(** https://reactjs.org/docs/refs-and-the-dom.html *)
-let create_ref () : ref_ Js.t =
+let create_ref () =
   let open Js.Unsafe in
   fun_call global##._React##.createRef [||]
 
-(** Reactjs.Jsx to be opened in render functions *)
 module Jsx = struct
-  let ( >> ) : jsx Js.t -> (jsx Js.t list -> jsx Js.t) -> jsx Js.t = fun v f -> f [ v ]
+  let ( >> ) v f = f [ v ]
 
-  let _create_element :
-      'a ->
-      ?active_key:string ->
-      ?animation_bool:bool ->
-      ?animation_string:string ->
-      ?as_:string ->
-      ?bordered:bool ->
-      ?classes:string list ->
-      ?colspan:string ->
-      ?custom:bool ->
-      ?default_active_key:string ->
-      ?default_value:string ->
-      ?disabled:bool ->
-      ?event_key:string ->
-      ?fluid:bool ->
-      ?href:string ->
-      ?id:string ->
-      ?inline:bool ->
-      ?inner_html:string ->
-      ?key:string ->
-      ?label:string ->
-      ?min:float ->
-      ?name:string ->
-      ?no_gutters:bool ->
-      ?on_change:(Dom_html.inputElement Js.t event Js.t -> unit) ->
-      ?on_click:(Dom_html.buttonElement Js.t event Js.t -> unit) ->
-      ?on_close:(unit -> unit) ->
-      ?on_select:(Js.js_string Js.t -> Dom_html.anchorElement Js.t event Js.t -> unit) ->
-      ?overlay:jsx Js.t ->
-      ?placeholder:string ->
-      ?placement:string ->
-      ?ref:ref_ Js.t ->
-      ?size:string ->
-      ?src:string ->
-      ?step:float ->
-      ?style:(string * string) list ->
-      ?title:string ->
-      ?title_jsx:jsx Js.t ->
-      ?transition:bool ->
-      ?type_:string ->
-      ?value:string ->
-      ?variant:string ->
-      ?lg_order:int ->
-      ?lg_span:int ->
-      ?md_order:int ->
-      ?md_span:int ->
-      ?sm_order:int ->
-      ?sm_span:int ->
-      ?xl_order:int ->
-      ?xl_span:int ->
-      ?xs_order:int ->
-      ?xs_span:int ->
-      jsx Js.t list ->
-      jsx Js.t =
-   fun ctor ?active_key ?animation_bool ?animation_string ?as_ ?bordered ?classes ?colspan ?custom
-       ?default_active_key ?default_value ?disabled ?event_key ?fluid ?href ?id ?inline ?inner_html
-       ?key ?label ?min ?name ?no_gutters ?on_change ?on_click ?on_close ?on_select ?overlay
-       ?placeholder ?placement ?ref ?size ?src ?step ?style ?title ?title_jsx ?transition ?type_
-       ?value ?variant ?lg_order ?lg_span ?md_order ?md_span ?sm_order ?sm_span ?xl_order ?xl_span
-       ?xs_order ?xs_span children ->
+  let _create_element ctor ?active_key ?animation_bool ?animation_string ?as_ ?bordered ?classes
+      ?colspan ?custom ?default_active_key ?default_value ?disabled ?event_key ?fluid ?href ?id
+      ?inline ?inner_html ?key ?label ?min ?name ?no_gutters ?on_change ?on_click ?on_close
+      ?on_select ?overlay ?placeholder ?placement ?ref ?size ?src ?step ?style ?title ?title_jsx
+      ?transition ?type_ ?value ?variant ?lg_order ?lg_span ?md_order ?md_span ?sm_order ?sm_span
+      ?xl_order ?xl_span ?xs_order ?xs_span children =
     let open Js.Unsafe in
     let props = object%js end in
     let set_prop opt bootstrap_name preprocess =
@@ -431,23 +409,12 @@ module Jsx = struct
     Array.concat [ [| ctor; inject props |]; List.map inject children |> Array.of_list ]
     |> fun_call global##._React##.createElement
 
-  (** Create a Jsx object from an OCaml string *)
-  let of_string : string -> jsx Js.t = fun s -> s |> Js.string |> Obj.magic
+  let of_string s = s |> Js.string |> Obj.magic
 
-  (** Create a Jsx object from:
-      - an html tag name (e.g. "img", "div"),
-      - optional properties (e.g. ~title:"Hello", ~style:["width", "200px"])
-      - a list of Jsx children
-   *)
   let of_tag name =
     let open Js.Unsafe in
     _create_element (name |> Js.string |> inject)
 
-  (** Create a Jsx object from:
-      - a React object path, (e.g. "Fragment")
-      - optional properties (e.g. ~title:"Hello", ~style:["width", "200px"])
-      - a list of Jsx children
-   *)
   let of_react path =
     let open Js.Unsafe in
     let fail name = Printf.sprintf "Could not find %s in React.%s" name path |> failwith in
@@ -462,11 +429,6 @@ module Jsx = struct
     in
     _create_element o
 
-  (** Create a Jsx object from:
-      - a ReactBootstrap object path, (e.g. "Col" or "Form.Group")
-      - optional properties (e.g. ~title:"Hello", ~style:["width", "200px"])
-      - a list of Jsx children
-   *)
   let of_bootstrap path =
     let open Js.Unsafe in
     let fail name = Printf.sprintf "Could not find %s in ReactBootstrap.%s" name path |> failwith in
@@ -483,22 +445,8 @@ module Jsx = struct
     in
     _create_element o
 
-  (** Create a JSX object from:
-      - an OCaml function ending with a call to `Reactjs.constructor`,
-      - the props taken by that constructor and its render function.
-
-     Constructor is called with `props`, `render` is also called with `props` too because React
-     doesn't re-instantiate the component when `props` changes. Three design patterns can be adopted:
-     - Don't perform render conditionned on props. Use signals.
-     - Perform render conditionned on constructor's props. To do so, use a new `key` in parent's
-       `of_constructor` call to trigger re-instantiations
-       (a.k.a. Fully uncontrolled component with a key).
-     - Perform render conditionned on render's props. To do so, ignore the mutable props passed to
-       construct and read them from `render`.
-  *)
-  let of_constructor : 'main constructor_ -> ?key:'key -> 'main -> jsx Js.t =
-   fun constructor ?key main ->
-    let props_holder : _ props_holder Js.t =
+  let of_constructor constructor ?key main =
+    let props_holder =
       object%js
         val data = Unit main
 
@@ -507,12 +455,9 @@ module Jsx = struct
     in
     _of_constructor constructor props_holder
 
-  (* Specialization of `of_constructor`. See `of_constructor_ssee` *)
-  let of_constructor_e :
-      ('main, 'e0) constructor_e -> ?key:'key -> 'main -> e0:'e0 React.event -> jsx Js.t =
-   fun constructor ?key main ~e0 ->
-    let props_holder : _ props_holder Js.t =
-      let emap s = React.E.map Fun.id s in
+  let of_constructor_e constructor ?key main ~e0 =
+    let emap s = React.E.map Fun.id s in
+    let props_holder =
       object%js
         val data = E (main, emap e0)
 
@@ -521,12 +466,9 @@ module Jsx = struct
     in
     _of_constructor constructor props_holder
 
-  (* Specialization of `of_constructor`. See `of_constructor_ssee` *)
-  let of_constructor_s :
-      ('main, 's0) constructor_s -> ?key:'key -> 'main -> s0:'s0 React.signal -> jsx Js.t =
-   fun constructor ?key main ~s0 ->
-    let props_holder : _ props_holder Js.t =
-      let smap s = React.S.map ~eq:( == ) Fun.id s in
+  let of_constructor_s constructor ?key main ~s0 =
+    let smap s = React.S.map ~eq:( == ) Fun.id s in
+    let props_holder =
       object%js
         val data = S (main, smap s0)
 
@@ -535,17 +477,9 @@ module Jsx = struct
     in
     _of_constructor constructor props_holder
 
-  (* Specialization of `of_constructor`. See `of_constructor_sse` *)
-  let of_constructor_ss :
-      ('main, 's0, 's1) constructor_ss ->
-      ?key:'key ->
-      'main ->
-      s0:'s0 React.signal ->
-      s1:'s1 React.signal ->
-      jsx Js.t =
-   fun constructor ?key main ~s0 ~s1 ->
-    let props_holder : _ props_holder Js.t =
-      let smap s = React.S.map ~eq:( == ) Fun.id s in
+  let of_constructor_ss constructor ?key main ~s0 ~s1 =
+    let smap s = React.S.map ~eq:( == ) Fun.id s in
+    let props_holder =
       object%js
         val data = Ss (main, smap s0, smap s1)
 
@@ -554,19 +488,10 @@ module Jsx = struct
     in
     _of_constructor constructor props_holder
 
-  (* Specialization of `of_constructor`. See `of_constructor_ssee` *)
-  let of_constructor_sse :
-      ('main, 's0, 's1, 'e0) constructor_sse ->
-      ?key:'key ->
-      'main ->
-      s0:'s0 React.signal ->
-      s1:'s1 React.signal ->
-      e0:'e0 React.event ->
-      jsx Js.t =
-   fun constructor ?key main ~s0 ~s1 ~e0 ->
-    let props_holder : _ props_holder Js.t =
-      let smap s = React.S.map ~eq:( == ) Fun.id s in
-      let emap s = React.E.map Fun.id s in
+  let of_constructor_sse constructor ?key main ~s0 ~s1 ~e0 =
+    let smap s = React.S.map ~eq:( == ) Fun.id s in
+    let emap s = React.E.map Fun.id s in
+    let props_holder =
       object%js
         val data = Sse (main, smap s0, smap s1, emap e0)
 
@@ -575,30 +500,10 @@ module Jsx = struct
     in
     _of_constructor constructor props_holder
 
-  (* Specialization of `of_constructor` that takes 4 FRP primitive props in addition to the `main`
-     props. Those 4 FRP primitives are first identity-mapped on construction and then stopped
-     when Reactjs unmounts the component. It implies that all the primitives derived from those 4
-     input primitives will be collected on unmount.
-
-     Since React doesn't use a weak dict with Js_of_ocaml there is no automatic collection of
-     FRP primitives, all collections must be manual. This function automatizes most of the process
-     when using with Reactjs.
-
-     Using physical equality (==) for best perfs possible.
-  *)
-  let of_constructor_ssee :
-      ('main, 's0, 's1, 'e0, 'e1) constructor_ssee ->
-      ?key:'key ->
-      'main ->
-      s0:'s0 React.signal ->
-      s1:'s1 React.signal ->
-      e0:'e0 React.event ->
-      e1:'e1 React.event ->
-      jsx Js.t =
-   fun constructor ?key main ~s0 ~s1 ~e0 ~e1 ->
-    let props_holder : _ props_holder Js.t =
-      let smap s = React.S.map ~eq:( == ) Fun.id s in
-      let emap s = React.E.map Fun.id s in
+  let of_constructor_ssee constructor ?key main ~s0 ~s1 ~e0 ~e1 =
+    let smap s = React.S.map ~eq:( == ) Fun.id s in
+    let emap s = React.E.map Fun.id s in
+    let props_holder =
       object%js
         val data = Ssee (main, smap s0, smap s1, emap e0, emap e1)
 

@@ -389,8 +389,8 @@ let construct_int_input :
   in
   Reactjs.construct ~signal render
 
-let construct_select :
-    ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool) Reactjs.constructor_ =
+let construct_select : ((module ENUM) * ((raw_conf -> raw_conf) -> unit) * bool) Reactjs.constructor
+    =
  fun ((module M), update_rconf, _) ->
   let on_change ev =
     let v = ev##.target##.value |> Js.to_string |> M.of_string in
@@ -413,7 +413,7 @@ let construct_select :
   in
   Reactjs.construct render
 
-let construct_training_config : _ Reactjs.constructor_ =
+let construct_training_config : _ Reactjs.constructor =
  fun (fire_upstream_event, _) ->
   Debug.on_construct "network_creation";
   let rconf_signal, update_rconf =

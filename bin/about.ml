@@ -115,6 +115,6 @@ let[@ocamlformat "disable"] create_content () = [%html {|
   <br/>
   <a href="https://github.com/ngoguey42">www.github.com/ngoguey42</a>,
   <br/>
-  <code>echo "rf.24.tneduts@yeugogn" | rev</code>.
+  <code>echo rf.eerf@24yeugogn | rev</code>.
 </div>
     |}]
